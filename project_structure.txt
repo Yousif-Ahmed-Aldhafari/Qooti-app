@@ -1,0 +1,47 @@
+Qooti project structure
+
+D:\Users\yyy\Desktop\Qooti-app
+|-- App.tsx
+|-- app.json
+|-- index.ts
+|-- package.json
+|-- package-lock.json
+|-- tsconfig.json
+|-- README.md
+|-- assets/
+|-- src/
+    |-- components/
+    |   |-- common/
+    |   |-- dashboard/
+    |   |-- meals/
+    |   |-- workouts/
+    |-- constants/
+    |-- data/
+    |-- hooks/
+    |-- i18n/
+    |   |-- en.json
+    |   |-- ar.json
+    |   |-- index.ts
+    |-- models/
+    |   |-- meal.ts
+    |   |-- workout.ts
+    |   |-- settings.ts
+    |-- navigation/
+    |-- screens/
+    |   |-- onboarding/
+    |   |-- dashboard/
+    |   |-- meals/
+    |   |-- workouts/
+    |   |-- history/
+    |   |-- settings/
+    |-- services/
+    |-- store/
+    |-- theme/
+    |-- utils/
+
+Run:
+
+npm install
+npx expo start
+
+Use Expo Go on iPhone or Android to scan the QR code.
