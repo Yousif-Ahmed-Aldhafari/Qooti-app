@@ -10,19 +10,19 @@ type FoodItemRowProps = {
 
 export function FoodItemRow({ item }: FoodItemRowProps) {
   const theme = useAppTheme();
-  const { rowDirection, textAlign, writingDirection, t } = useLanguage();
+  const { rowDirectionStyle, textDirectionStyle, t } = useLanguage();
 
   return (
-    <View style={[styles.row, { flexDirection: rowDirection, borderColor: theme.colors.border }]}>
+    <View style={[styles.row, rowDirectionStyle, { borderColor: theme.colors.border }]}>
       <View style={styles.text}>
-        <Text style={[styles.name, { color: theme.colors.text, textAlign, writingDirection }]} numberOfLines={1}>
+        <Text style={[styles.name, textDirectionStyle, { color: theme.colors.text }]} numberOfLines={1}>
           {item.name || t('meals.foodName')}
         </Text>
-        <Text style={[styles.meta, { color: theme.colors.textMuted, textAlign, writingDirection }]}>
+        <Text style={[styles.meta, textDirectionStyle, { color: theme.colors.textMuted }]}>
           {item.quantity} {item.unit}
         </Text>
       </View>
-      <Text style={[styles.nutrition, { color: theme.colors.primary, writingDirection }]}>
+      <Text style={[styles.nutrition, textDirectionStyle, { color: theme.colors.primary }]}>
         {Math.round(item.calories)} {t('macros.kcal')}
       </Text>
     </View>
@@ -48,6 +48,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   nutrition: {
+    maxWidth: 96,
     fontSize: 13,
     fontWeight: '900',
   },

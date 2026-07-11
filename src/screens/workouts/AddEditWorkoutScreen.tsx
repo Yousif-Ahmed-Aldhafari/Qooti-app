@@ -40,7 +40,7 @@ export function AddEditWorkoutScreen() {
   const navigation = useNavigation<Navigation>();
   const route = useRoute<WorkoutRoute>();
   const { workouts, addWorkout, updateWorkout } = useApp();
-  const { t, rowDirection } = useLanguage();
+  const { t, rowDirectionStyle } = useLanguage();
   const existingWorkout = workouts.find((workout) => workout.id === route.params?.workoutId);
   const [name, setName] = useState(existingWorkout?.name ?? '');
   const [date, setDate] = useState(existingWorkout?.date ?? todayISO());
@@ -114,7 +114,7 @@ export function AddEditWorkoutScreen() {
           value={name}
           onChangeText={setName}
         />
-        <View style={[styles.inlineFields, { flexDirection: rowDirection }]}>
+        <View style={[styles.inlineFields, rowDirectionStyle]}>
           <FormInput label={t('common.date')} value={date} onChangeText={setDate} style={styles.inlineInput} />
           <FormInput label={t('common.time')} value={time} onChangeText={setTime} style={styles.inlineInput} />
         </View>
@@ -160,7 +160,7 @@ export function AddEditWorkoutScreen() {
             value={exercise.name}
             onChangeText={(value) => updateExercise(exercise.id, 'name', value)}
           />
-          <View style={[styles.inlineFields, { flexDirection: rowDirection }]}>
+          <View style={[styles.inlineFields, rowDirectionStyle]}>
             <FormInput
               label={t('workouts.sets')}
               keyboardType="number-pad"
@@ -176,7 +176,7 @@ export function AddEditWorkoutScreen() {
               style={styles.inlineInput}
             />
           </View>
-          <View style={[styles.inlineFields, { flexDirection: rowDirection }]}>
+          <View style={[styles.inlineFields, rowDirectionStyle]}>
             <FormInput
               label={t('workouts.weight')}
               keyboardType="decimal-pad"

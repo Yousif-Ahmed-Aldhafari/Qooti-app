@@ -43,7 +43,7 @@ export function AddEditMealScreen() {
   const navigation = useNavigation<Navigation>();
   const route = useRoute<MealRoute>();
   const { meals, addMeal, updateMeal } = useApp();
-  const { t, rowDirection } = useLanguage();
+  const { t, rowDirectionStyle } = useLanguage();
   const existingMeal = meals.find((meal) => meal.id === route.params?.mealId);
   const [name, setName] = useState(existingMeal?.name ?? '');
   const [date, setDate] = useState(existingMeal?.date ?? todayISO());
@@ -119,7 +119,7 @@ export function AddEditMealScreen() {
           value={name}
           onChangeText={setName}
         />
-        <View style={[styles.inlineFields, { flexDirection: rowDirection }]}>
+        <View style={[styles.inlineFields, rowDirectionStyle]}>
           <FormInput label={t('common.date')} value={date} onChangeText={setDate} style={styles.inlineInput} />
           <FormInput label={t('common.time')} value={time} onChangeText={setTime} style={styles.inlineInput} />
         </View>
@@ -161,7 +161,7 @@ export function AddEditMealScreen() {
             value={item.name}
             onChangeText={(value) => updateItem(item.id, 'name', value)}
           />
-          <View style={[styles.inlineFields, { flexDirection: rowDirection }]}>
+          <View style={[styles.inlineFields, rowDirectionStyle]}>
             <FormInput
               label={t('meals.quantity')}
               keyboardType="decimal-pad"
@@ -176,7 +176,7 @@ export function AddEditMealScreen() {
               style={styles.inlineInput}
             />
           </View>
-          <View style={[styles.inlineFields, { flexDirection: rowDirection }]}>
+          <View style={[styles.inlineFields, rowDirectionStyle]}>
             <FormInput
               label={t('meals.calories')}
               keyboardType="decimal-pad"
@@ -192,7 +192,7 @@ export function AddEditMealScreen() {
               style={styles.inlineInput}
             />
           </View>
-          <View style={[styles.inlineFields, { flexDirection: rowDirection }]}>
+          <View style={[styles.inlineFields, rowDirectionStyle]}>
             <FormInput
               label={t('meals.carbs')}
               keyboardType="decimal-pad"

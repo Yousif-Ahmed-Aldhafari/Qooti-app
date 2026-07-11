@@ -23,7 +23,7 @@ export function WorkoutDetailsScreen() {
   const route = useRoute<WorkoutDetailsRoute>();
   const { workouts, deleteWorkout } = useApp();
   const theme = useAppTheme();
-  const { t, language, textAlign, writingDirection, rowDirection } = useLanguage();
+  const { t, language, textDirectionStyle, rowDirectionStyle } = useLanguage();
   const workout = workouts.find((item) => item.id === route.params.workoutId);
 
   if (!workout) {
@@ -53,14 +53,14 @@ export function WorkoutDetailsScreen() {
   return (
     <Screen>
       <Card>
-        <Text style={[styles.title, { color: theme.colors.text, textAlign, writingDirection }]}>
+        <Text style={[styles.title, textDirectionStyle, { color: theme.colors.text }]}>
           {workout.name}
         </Text>
-        <Text style={[styles.subtitle, { color: theme.colors.textMuted, textAlign, writingDirection }]}>
+        <Text style={[styles.subtitle, textDirectionStyle, { color: theme.colors.textMuted }]}>
           {formatDisplayDate(workout.date, language)} - {workout.time}
         </Text>
         {workout.notes ? (
-          <Text style={[styles.notes, { color: theme.colors.text, textAlign, writingDirection }]}>
+          <Text style={[styles.notes, textDirectionStyle, { color: theme.colors.text }]}>
             {workout.notes}
           </Text>
         ) : null}
@@ -71,13 +71,13 @@ export function WorkoutDetailsScreen() {
         {workout.exercises.length ? (
           workout.exercises.map((exercise) => <ExerciseRow key={exercise.id} exercise={exercise} />)
         ) : (
-          <Text style={[styles.emptyText, { color: theme.colors.textMuted, textAlign, writingDirection }]}>
+          <Text style={[styles.emptyText, textDirectionStyle, { color: theme.colors.textMuted }]}>
             {t('workouts.noExercises')}
           </Text>
         )}
       </Card>
 
-      <View style={[styles.actions, { flexDirection: rowDirection }]}>
+      <View style={[styles.actions, rowDirectionStyle]}>
         <AppButton
           title={t('common.edit')}
           icon="create-outline"

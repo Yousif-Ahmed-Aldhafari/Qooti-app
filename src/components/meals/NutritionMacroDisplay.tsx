@@ -9,10 +9,10 @@ type NutritionMacroDisplayProps = {
 };
 
 export function NutritionMacroDisplay({ totals }: NutritionMacroDisplayProps) {
-  const { t } = useLanguage();
+  const { t, rowDirectionStyle } = useLanguage();
 
   return (
-    <View style={styles.grid}>
+    <View style={[styles.grid, rowDirectionStyle]}>
       <SummaryBox
         label={t('macros.calories')}
         value={Math.round(totals.calories)}

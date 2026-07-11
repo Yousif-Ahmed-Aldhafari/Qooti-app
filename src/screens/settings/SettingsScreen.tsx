@@ -20,7 +20,7 @@ export function SettingsScreen() {
   const navigation = useNavigation<Navigation>();
   const { settings, setLanguage, updateSettings } = useApp();
   const theme = useAppTheme();
-  const { t, textAlign, writingDirection } = useLanguage();
+  const { t, textDirectionStyle } = useLanguage();
 
   return (
     <Screen>
@@ -64,7 +64,7 @@ export function SettingsScreen() {
 
       <Card>
         <SectionHeader title={t('settings.about')} />
-        <Text style={[styles.body, { color: theme.colors.textMuted, textAlign, writingDirection }]}>
+        <Text style={[styles.body, textDirectionStyle, { color: theme.colors.textMuted }]}>
           {t('settings.aboutBody')}
         </Text>
       </Card>

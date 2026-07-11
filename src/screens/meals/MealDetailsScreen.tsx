@@ -24,7 +24,7 @@ export function MealDetailsScreen() {
   const route = useRoute<MealDetailsRoute>();
   const { meals, deleteMeal } = useApp();
   const theme = useAppTheme();
-  const { t, language, textAlign, writingDirection, rowDirection } = useLanguage();
+  const { t, language, textDirectionStyle, rowDirectionStyle } = useLanguage();
   const meal = meals.find((item) => item.id === route.params.mealId);
 
   if (!meal) {
@@ -54,10 +54,10 @@ export function MealDetailsScreen() {
   return (
     <Screen>
       <Card>
-        <Text style={[styles.title, { color: theme.colors.text, textAlign, writingDirection }]}>
+        <Text style={[styles.title, textDirectionStyle, { color: theme.colors.text }]}>
           {meal.name}
         </Text>
-        <Text style={[styles.subtitle, { color: theme.colors.textMuted, textAlign, writingDirection }]}>
+        <Text style={[styles.subtitle, textDirectionStyle, { color: theme.colors.textMuted }]}>
           {formatDisplayDate(meal.date, language)} - {meal.time}
         </Text>
       </Card>
@@ -77,13 +77,13 @@ export function MealDetailsScreen() {
         {meal.items.length ? (
           meal.items.map((item) => <FoodItemRow key={item.id} item={item} />)
         ) : (
-          <Text style={[styles.emptyText, { color: theme.colors.textMuted, textAlign, writingDirection }]}>
+          <Text style={[styles.emptyText, textDirectionStyle, { color: theme.colors.textMuted }]}>
             {t('meals.noItems')}
           </Text>
         )}
       </Card>
 
-      <View style={[styles.actions, { flexDirection: rowDirection }]}>
+      <View style={[styles.actions, rowDirectionStyle]}>
         <AppButton
           title={t('common.edit')}
           icon="create-outline"

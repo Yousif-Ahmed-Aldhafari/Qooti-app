@@ -19,6 +19,21 @@ type AppButtonProps = {
   children?: ReactNode;
 };
 
+function getDirectionalIcon(icon: IconName, isRTL: boolean): IconName {
+  if (!isRTL) {
+    return icon;
+  }
+
+  const mirroredIcons: Partial<Record<IconName, IconName>> = {
+    'arrow-forward': 'arrow-back',
+    'arrow-back': 'arrow-forward',
+    'chevron-forward': 'chevron-back',
+    'chevron-back': 'chevron-forward',
+  };
+
+  return mirroredIcons[icon] ?? icon;
+}
+
 export function AppButton({
   title,
   onPress,
@@ -28,7 +43,8 @@ export function AppButton({
   style,
 }: AppButtonProps) {
   const theme = useAppTheme();
-  const { rowDirection, writingDirection } = useLanguage();
+  const { rowDirectionStyle, textDirectionStyle, isRTL } = useLanguage();
+  const displayIcon = icon ? getDirectionalIcon(icon, isRTL) : undefined;
 
   const colors = {
     primary: {
@@ -60,8 +76,8 @@ export function AppButton({
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
+        rowDirectionStyle,
         {
-          flexDirection: rowDirection,
           backgroundColor: colors.background,
           borderColor: colors.border,
           opacity: disabled ? 0.45 : pressed ? 0.8 : 1,
@@ -69,8 +85,8 @@ export function AppButton({
         style,
       ]}
     >
-      {icon ? <Ionicons name={icon} size={18} color={colors.text} /> : null}
-      <Text style={[styles.label, { color: colors.text, writingDirection }]} numberOfLines={1}>
+      {displayIcon ? <Ionicons name={displayIcon} size={18} color={colors.text} /> : null}
+      <Text style={[styles.label, textDirectionStyle, { color: colors.text }]} numberOfLines={1}>
         {title}
       </Text>
     </Pressable>

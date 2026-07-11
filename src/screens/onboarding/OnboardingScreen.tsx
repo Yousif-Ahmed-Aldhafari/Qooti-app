@@ -15,7 +15,7 @@ type Navigation = NativeStackNavigationProp<RootStackParamList, 'Onboarding'>;
 export function OnboardingScreen() {
   const navigation = useNavigation<Navigation>();
   const theme = useAppTheme();
-  const { t, textAlign, rowDirection, writingDirection } = useLanguage();
+  const { t, contentDirectionStyle, textDirectionStyle, rowDirectionStyle, writingDirection } = useLanguage();
   const points = [
     { icon: 'restaurant-outline' as const, label: t('onboarding.mealPoint') },
     { icon: 'analytics-outline' as const, label: t('onboarding.macroPoint') },
@@ -25,30 +25,32 @@ export function OnboardingScreen() {
 
   return (
     <Screen contentStyle={styles.content}>
-      <View style={styles.hero}>
+      <View style={[styles.hero, contentDirectionStyle]}>
         <View style={[styles.logo, { backgroundColor: theme.colors.primaryMuted }]}>
-          <Text style={[styles.logoText, { color: theme.colors.primary }]}>{t('app.arabicName')}</Text>
+          <Text style={[styles.logoText, { color: theme.colors.primary, writingDirection }]}>
+            {t('app.arabicName')}
+          </Text>
         </View>
-        <Text style={[styles.appName, { color: theme.colors.text, textAlign, writingDirection }]}>
+        <Text style={[styles.appName, textDirectionStyle, { color: theme.colors.text }]}>
           {t('app.name')}
         </Text>
-        <Text style={[styles.tagline, { color: theme.colors.textMuted, textAlign, writingDirection }]}>
+        <Text style={[styles.tagline, textDirectionStyle, { color: theme.colors.textMuted }]}>
           {t('app.tagline')}
         </Text>
       </View>
 
       <Card>
-        <Text style={[styles.title, { color: theme.colors.text, textAlign, writingDirection }]}>
+        <Text style={[styles.title, textDirectionStyle, { color: theme.colors.text }]}>
           {t('onboarding.title')}
         </Text>
-        <Text style={[styles.body, { color: theme.colors.textMuted, textAlign, writingDirection }]}>
+        <Text style={[styles.body, textDirectionStyle, { color: theme.colors.textMuted }]}>
           {t('onboarding.body')}
         </Text>
         <View style={styles.points}>
           {points.map((point) => (
-            <View key={point.label} style={[styles.point, { flexDirection: rowDirection }]}>
+            <View key={point.label} style={[styles.point, rowDirectionStyle]}>
               <Ionicons name={point.icon} color={theme.colors.primary} size={21} />
-              <Text style={[styles.pointText, { color: theme.colors.text, textAlign, writingDirection }]}>
+              <Text style={[styles.pointText, textDirectionStyle, { color: theme.colors.text }]}>
                 {point.label}
               </Text>
             </View>
@@ -67,7 +69,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   hero: {
-    alignItems: 'center',
+    alignSelf: 'stretch',
     gap: 10,
     paddingVertical: 12,
   },

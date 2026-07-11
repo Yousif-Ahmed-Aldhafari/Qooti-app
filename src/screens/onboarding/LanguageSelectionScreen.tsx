@@ -23,12 +23,18 @@ export function LanguageSelectionScreen() {
   const { settings, setLanguage, completeOnboarding } = useApp();
   const [selectedLanguage, setSelectedLanguage] = useState<Language>(settings.selectedLanguage);
   const theme = useAppTheme();
-  const { t, textAlign, writingDirection } = useLanguage();
+  const { t, textDirectionStyle } = useLanguage();
   const fromSettings = route.params?.fromSettings;
 
-  function handleDone() {
-    setLanguage(selectedLanguage);
+  function handleLanguageChange(language: Language) {
+    setSelectedLanguage(language);
 
+    if (language !== settings.selectedLanguage) {
+      setLanguage(language);
+    }
+  }
+
+  function handleDone() {
     if (fromSettings) {
       navigation.goBack();
       return;
@@ -40,13 +46,13 @@ export function LanguageSelectionScreen() {
   return (
     <Screen contentStyle={styles.content}>
       <Card>
-        <Text style={[styles.title, { color: theme.colors.text, textAlign, writingDirection }]}>
+        <Text style={[styles.title, textDirectionStyle, { color: theme.colors.text }]}>
           {t('language.title')}
         </Text>
-        <Text style={[styles.subtitle, { color: theme.colors.textMuted, textAlign, writingDirection }]}>
+        <Text style={[styles.subtitle, textDirectionStyle, { color: theme.colors.textMuted }]}>
           {t('language.subtitle')}
         </Text>
-        <LanguageSwitcher value={selectedLanguage} onChange={setSelectedLanguage} />
+        <LanguageSwitcher value={selectedLanguage} onChange={handleLanguageChange} />
       </Card>
 
       <AppButton

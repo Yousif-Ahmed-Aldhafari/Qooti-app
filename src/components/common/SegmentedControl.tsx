@@ -16,14 +16,14 @@ type SegmentedControlProps<T extends string> = {
 
 export function SegmentedControl<T extends string>({ options, value, onChange }: SegmentedControlProps<T>) {
   const theme = useAppTheme();
-  const { rowDirection, writingDirection } = useLanguage();
+  const { rowDirectionStyle, textDirectionStyle } = useLanguage();
 
   return (
     <View
       style={[
         styles.wrapper,
+        rowDirectionStyle,
         {
-          flexDirection: rowDirection,
           backgroundColor: theme.colors.surfaceMuted,
           borderColor: theme.colors.border,
         },
@@ -49,8 +49,8 @@ export function SegmentedControl<T extends string>({ options, value, onChange }:
                 styles.label,
                 {
                   color: selected ? theme.colors.primary : theme.colors.textMuted,
-                  writingDirection,
                 },
+                textDirectionStyle,
               ]}
               numberOfLines={1}
             >

@@ -17,15 +17,15 @@ type EmptyStateProps = {
 
 export function EmptyState({ icon = 'file-tray-outline', title, message, actionLabel, onAction }: EmptyStateProps) {
   const theme = useAppTheme();
-  const { textAlign, writingDirection } = useLanguage();
+  const { contentDirectionStyle, textDirectionStyle } = useLanguage();
 
   return (
-    <View style={[styles.container, { borderColor: theme.colors.border, backgroundColor: theme.colors.surface }]}>
+    <View style={[styles.container, contentDirectionStyle, { borderColor: theme.colors.border, backgroundColor: theme.colors.surface }]}>
       <View style={[styles.iconWrap, { backgroundColor: theme.colors.primaryMuted }]}>
         <Ionicons name={icon} size={28} color={theme.colors.primary} />
       </View>
-      <Text style={[styles.title, { color: theme.colors.text, textAlign, writingDirection }]}>{title}</Text>
-      <Text style={[styles.message, { color: theme.colors.textMuted, textAlign, writingDirection }]}>
+      <Text style={[styles.title, textDirectionStyle, { color: theme.colors.text }]}>{title}</Text>
+      <Text style={[styles.message, textDirectionStyle, { color: theme.colors.textMuted }]}>
         {message}
       </Text>
       {actionLabel && onAction ? <AppButton title={actionLabel} onPress={onAction} icon="add" /> : null}
@@ -38,10 +38,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 8,
     padding: 24,
-    alignItems: 'center',
+    alignItems: 'stretch',
     gap: 12,
   },
   iconWrap: {
+    alignSelf: 'center',
     width: 56,
     height: 56,
     borderRadius: 8,

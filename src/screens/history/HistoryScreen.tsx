@@ -33,7 +33,7 @@ export function HistoryScreen() {
   const navigation = useNavigation<Navigation>();
   const { meals, workouts } = useApp();
   const theme = useAppTheme();
-  const { t, language, textAlign, writingDirection } = useLanguage();
+  const { t, language, contentDirectionStyle, textDirectionStyle, rowDirectionStyle } = useLanguage();
   const [filter, setFilter] = useState<HistoryFilter>('all');
   const mealSummary = weeklyMealSummary(meals);
   const workoutSummary = weeklyWorkoutSummary(workouts);
@@ -76,22 +76,26 @@ export function HistoryScreen() {
       />
 
       <SectionHeader title={t('history.lastSevenDays')} />
-      <View style={styles.weekGrid}>
+      <View style={[styles.weekGrid, rowDirectionStyle]}>
         {mealSummary.map((mealDay) => {
           const workoutDay = workoutSummary.find((item) => item.date === mealDay.date);
 
           return (
             <View
               key={mealDay.date}
-              style={[styles.dayBox, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
+              style={[
+                styles.dayBox,
+                contentDirectionStyle,
+                { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
+              ]}
             >
-              <Text style={[styles.dayLabel, { color: theme.colors.text, textAlign, writingDirection }]}>
+              <Text style={[styles.dayLabel, textDirectionStyle, { color: theme.colors.text }]}>
                 {formatShortDate(mealDay.date, language)}
               </Text>
-              <Text style={[styles.dayMeta, { color: theme.colors.textMuted, textAlign, writingDirection }]}>
+              <Text style={[styles.dayMeta, textDirectionStyle, { color: theme.colors.textMuted }]}>
                 {Math.round(mealDay.calories)} {t('macros.kcal')}
               </Text>
-              <Text style={[styles.dayMeta, { color: theme.colors.textMuted, textAlign, writingDirection }]}>
+              <Text style={[styles.dayMeta, textDirectionStyle, { color: theme.colors.textMuted }]}>
                 {workoutDay?.workoutCount ?? 0} {t('navigation.workouts')}
               </Text>
             </View>
@@ -99,7 +103,7 @@ export function HistoryScreen() {
         })}
       </View>
 
-      <View style={styles.grid}>
+      <View style={[styles.grid, rowDirectionStyle]}>
         <SummaryBox
           label={t('history.dailyCalories')}
           value={Math.round(mealSummary[mealSummary.length - 1]?.calories ?? 0)}

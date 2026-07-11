@@ -16,7 +16,7 @@ type ListItemProps = {
 
 export function ListItem({ title, subtitle, meta, icon, onPress }: ListItemProps) {
   const theme = useAppTheme();
-  const { rowDirection, textAlign, writingDirection, isRTL } = useLanguage();
+  const { rowDirectionStyle, textDirectionStyle, isRTL } = useLanguage();
 
   return (
     <Pressable
@@ -24,8 +24,8 @@ export function ListItem({ title, subtitle, meta, icon, onPress }: ListItemProps
       onPress={onPress}
       style={({ pressed }) => [
         styles.item,
+        rowDirectionStyle,
         {
-          flexDirection: rowDirection,
           backgroundColor: theme.colors.surface,
           borderColor: theme.colors.border,
           opacity: pressed && onPress ? 0.75 : 1,
@@ -38,12 +38,12 @@ export function ListItem({ title, subtitle, meta, icon, onPress }: ListItemProps
         </View>
       ) : null}
       <View style={styles.text}>
-        <Text style={[styles.title, { color: theme.colors.text, textAlign, writingDirection }]} numberOfLines={1}>
+        <Text style={[styles.title, textDirectionStyle, { color: theme.colors.text }]} numberOfLines={1}>
           {title}
         </Text>
         {subtitle ? (
           <Text
-            style={[styles.subtitle, { color: theme.colors.textMuted, textAlign, writingDirection }]}
+            style={[styles.subtitle, textDirectionStyle, { color: theme.colors.textMuted }]}
             numberOfLines={2}
           >
             {subtitle}
@@ -51,7 +51,7 @@ export function ListItem({ title, subtitle, meta, icon, onPress }: ListItemProps
         ) : null}
       </View>
       {meta ? (
-        <Text style={[styles.meta, { color: theme.colors.primary, writingDirection }]} numberOfLines={1}>
+        <Text style={[styles.meta, textDirectionStyle, { color: theme.colors.primary }]} numberOfLines={1}>
           {meta}
         </Text>
       ) : null}
@@ -68,6 +68,7 @@ export function ListItem({ title, subtitle, meta, icon, onPress }: ListItemProps
 
 const styles = StyleSheet.create({
   item: {
+    alignSelf: 'stretch',
     alignItems: 'center',
     borderRadius: 8,
     borderWidth: 1,
@@ -83,6 +84,7 @@ const styles = StyleSheet.create({
   },
   text: {
     flex: 1,
+    alignSelf: 'stretch',
     gap: 4,
   },
   title: {

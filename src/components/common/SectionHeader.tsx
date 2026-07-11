@@ -10,11 +10,11 @@ type SectionHeaderProps = {
 
 export function SectionHeader({ title, action }: SectionHeaderProps) {
   const theme = useAppTheme();
-  const { rowDirection, textAlign, writingDirection } = useLanguage();
+  const { rowDirectionStyle, textDirectionStyle } = useLanguage();
 
   return (
-    <View style={[styles.row, { flexDirection: rowDirection }]}>
-      <Text style={[styles.title, { color: theme.colors.text, textAlign, writingDirection }]}>{title}</Text>
+    <View style={[styles.row, rowDirectionStyle]}>
+      <Text style={[styles.title, textDirectionStyle, { color: theme.colors.text }]}>{title}</Text>
       {action}
     </View>
   );
@@ -22,6 +22,7 @@ export function SectionHeader({ title, action }: SectionHeaderProps) {
 
 const styles = StyleSheet.create({
   row: {
+    alignSelf: 'stretch',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,

@@ -1,11 +1,18 @@
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { LoadingScreen } from '../components/common/LoadingScreen';
 import { useApp } from '../store/AppContext';
 import { useAppTheme } from '../hooks/useAppTheme';
+import {
+  getDirection,
+  getTextAlign,
+  getWritingDirection,
+  isRTLLanguage,
+} from '../utils/languageDirection';
 import { DashboardScreen } from '../screens/dashboard/DashboardScreen';
 import { MealsListScreen } from '../screens/meals/MealsListScreen';
 import { AddEditMealScreen } from '../screens/meals/AddEditMealScreen';
@@ -31,11 +38,26 @@ const tabIcons: Record<keyof MainTabParamList, keyof typeof Ionicons.glyphMap> =
 };
 
 function MainTabs() {
-  const { t } = useApp();
+  const { settings, t } = useApp();
   const theme = useAppTheme();
+  const language = settings.selectedLanguage;
+  const isRTL = isRTLLanguage(language);
+  const direction = getDirection(language);
+  const textAlign = getTextAlign(language);
+  const writingDirection = getWritingDirection(language);
+  const screens = [
+    { name: 'Dashboard' as const, component: DashboardScreen, title: t('navigation.dashboard') },
+    { name: 'Meals' as const, component: MealsListScreen, title: t('navigation.meals') },
+    { name: 'Workouts' as const, component: WorkoutsListScreen, title: t('navigation.workouts') },
+    { name: 'History' as const, component: HistoryScreen, title: t('navigation.history') },
+    { name: 'Settings' as const, component: SettingsScreen, title: t('navigation.settings') },
+  ];
+  const orderedScreens = isRTL ? [...screens].reverse() : screens;
 
   return (
     <Tabs.Navigator
+      key={direction}
+      initialRouteName="Dashboard"
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarActiveTintColor: theme.colors.primary,
@@ -43,24 +65,34 @@ function MainTabs() {
         tabBarStyle: {
           backgroundColor: theme.colors.tabBar,
           borderTopColor: theme.colors.border,
+          direction,
           minHeight: 62,
           paddingTop: 6,
           paddingBottom: 8,
         },
+        tabBarItemStyle: {
+          direction,
+        },
         tabBarLabelStyle: {
+          direction,
           fontSize: 12,
           fontWeight: '700',
+          textAlign,
+          writingDirection,
         },
         tabBarIcon: ({ color, size }) => (
           <Ionicons name={tabIcons[route.name]} color={color} size={size} />
         ),
       })}
     >
-      <Tabs.Screen name="Dashboard" component={DashboardScreen} options={{ title: t('navigation.dashboard') }} />
-      <Tabs.Screen name="Meals" component={MealsListScreen} options={{ title: t('navigation.meals') }} />
-      <Tabs.Screen name="Workouts" component={WorkoutsListScreen} options={{ title: t('navigation.workouts') }} />
-      <Tabs.Screen name="History" component={HistoryScreen} options={{ title: t('navigation.history') }} />
-      <Tabs.Screen name="Settings" component={SettingsScreen} options={{ title: t('navigation.settings') }} />
+      {orderedScreens.map((screen) => (
+        <Tabs.Screen
+          key={screen.name}
+          name={screen.name}
+          component={screen.component}
+          options={{ title: screen.title }}
+        />
+      ))}
     </Tabs.Navigator>
   );
 }
@@ -68,6 +100,10 @@ function MainTabs() {
 export function AppNavigator() {
   const { isReady, settings, t } = useApp();
   const theme = useAppTheme();
+  const language = settings.selectedLanguage;
+  const direction = getDirection(language);
+  const textAlign = getTextAlign(language);
+  const writingDirection = getWritingDirection(language);
   const navigationTheme = {
     ...(theme.isDark ? DarkTheme : DefaultTheme),
     colors: {
@@ -85,14 +121,30 @@ export function AppNavigator() {
   }
 
   return (
-    <NavigationContainer theme={navigationTheme}>
+    <View key={direction} style={[styles.root, { direction }]}>
+      <NavigationContainer key={direction} theme={navigationTheme}>
       <RootStack.Navigator
+        key={direction}
         screenOptions={{
           headerStyle: { backgroundColor: theme.colors.surface },
           headerTintColor: theme.colors.text,
+          headerTitle: ({ children, tintColor }) => (
+            <Text
+              numberOfLines={1}
+              style={{
+                color: tintColor ?? theme.colors.text,
+                direction,
+                fontWeight: '800',
+                textAlign,
+                writingDirection,
+              }}
+            >
+              {children}
+            </Text>
+          ),
           headerTitleStyle: { fontWeight: '800' },
           headerShadowVisible: false,
-          contentStyle: { backgroundColor: theme.colors.background },
+          contentStyle: { backgroundColor: theme.colors.background, direction },
         }}
       >
         {!settings.hasCompletedOnboarding ? (
@@ -143,6 +195,13 @@ export function AppNavigator() {
           </>
         )}
       </RootStack.Navigator>
-    </NavigationContainer>
+      </NavigationContainer>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+});

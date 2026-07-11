@@ -16,7 +16,7 @@ type SummaryBoxProps = {
 
 export function SummaryBox({ label, value, helper, icon, tone = 'primary' }: SummaryBoxProps) {
   const theme = useAppTheme();
-  const { textAlign, writingDirection } = useLanguage();
+  const { contentDirectionStyle, textDirectionStyle } = useLanguage();
   const toneColor = {
     primary: theme.colors.primary,
     secondary: theme.colors.secondary,
@@ -25,16 +25,16 @@ export function SummaryBox({ label, value, helper, icon, tone = 'primary' }: Sum
   }[tone];
 
   return (
-    <View style={[styles.box, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+    <View style={[styles.box, contentDirectionStyle, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
       {icon ? <Ionicons name={icon} size={20} color={toneColor} /> : null}
-      <Text style={[styles.value, { color: theme.colors.text, textAlign, writingDirection }]} numberOfLines={1}>
+      <Text style={[styles.value, textDirectionStyle, { color: theme.colors.text }]} numberOfLines={1}>
         {value}
       </Text>
-      <Text style={[styles.label, { color: theme.colors.textMuted, textAlign, writingDirection }]} numberOfLines={2}>
+      <Text style={[styles.label, textDirectionStyle, { color: theme.colors.textMuted }]} numberOfLines={2}>
         {label}
       </Text>
       {helper ? (
-        <Text style={[styles.helper, { color: toneColor, textAlign, writingDirection }]} numberOfLines={1}>
+        <Text style={[styles.helper, textDirectionStyle, { color: toneColor }]} numberOfLines={1}>
           {helper}
         </Text>
       ) : null}

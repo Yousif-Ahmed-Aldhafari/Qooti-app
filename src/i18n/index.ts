@@ -1,6 +1,7 @@
 import ar from './ar.json';
 import en from './en.json';
 import type { Language } from '../models/settings';
+import { isRTLLanguage } from '../utils/languageDirection';
 
 type Dictionary = Record<string, unknown>;
 
@@ -10,10 +11,7 @@ const dictionaries: Record<Language, Dictionary> = {
 };
 
 export const supportedLanguages: Language[] = ['en', 'ar'];
-
-export function isRTLLanguage(language: Language): boolean {
-  return language === 'ar';
-}
+export { isRTLLanguage };
 
 function readPath(dictionary: Dictionary, key: string): string | undefined {
   const value = key.split('.').reduce<unknown>((current, part) => {

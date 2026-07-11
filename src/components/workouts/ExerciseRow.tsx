@@ -10,7 +10,7 @@ type ExerciseRowProps = {
 
 export function ExerciseRow({ exercise }: ExerciseRowProps) {
   const theme = useAppTheme();
-  const { rowDirection, textAlign, writingDirection, t } = useLanguage();
+  const { contentDirectionStyle, rowDirectionStyle, textDirectionStyle, t } = useLanguage();
   const detailParts = [
     `${exercise.sets} x ${exercise.reps}`,
     exercise.weight ? `${exercise.weight} ${t('workouts.kg')}` : '',
@@ -18,19 +18,19 @@ export function ExerciseRow({ exercise }: ExerciseRowProps) {
   ].filter(Boolean);
 
   return (
-    <View style={[styles.row, { borderColor: theme.colors.border }]}>
-      <View style={[styles.top, { flexDirection: rowDirection }]}>
+    <View style={[styles.row, contentDirectionStyle, { borderColor: theme.colors.border }]}>
+      <View style={[styles.top, rowDirectionStyle]}>
         <View style={styles.text}>
-          <Text style={[styles.name, { color: theme.colors.text, textAlign, writingDirection }]} numberOfLines={1}>
+          <Text style={[styles.name, textDirectionStyle, { color: theme.colors.text }]} numberOfLines={1}>
             {exercise.name || t('workouts.exerciseName')}
           </Text>
-          <Text style={[styles.meta, { color: theme.colors.textMuted, textAlign, writingDirection }]}>
+          <Text style={[styles.meta, textDirectionStyle, { color: theme.colors.textMuted }]}>
             {detailParts.join(' - ')}
           </Text>
         </View>
       </View>
       {exercise.notes ? (
-        <Text style={[styles.notes, { color: theme.colors.textMuted, textAlign, writingDirection }]}>
+        <Text style={[styles.notes, textDirectionStyle, { color: theme.colors.textMuted }]}>
           {exercise.notes}
         </Text>
       ) : null}
@@ -40,6 +40,7 @@ export function ExerciseRow({ exercise }: ExerciseRowProps) {
 
 const styles = StyleSheet.create({
   row: {
+    alignSelf: 'stretch',
     borderTopWidth: 1,
     paddingVertical: 12,
     gap: 6,
@@ -50,6 +51,7 @@ const styles = StyleSheet.create({
   },
   text: {
     flex: 1,
+    alignSelf: 'stretch',
     gap: 4,
   },
   name: {

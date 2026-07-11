@@ -12,7 +12,7 @@ type LanguageSwitcherProps = {
 
 export function LanguageSwitcher({ value, onChange }: LanguageSwitcherProps) {
   const theme = useAppTheme();
-  const { t, rowDirection, textAlign, writingDirection } = useLanguage();
+  const { t, contentDirectionStyle, rowDirectionStyle, textDirectionStyle } = useLanguage();
   const options: { language: Language; title: string; description: string }[] = [
     {
       language: 'en',
@@ -27,7 +27,7 @@ export function LanguageSwitcher({ value, onChange }: LanguageSwitcherProps) {
   ];
 
   return (
-    <View style={styles.wrapper}>
+    <View style={[styles.wrapper, contentDirectionStyle]}>
       {options.map((option) => {
         const selected = option.language === value;
 
@@ -38,8 +38,8 @@ export function LanguageSwitcher({ value, onChange }: LanguageSwitcherProps) {
             onPress={() => onChange(option.language)}
             style={({ pressed }) => [
               styles.option,
+              rowDirectionStyle,
               {
-                flexDirection: rowDirection,
                 borderColor: selected ? theme.colors.primary : theme.colors.border,
                 backgroundColor: selected ? theme.colors.primaryMuted : theme.colors.surface,
                 opacity: pressed ? 0.8 : 1,
@@ -47,10 +47,10 @@ export function LanguageSwitcher({ value, onChange }: LanguageSwitcherProps) {
             ]}
           >
             <View style={styles.languageText}>
-              <Text style={[styles.title, { color: theme.colors.text, textAlign, writingDirection }]}>
+              <Text style={[styles.title, textDirectionStyle, { color: theme.colors.text }]}>
                 {option.title}
               </Text>
-              <Text style={[styles.description, { color: theme.colors.textMuted, textAlign, writingDirection }]}>
+              <Text style={[styles.description, textDirectionStyle, { color: theme.colors.textMuted }]}>
                 {option.description}
               </Text>
             </View>
@@ -68,6 +68,7 @@ export function LanguageSwitcher({ value, onChange }: LanguageSwitcherProps) {
 
 const styles = StyleSheet.create({
   wrapper: {
+    alignSelf: 'stretch',
     gap: 12,
   },
   option: {

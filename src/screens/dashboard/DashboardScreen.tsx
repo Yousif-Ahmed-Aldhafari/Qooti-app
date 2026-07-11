@@ -28,7 +28,7 @@ export function DashboardScreen() {
   const navigation = useNavigation<Navigation>();
   const { meals, workouts } = useApp();
   const theme = useAppTheme();
-  const { t, language, textAlign, writingDirection, rowDirection } = useLanguage();
+  const { t, language, textDirectionStyle, rowDirectionStyle } = useLanguage();
   const todayMeals = mealsForToday(meals).sort(compareDateTimeDesc);
   const todayWorkouts = workoutsForToday(workouts).sort(compareDateTimeDesc);
   const todayTotals = nutritionTotalsForMeals(todayMeals);
@@ -38,11 +38,11 @@ export function DashboardScreen() {
 
   return (
     <Screen>
-      <View>
-        <Text style={[styles.eyebrow, { color: theme.colors.primary, textAlign, writingDirection }]}>
+      <View style={styles.heading}>
+        <Text style={[styles.eyebrow, textDirectionStyle, { color: theme.colors.primary }]}>
           {formatDisplayDate(todayISO(), language)}
         </Text>
-        <Text style={[styles.title, { color: theme.colors.text, textAlign, writingDirection }]}>
+        <Text style={[styles.title, textDirectionStyle, { color: theme.colors.text }]}>
           {t('dashboard.hello')}
         </Text>
       </View>
@@ -50,7 +50,7 @@ export function DashboardScreen() {
       <DailyProgressCard totals={todayTotals} />
 
       <SectionHeader title={t('dashboard.quickActions')} />
-      <View style={[styles.actions, { flexDirection: rowDirection }]}>
+      <View style={[styles.actions, rowDirectionStyle]}>
         <AppButton
           title={t('dashboard.addMeal')}
           icon="restaurant-outline"
@@ -67,7 +67,7 @@ export function DashboardScreen() {
       </View>
 
       <SectionHeader title={t('dashboard.weeklySummary')} />
-      <View style={styles.grid}>
+      <View style={[styles.grid, rowDirectionStyle]}>
         <SummaryBox
           label={t('dashboard.weeklyCalories')}
           value={weekCalories}
@@ -98,7 +98,7 @@ export function DashboardScreen() {
             />
           ))
         ) : (
-          <Text style={[styles.emptyText, { color: theme.colors.textMuted, textAlign, writingDirection }]}>
+          <Text style={[styles.emptyText, textDirectionStyle, { color: theme.colors.textMuted }]}>
             {t('dashboard.noMealsToday')}
           </Text>
         )}
@@ -117,7 +117,7 @@ export function DashboardScreen() {
             />
           ))
         ) : (
-          <Text style={[styles.emptyText, { color: theme.colors.textMuted, textAlign, writingDirection }]}>
+          <Text style={[styles.emptyText, textDirectionStyle, { color: theme.colors.textMuted }]}>
             {t('dashboard.noWorkoutsToday')}
           </Text>
         )}
@@ -127,6 +127,9 @@ export function DashboardScreen() {
 }
 
 const styles = StyleSheet.create({
+  heading: {
+    alignSelf: 'stretch',
+  },
   eyebrow: {
     fontSize: 13,
     fontWeight: '900',

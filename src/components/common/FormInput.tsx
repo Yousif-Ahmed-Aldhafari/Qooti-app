@@ -10,11 +10,11 @@ type FormInputProps = TextInputProps & {
 
 export function FormInput({ label, style, ...props }: FormInputProps) {
   const theme = useAppTheme();
-  const { textAlign, writingDirection } = useLanguage();
+  const { contentDirectionStyle, direction, textAlign, textDirectionStyle, writingDirection } = useLanguage();
 
   return (
-    <View style={styles.wrapper}>
-      <Text style={[styles.label, { color: theme.colors.text, textAlign, writingDirection }]}>
+    <View style={[styles.wrapper, contentDirectionStyle]}>
+      <Text style={[styles.label, textDirectionStyle, { color: theme.colors.text }]}>
         {label}
       </Text>
       <TextInput
@@ -26,6 +26,7 @@ export function FormInput({ label, style, ...props }: FormInputProps) {
             backgroundColor: theme.colors.surface,
             borderColor: theme.colors.border,
             color: theme.colors.text,
+            direction,
             textAlign,
             writingDirection,
           },
@@ -39,9 +40,11 @@ export function FormInput({ label, style, ...props }: FormInputProps) {
 
 const styles = StyleSheet.create({
   wrapper: {
+    alignSelf: 'stretch',
     gap: 7,
   },
   label: {
+    alignSelf: 'stretch',
     fontSize: 13,
     fontWeight: '700',
   },

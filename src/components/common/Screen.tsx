@@ -14,10 +14,10 @@ type ScreenProps = {
 
 export function Screen({ children, scroll = true, contentStyle }: ScreenProps) {
   const theme = useAppTheme();
-  const { direction } = useLanguage();
+  const { contentDirectionStyle } = useLanguage();
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background, direction }]}>
+    <SafeAreaView style={[styles.safeArea, contentDirectionStyle, { backgroundColor: theme.colors.background }]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.keyboard}
@@ -26,12 +26,12 @@ export function Screen({ children, scroll = true, contentStyle }: ScreenProps) {
           <ScrollView
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={[styles.content, contentStyle]}
+            contentContainerStyle={[styles.content, contentDirectionStyle, contentStyle]}
           >
             {children}
           </ScrollView>
         ) : (
-          <View style={[styles.content, styles.flexContent, contentStyle]}>{children}</View>
+          <View style={[styles.content, styles.flexContent, contentDirectionStyle, contentStyle]}>{children}</View>
         )}
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -48,6 +48,7 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
     gap: 16,
+    width: '100%',
   },
   flexContent: {
     flex: 1,

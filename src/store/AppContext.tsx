@@ -1,5 +1,4 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer } from 'react';
-import { I18nManager } from 'react-native';
 
 import { translate } from '../i18n';
 import type { Language, Settings } from '../models/settings';
@@ -9,6 +8,7 @@ import { getSeedMeals, getSeedWorkouts } from '../data/seedData';
 import { loadMeals, saveMeals } from '../services/mealService';
 import { defaultSettings, loadSettings, saveSettings } from '../services/settingsService';
 import { loadWorkouts, saveWorkouts } from '../services/workoutService';
+import { applyAppDirection } from '../utils/languageDirection';
 
 type AppState = {
   isReady: boolean;
@@ -97,6 +97,10 @@ function appReducer(state: AppState, action: AppAction): AppState {
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
 
+  const applyLanguageDirection = useCallback((language: Language) => {
+    applyAppDirection(language);
+  }, []);
+
   useEffect(() => {
     async function hydrate() {
       const [savedMeals, savedWorkouts, savedSettings] = await Promise.all([
@@ -117,10 +121,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const isRTL = state.settings.selectedLanguage === 'ar';
-    I18nManager.allowRTL(true);
-    I18nManager.forceRTL(isRTL);
-  }, [state.settings.selectedLanguage]);
+    if (!state.isReady) {
+      return;
+    }
+
+    applyLanguageDirection(state.settings.selectedLanguage);
+  }, [applyLanguageDirection, state.isReady, state.settings.selectedLanguage]);
 
   useEffect(() => {
     if (state.isReady) {
@@ -146,11 +152,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [state.settings.selectedLanguage],
   );
 
+  const setLanguage = useCallback(
+    (language: Language) => {
+      const nextSettings = { ...state.settings, selectedLanguage: language };
+
+      dispatch({ type: 'updateSettings', settings: { selectedLanguage: language } });
+      applyLanguageDirection(language);
+      void saveSettings(nextSettings);
+    },
+    [applyLanguageDirection, state.settings],
+  );
+
   const value = useMemo<AppContextValue>(
     () => ({
       ...state,
       t,
-      setLanguage: (language) => dispatch({ type: 'updateSettings', settings: { selectedLanguage: language } }),
+      setLanguage,
       completeOnboarding: () =>
         dispatch({ type: 'updateSettings', settings: { hasCompletedOnboarding: true } }),
       addMeal: (meal) => dispatch({ type: 'addMeal', meal }),
@@ -161,7 +178,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       deleteWorkout: (workoutId) => dispatch({ type: 'deleteWorkout', workoutId }),
       updateSettings: (settings) => dispatch({ type: 'updateSettings', settings }),
     }),
-    [state, t],
+    [setLanguage, state, t],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

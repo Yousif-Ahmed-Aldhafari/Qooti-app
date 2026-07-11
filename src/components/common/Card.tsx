@@ -3,6 +3,7 @@ import type { StyleProp, ViewStyle } from 'react-native';
 import { StyleSheet, View } from 'react-native';
 
 import { useAppTheme } from '../../hooks/useAppTheme';
+import { useLanguage } from '../../hooks/useLanguage';
 
 type CardProps = {
   children: ReactNode;
@@ -11,11 +12,13 @@ type CardProps = {
 
 export function Card({ children, style }: CardProps) {
   const theme = useAppTheme();
+  const { contentDirectionStyle } = useLanguage();
 
   return (
     <View
       style={[
         styles.card,
+        contentDirectionStyle,
         {
           backgroundColor: theme.colors.surface,
           borderColor: theme.colors.border,
@@ -30,6 +33,7 @@ export function Card({ children, style }: CardProps) {
 
 const styles = StyleSheet.create({
   card: {
+    alignSelf: 'stretch',
     borderRadius: 8,
     borderWidth: 1,
     padding: 16,

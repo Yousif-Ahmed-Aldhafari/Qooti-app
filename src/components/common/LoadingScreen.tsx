@@ -5,12 +5,14 @@ import { useLanguage } from '../../hooks/useLanguage';
 
 export function LoadingScreen() {
   const theme = useAppTheme();
-  const { t, writingDirection } = useLanguage();
+  const { t, directionStyle, textDirectionStyle } = useLanguage();
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View style={[styles.container, directionStyle, { backgroundColor: theme.colors.background }]}>
       <ActivityIndicator size="large" color={theme.colors.primary} />
-      <Text style={[styles.text, { color: theme.colors.textMuted, writingDirection }]}>{t('common.loading')}</Text>
+      <Text style={[styles.text, textDirectionStyle, { color: theme.colors.textMuted }]}>
+        {t('common.loading')}
+      </Text>
     </View>
   );
 }
