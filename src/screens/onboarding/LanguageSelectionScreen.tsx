@@ -5,14 +5,15 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 
 import { AppButton } from '../../components/common/AppButton';
-import { Card } from '../../components/common/Card';
+import { AppCard } from '../../components/common/AppCard';
+import { AppHeader } from '../../components/common/AppHeader';
 import { LanguageSwitcher } from '../../components/common/LanguageSwitcher';
-import { Screen } from '../../components/common/Screen';
-import { useApp } from '../../store/AppContext';
+import { ScreenContainer } from '../../components/common/ScreenContainer';
 import { useAppTheme } from '../../hooks/useAppTheme';
 import { useLanguage } from '../../hooks/useLanguage';
 import type { Language } from '../../models/settings';
 import type { RootStackParamList } from '../../navigation/types';
+import { useApp } from '../../store/AppContext';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList, 'Language'>;
 type LanguageRoute = RouteProp<RootStackParamList, 'Language'>;
@@ -20,18 +21,15 @@ type LanguageRoute = RouteProp<RootStackParamList, 'Language'>;
 export function LanguageSelectionScreen() {
   const navigation = useNavigation<Navigation>();
   const route = useRoute<LanguageRoute>();
-  const { settings, setLanguage, completeOnboarding } = useApp();
-  const [selectedLanguage, setSelectedLanguage] = useState<Language>(settings.selectedLanguage);
+  const { completeOnboarding, settings, setLanguage } = useApp();
   const theme = useAppTheme();
   const { t, textDirectionStyle } = useLanguage();
+  const [selectedLanguage, setSelectedLanguage] = useState<Language>(settings.selectedLanguage);
   const fromSettings = route.params?.fromSettings;
 
   function handleLanguageChange(language: Language) {
     setSelectedLanguage(language);
-
-    if (language !== settings.selectedLanguage) {
-      setLanguage(language);
-    }
+    setLanguage(language);
   }
 
   function handleDone() {
@@ -44,23 +42,18 @@ export function LanguageSelectionScreen() {
   }
 
   return (
-    <Screen contentStyle={styles.content}>
-      <Card>
-        <Text style={[styles.title, textDirectionStyle, { color: theme.colors.text }]}>
-          {t('language.title')}
-        </Text>
-        <Text style={[styles.subtitle, textDirectionStyle, { color: theme.colors.textMuted }]}>
-          {t('language.subtitle')}
+    <ScreenContainer contentStyle={styles.content}>
+      <AppHeader title={t('language.title')} subtitle={t('language.subtitle')} />
+
+      <AppCard>
+        <Text style={[styles.label, textDirectionStyle, { color: theme.colors.textMuted }]}>
+          {t('language.current')}
         </Text>
         <LanguageSwitcher value={selectedLanguage} onChange={handleLanguageChange} />
-      </Card>
+      </AppCard>
 
-      <AppButton
-        title={fromSettings ? t('common.done') : t('common.continue')}
-        icon="checkmark"
-        onPress={handleDone}
-      />
-    </Screen>
+      <AppButton title={fromSettings ? t('common.done') : t('common.continue')} icon="checkmark" onPress={handleDone} />
+    </ScreenContainer>
   );
 }
 
@@ -69,12 +62,8 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
   },
-  title: {
-    fontSize: 24,
+  label: {
+    fontSize: 13,
     fontWeight: '900',
-  },
-  subtitle: {
-    fontSize: 14,
-    lineHeight: 21,
   },
 });

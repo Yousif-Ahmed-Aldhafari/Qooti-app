@@ -4,16 +4,16 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 
 import { AppButton } from '../../components/common/AppButton';
-import { Card } from '../../components/common/Card';
+import { AppCard } from '../../components/common/AppCard';
+import { AppHeader } from '../../components/common/AppHeader';
 import { EmptyState } from '../../components/common/EmptyState';
-import { Screen } from '../../components/common/Screen';
-import { SectionHeader } from '../../components/common/SectionHeader';
+import { MacroCard } from '../../components/common/MacroCard';
+import { ScreenContainer } from '../../components/common/ScreenContainer';
 import { FoodItemRow } from '../../components/meals/FoodItemRow';
-import { NutritionMacroDisplay } from '../../components/meals/NutritionMacroDisplay';
-import { useApp } from '../../store/AppContext';
 import { useAppTheme } from '../../hooks/useAppTheme';
 import { useLanguage } from '../../hooks/useLanguage';
 import type { RootStackParamList } from '../../navigation/types';
+import { useApp } from '../../store/AppContext';
 import { formatDisplayDate } from '../../utils/date';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList, 'MealDetails'>;
@@ -22,16 +22,16 @@ type MealDetailsRoute = RouteProp<RootStackParamList, 'MealDetails'>;
 export function MealDetailsScreen() {
   const navigation = useNavigation<Navigation>();
   const route = useRoute<MealDetailsRoute>();
-  const { meals, deleteMeal } = useApp();
+  const { deleteMeal, meals, profile } = useApp();
   const theme = useAppTheme();
-  const { t, language, textDirectionStyle, rowDirectionStyle } = useLanguage();
+  const { language, rowDirectionStyle, t, textDirectionStyle } = useLanguage();
   const meal = meals.find((item) => item.id === route.params.mealId);
 
   if (!meal) {
     return (
-      <Screen>
+      <ScreenContainer>
         <EmptyState title={t('common.notFound')} message={t('meals.emptyMessage')} />
-      </Screen>
+      </ScreenContainer>
     );
   }
 
@@ -52,72 +52,53 @@ export function MealDetailsScreen() {
   }
 
   return (
-    <Screen>
-      <Card>
-        <Text style={[styles.title, textDirectionStyle, { color: theme.colors.text }]}>
-          {meal.name}
-        </Text>
-        <Text style={[styles.subtitle, textDirectionStyle, { color: theme.colors.textMuted }]}>
-          {formatDisplayDate(meal.date, language)} - {meal.time}
-        </Text>
-      </Card>
+    <ScreenContainer>
+      <AppHeader title={currentMeal.name} subtitle={`${formatDisplayDate(currentMeal.date, language)} · ${currentMeal.time}`} />
 
-      <SectionHeader title={t('meals.mealTotals')} />
-      <NutritionMacroDisplay
-        totals={{
-          calories: meal.totalCalories,
-          protein: meal.totalProtein,
-          carbs: meal.totalCarbs,
-          fat: meal.totalFat,
-        }}
-      />
+      <View style={[styles.grid, rowDirectionStyle]}>
+        <MacroCard label={t('macros.calories')} value={currentMeal.totalCalories} goal={profile.targetCalories} unit={t('macros.kcal')} icon="flame-outline" color={theme.colors.warning} />
+        <MacroCard label={t('macros.protein')} value={currentMeal.totalProtein} goal={profile.targetProtein} unit={t('macros.grams')} icon="barbell-outline" />
+        <MacroCard label={t('macros.carbs')} value={currentMeal.totalCarbs} goal={profile.targetCarbs} unit={t('macros.grams')} icon="leaf-outline" color={theme.colors.accent} />
+        <MacroCard label={t('macros.fat')} value={currentMeal.totalFat} goal={profile.targetFat} unit={t('macros.grams')} icon="water-outline" color={theme.colors.secondary} />
+      </View>
 
-      <SectionHeader title={t('meals.foodItems')} />
-      <Card>
-        {meal.items.length ? (
-          meal.items.map((item) => <FoodItemRow key={item.id} item={item} />)
+      <AppCard>
+        <Text style={[styles.sectionTitle, textDirectionStyle, { color: theme.colors.text }]}>
+          {t('meals.foodItems')}
+        </Text>
+        {currentMeal.items.length ? (
+          currentMeal.items.map((item) => <FoodItemRow key={item.id} item={item} />)
         ) : (
-          <Text style={[styles.emptyText, textDirectionStyle, { color: theme.colors.textMuted }]}>
+          <Text style={[styles.empty, textDirectionStyle, { color: theme.colors.textMuted }]}>
             {t('meals.noItems')}
           </Text>
         )}
-      </Card>
+      </AppCard>
 
       <View style={[styles.actions, rowDirectionStyle]}>
-        <AppButton
-          title={t('common.edit')}
-          icon="create-outline"
-          variant="secondary"
-          onPress={() => navigation.navigate('AddEditMeal', { mealId: currentMeal.id })}
-          style={styles.action}
-        />
-        <AppButton
-          title={t('common.delete')}
-          icon="trash-outline"
-          variant="danger"
-          onPress={confirmDelete}
-          style={styles.action}
-        />
+        <AppButton title={t('common.edit')} icon="create-outline" variant="secondary" onPress={() => navigation.navigate('AddEditMeal', { mealId: currentMeal.id })} style={styles.action} />
+        <AppButton title={t('common.delete')} icon="trash-outline" variant="danger" onPress={confirmDelete} style={styles.action} />
       </View>
-    </Screen>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  title: {
-    fontSize: 26,
+  grid: {
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  sectionTitle: {
+    fontSize: 18,
     fontWeight: '900',
   },
-  subtitle: {
+  empty: {
     fontSize: 14,
-    lineHeight: 21,
-  },
-  emptyText: {
-    fontSize: 14,
+    fontWeight: '700',
     lineHeight: 21,
   },
   actions: {
-    gap: 10,
+    gap: 12,
   },
   action: {
     flex: 1,

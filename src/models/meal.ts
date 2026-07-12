@@ -1,4 +1,4 @@
-export type FoodItem = {
+export type MealItem = {
   id: string;
   name: string;
   quantity: number;
@@ -9,12 +9,14 @@ export type FoodItem = {
   fat: number;
 };
 
+export type FoodItem = MealItem;
+
 export type Meal = {
   id: string;
   name: string;
   date: string;
   time: string;
-  items: FoodItem[];
+  items: MealItem[];
   totalCalories: number;
   totalProtein: number;
   totalCarbs: number;

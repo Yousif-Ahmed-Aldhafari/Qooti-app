@@ -43,7 +43,7 @@ export function AppButton({
   style,
 }: AppButtonProps) {
   const theme = useAppTheme();
-  const { rowDirectionStyle, textDirectionStyle, isRTL } = useLanguage();
+  const { rowDirectionStyle, writingDirection, isRTL } = useLanguage();
   const displayIcon = icon ? getDirectionalIcon(icon, isRTL) : undefined;
 
   const colors = {
@@ -58,7 +58,7 @@ export function AppButton({
       border: theme.colors.primaryMuted,
     },
     ghost: {
-      background: 'transparent',
+      background: theme.colors.surface,
       text: theme.colors.primary,
       border: theme.colors.border,
     },
@@ -86,7 +86,7 @@ export function AppButton({
       ]}
     >
       {displayIcon ? <Ionicons name={displayIcon} size={18} color={colors.text} /> : null}
-      <Text style={[styles.label, textDirectionStyle, { color: colors.text }]} numberOfLines={1}>
+      <Text style={[styles.label, { color: colors.text, writingDirection }]} numberOfLines={1}>
         {title}
       </Text>
     </Pressable>
@@ -95,16 +95,18 @@ export function AppButton({
 
 const styles = StyleSheet.create({
   button: {
-    minHeight: 48,
+    minHeight: 54,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 8,
+    borderRadius: 18,
     borderWidth: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
     gap: 8,
   },
   label: {
+    flexShrink: 1,
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '900',
+    textAlign: 'center',
   },
 });

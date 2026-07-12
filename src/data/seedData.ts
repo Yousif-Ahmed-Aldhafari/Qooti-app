@@ -1,4 +1,6 @@
 import type { Meal } from '../models/meal';
+import type { UserProfile } from '../models/profile';
+import type { ProgressEntry } from '../models/progress';
 import type { Workout } from '../models/workout';
 import { toDateInputValue } from '../utils/date';
 import { calculateMealTotals } from '../utils/health';
@@ -46,6 +48,34 @@ export function getSeedMeals(): Meal[] {
           calories: 45,
           protein: 1,
           carbs: 11,
+          fat: 0,
+        },
+      ],
+    }),
+    mealWithTotals({
+      id: 'seed-meal-snack',
+      name: 'Protein smoothie',
+      date: dateOffset(0),
+      time: '16:20',
+      items: [
+        {
+          id: 'seed-food-protein',
+          name: 'Whey protein',
+          quantity: 1,
+          unit: 'scoop',
+          calories: 120,
+          protein: 24,
+          carbs: 3,
+          fat: 2,
+        },
+        {
+          id: 'seed-food-banana',
+          name: 'Banana',
+          quantity: 1,
+          unit: 'piece',
+          calories: 105,
+          protein: 1,
+          carbs: 27,
           fat: 0,
         },
       ],
@@ -156,5 +186,43 @@ export function getSeedWorkouts(): Workout[] {
         },
       ],
     },
+  ];
+}
+
+export function getSeedProfile(): UserProfile {
+  return {
+    id: 'seed-profile',
+    name: 'Sara Ahmed',
+    email: 'sara@qooti.app',
+    goal: 'Build strength and eat consistently',
+    heightCm: 168,
+    weightKg: 64,
+    targetCalories: 2100,
+    targetProtein: 135,
+    targetCarbs: 240,
+    targetFat: 65,
+  };
+}
+
+export function getSeedProgressEntries(): ProgressEntry[] {
+  return [
+    { id: 'progress-6', date: dateOffset(6), weightKg: 65.2, calories: 1980, workouts: 0, steps: 7200 },
+    { id: 'progress-5', date: dateOffset(5), weightKg: 65, calories: 2140, workouts: 1, steps: 8600 },
+    { id: 'progress-4', date: dateOffset(4), weightKg: 64.8, calories: 2055, workouts: 0, steps: 9100 },
+    { id: 'progress-3', date: dateOffset(3), weightKg: 64.7, calories: 2200, workouts: 1, steps: 10300 },
+    { id: 'progress-2', date: dateOffset(2), weightKg: 64.4, calories: 1900, workouts: 1, steps: 6900 },
+    { id: 'progress-1', date: dateOffset(1), weightKg: 64.2, calories: 2088, workouts: 0, steps: 7800 },
+    { id: 'progress-0', date: dateOffset(0), weightKg: 64, calories: 1914, workouts: 1, steps: 8400 },
+  ];
+}
+
+export function getFoodCatalog() {
+  return [
+    { id: 'catalog-chicken', name: 'Grilled chicken breast', calories: 165, protein: 31, carbs: 0, fat: 4, unit: '100 g' },
+    { id: 'catalog-rice', name: 'Steamed basmati rice', calories: 130, protein: 3, carbs: 28, fat: 0, unit: '100 g' },
+    { id: 'catalog-eggs', name: 'Boiled eggs', calories: 155, protein: 13, carbs: 1, fat: 11, unit: '2 eggs' },
+    { id: 'catalog-oats', name: 'Rolled oats', calories: 150, protein: 5, carbs: 27, fat: 3, unit: '40 g' },
+    { id: 'catalog-salmon', name: 'Baked salmon', calories: 208, protein: 20, carbs: 0, fat: 13, unit: '100 g' },
+    { id: 'catalog-dates', name: 'Dates', calories: 66, protein: 0, carbs: 18, fat: 0, unit: '2 pieces' },
   ];
 }

@@ -7,6 +7,7 @@ export const defaultSettings: Settings = {
   themeMode: 'system',
   measurementUnits: 'metric',
   hasCompletedOnboarding: false,
+  isAuthenticated: false,
 };
 
 export async function loadSettings(): Promise<Settings | null> {

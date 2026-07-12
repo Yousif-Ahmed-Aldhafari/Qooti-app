@@ -3,9 +3,13 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useReducer 
 import { translate } from '../i18n';
 import type { Language, Settings } from '../models/settings';
 import type { Meal } from '../models/meal';
+import type { UserProfile } from '../models/profile';
+import type { ProgressEntry } from '../models/progress';
 import type { Workout } from '../models/workout';
-import { getSeedMeals, getSeedWorkouts } from '../data/seedData';
+import { getSeedMeals, getSeedProfile, getSeedProgressEntries, getSeedWorkouts } from '../data/seedData';
 import { loadMeals, saveMeals } from '../services/mealService';
+import { loadProfile, saveProfile } from '../services/profileService';
+import { loadProgressEntries, saveProgressEntries } from '../services/progressService';
 import { defaultSettings, loadSettings, saveSettings } from '../services/settingsService';
 import { loadWorkouts, saveWorkouts } from '../services/workoutService';
 import { applyAppDirection } from '../utils/languageDirection';
@@ -14,29 +18,45 @@ type AppState = {
   isReady: boolean;
   meals: Meal[];
   workouts: Workout[];
+  profile: UserProfile;
+  progressEntries: ProgressEntry[];
   settings: Settings;
 };
 
 type AppAction =
-  | { type: 'hydrate'; meals: Meal[]; workouts: Workout[]; settings: Settings }
+  | {
+      type: 'hydrate';
+      meals: Meal[];
+      workouts: Workout[];
+      profile: UserProfile;
+      progressEntries: ProgressEntry[];
+      settings: Settings;
+    }
   | { type: 'addMeal'; meal: Meal }
   | { type: 'updateMeal'; meal: Meal }
   | { type: 'deleteMeal'; mealId: string }
   | { type: 'addWorkout'; workout: Workout }
   | { type: 'updateWorkout'; workout: Workout }
   | { type: 'deleteWorkout'; workoutId: string }
+  | { type: 'updateProfile'; profile: Partial<UserProfile> }
+  | { type: 'addProgressEntry'; entry: ProgressEntry }
   | { type: 'updateSettings'; settings: Partial<Settings> };
 
 type AppContextValue = AppState & {
   t: (key: string, values?: Record<string, string | number>) => string;
   setLanguage: (language: Language) => void;
   completeOnboarding: () => void;
+  login: (email?: string) => void;
+  register: (profile: Partial<UserProfile>) => void;
+  logout: () => void;
+  updateProfile: (profile: Partial<UserProfile>) => void;
   addMeal: (meal: Meal) => void;
   updateMeal: (meal: Meal) => void;
   deleteMeal: (mealId: string) => void;
   addWorkout: (workout: Workout) => void;
   updateWorkout: (workout: Workout) => void;
   deleteWorkout: (workoutId: string) => void;
+  addProgressEntry: (entry: ProgressEntry) => void;
   updateSettings: (settings: Partial<Settings>) => void;
 };
 
@@ -44,6 +64,8 @@ const initialState: AppState = {
   isReady: false,
   meals: [],
   workouts: [],
+  profile: getSeedProfile(),
+  progressEntries: [],
   settings: defaultSettings,
 };
 
@@ -56,6 +78,8 @@ function appReducer(state: AppState, action: AppAction): AppState {
         isReady: true,
         meals: action.meals,
         workouts: action.workouts,
+        profile: action.profile,
+        progressEntries: action.progressEntries,
         settings: action.settings,
       };
     case 'addMeal':
@@ -84,6 +108,16 @@ function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         workouts: state.workouts.filter((workout) => workout.id !== action.workoutId),
       };
+    case 'updateProfile':
+      return {
+        ...state,
+        profile: { ...state.profile, ...action.profile },
+      };
+    case 'addProgressEntry':
+      return {
+        ...state,
+        progressEntries: [action.entry, ...state.progressEntries],
+      };
     case 'updateSettings':
       return {
         ...state,
@@ -103,9 +137,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     async function hydrate() {
-      const [savedMeals, savedWorkouts, savedSettings] = await Promise.all([
+      const [savedMeals, savedWorkouts, savedProfile, savedProgressEntries, savedSettings] = await Promise.all([
         loadMeals(),
         loadWorkouts(),
+        loadProfile(),
+        loadProgressEntries(),
         loadSettings(),
       ]);
 
@@ -113,6 +149,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         type: 'hydrate',
         meals: savedMeals ?? getSeedMeals(),
         workouts: savedWorkouts ?? getSeedWorkouts(),
+        profile: savedProfile ?? getSeedProfile(),
+        progressEntries: savedProgressEntries ?? getSeedProgressEntries(),
         settings: { ...defaultSettings, ...savedSettings },
       });
     }
@@ -139,6 +177,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       saveWorkouts(state.workouts);
     }
   }, [state.isReady, state.workouts]);
+
+  useEffect(() => {
+    if (state.isReady) {
+      saveProfile(state.profile);
+    }
+  }, [state.isReady, state.profile]);
+
+  useEffect(() => {
+    if (state.isReady) {
+      saveProgressEntries(state.progressEntries);
+    }
+  }, [state.isReady, state.progressEntries]);
 
   useEffect(() => {
     if (state.isReady) {
@@ -170,12 +220,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setLanguage,
       completeOnboarding: () =>
         dispatch({ type: 'updateSettings', settings: { hasCompletedOnboarding: true } }),
+      login: (email) => {
+        if (email) {
+          dispatch({ type: 'updateProfile', profile: { email } });
+        }
+        dispatch({ type: 'updateSettings', settings: { isAuthenticated: true } });
+      },
+      register: (profile) => {
+        dispatch({ type: 'updateProfile', profile });
+        dispatch({ type: 'updateSettings', settings: { isAuthenticated: true, hasCompletedOnboarding: true } });
+      },
+      logout: () => dispatch({ type: 'updateSettings', settings: { isAuthenticated: false } }),
+      updateProfile: (profile) => dispatch({ type: 'updateProfile', profile }),
       addMeal: (meal) => dispatch({ type: 'addMeal', meal }),
       updateMeal: (meal) => dispatch({ type: 'updateMeal', meal }),
       deleteMeal: (mealId) => dispatch({ type: 'deleteMeal', mealId }),
       addWorkout: (workout) => dispatch({ type: 'addWorkout', workout }),
       updateWorkout: (workout) => dispatch({ type: 'updateWorkout', workout }),
       deleteWorkout: (workoutId) => dispatch({ type: 'deleteWorkout', workoutId }),
+      addProgressEntry: (entry) => dispatch({ type: 'addProgressEntry', entry }),
       updateSettings: (settings) => dispatch({ type: 'updateSettings', settings }),
     }),
     [setLanguage, state, t],

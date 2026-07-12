@@ -9,4 +9,5 @@ export type Settings = {
   themeMode: ThemeMode;
   measurementUnits: MeasurementUnits;
   hasCompletedOnboarding: boolean;
+  isAuthenticated: boolean;
 };

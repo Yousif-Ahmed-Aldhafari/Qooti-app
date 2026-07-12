@@ -1,4 +1,6 @@
 import type { FoodItem, Meal } from '../models/meal';
+import type { DailyNutritionSummary } from '../models/progress';
+import type { UserProfile } from '../models/profile';
 import type { Workout } from '../models/workout';
 import { getLastSevenDays, isDateInCurrentWeek, isSameDate } from './date';
 
@@ -65,6 +67,44 @@ export function weeklyWorkoutSummary(workouts: Workout[]) {
     date,
     workoutCount: workouts.filter((workout) => workout.date === date).length,
   }));
+}
+
+export function dailyNutritionSummary(
+  meals: Meal[],
+  profile: UserProfile,
+  date = new Date(),
+): DailyNutritionSummary {
+  const day = date.toISOString().slice(0, 10);
+  const totals = nutritionTotalsForMeals(meals.filter((meal) => meal.date === day));
+
+  return {
+    date: day,
+    calories: totals.calories,
+    protein: totals.protein,
+    carbs: totals.carbs,
+    fat: totals.fat,
+    calorieGoal: profile.targetCalories,
+  };
+}
+
+export function macroProgress(value: number, goal: number): number {
+  if (!goal) {
+    return 0;
+  }
+
+  return Math.min(1, Math.max(0, value / goal));
+}
+
+export function workoutDuration(workout: Workout): number {
+  return workout.exercises.reduce((total, exercise) => total + numeric(exercise.duration), 0);
+}
+
+export function weeklyWorkoutMinutes(workouts: Workout[]): number {
+  return workoutsForCurrentWeek(workouts).reduce((total, workout) => total + workoutDuration(workout), 0);
+}
+
+export function totalSets(workout: Workout): number {
+  return workout.exercises.reduce((total, exercise) => total + numeric(exercise.sets), 0);
 }
 
 export function roundNutrition(value: number): number {

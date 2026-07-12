@@ -2,6 +2,7 @@ export type AppTheme = {
   isDark: boolean;
   colors: {
     background: string;
+    backgroundAlt: string;
     surface: string;
     surfaceMuted: string;
     text: string;
@@ -10,48 +11,62 @@ export type AppTheme = {
     primary: string;
     primaryMuted: string;
     secondary: string;
+    secondaryMuted: string;
+    accent: string;
+    accentMuted: string;
     success: string;
     warning: string;
     danger: string;
     tabBar: string;
+    shadow: string;
   };
 };
 
 export const lightTheme: AppTheme = {
   isDark: false,
   colors: {
-    background: '#F6F7F4',
+    background: '#FCFBF9',
+    backgroundAlt: '#F4F6FA',
     surface: '#FFFFFF',
-    surfaceMuted: '#EEF2EA',
-    text: '#17231E',
-    textMuted: '#65716B',
-    border: '#DCE3DD',
-    primary: '#1F7A5C',
-    primaryMuted: '#DCEFE6',
-    secondary: '#2D6F8F',
-    success: '#2F8B57',
-    warning: '#B8791D',
-    danger: '#B44545',
+    surfaceMuted: '#F0F4FB',
+    text: '#1B1A1A',
+    textMuted: '#7A8393',
+    border: '#E7ECF4',
+    primary: '#3080E3',
+    primaryMuted: '#EAF3FF',
+    secondary: '#6D5DF6',
+    secondaryMuted: '#EFEDFF',
+    accent: '#FFBA52',
+    accentMuted: '#FFF3DE',
+    success: '#24B47E',
+    warning: '#FF9F43',
+    danger: '#F25767',
     tabBar: '#FFFFFF',
+    shadow: '#1B1A1A',
   },
 };
 
 export const darkTheme: AppTheme = {
   isDark: true,
   colors: {
-    background: '#111815',
-    surface: '#18211D',
-    surfaceMuted: '#223029',
-    text: '#F4F7F2',
-    textMuted: '#A9B5AE',
-    border: '#304139',
-    primary: '#73C8A4',
-    primaryMuted: '#244236',
-    secondary: '#7EC5E8',
-    success: '#78C995',
-    warning: '#D9A451',
-    danger: '#E07C7C',
-    tabBar: '#18211D',
+    background: '#111827',
+    backgroundAlt: '#0F172A',
+    surface: '#172033',
+    surfaceMuted: '#222E45',
+    text: '#F8FAFC',
+    textMuted: '#AAB4C5',
+    border: '#2D3A54',
+    primary: '#6BA8FF',
+    primaryMuted: '#1C3557',
+    secondary: '#A59BFF',
+    secondaryMuted: '#302B58',
+    accent: '#FFD27A',
+    accentMuted: '#43351E',
+    success: '#5CD6A4',
+    warning: '#FFBE6B',
+    danger: '#FF7B8A',
+    tabBar: '#172033',
+    shadow: '#000000',
   },
 };
 

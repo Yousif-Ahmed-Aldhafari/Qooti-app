@@ -3,16 +3,16 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { AppButton } from '../../components/common/AppButton';
-import { Card } from '../../components/common/Card';
+import { AppCard } from '../../components/common/AppCard';
+import { AppHeader } from '../../components/common/AppHeader';
 import { LanguageSwitcher } from '../../components/common/LanguageSwitcher';
-import { Screen } from '../../components/common/Screen';
-import { SectionHeader } from '../../components/common/SectionHeader';
+import { ScreenContainer } from '../../components/common/ScreenContainer';
 import { SegmentedControl } from '../../components/common/SegmentedControl';
-import { useApp } from '../../store/AppContext';
 import { useAppTheme } from '../../hooks/useAppTheme';
 import { useLanguage } from '../../hooks/useLanguage';
 import type { MeasurementUnits, ThemeMode } from '../../models/settings';
 import type { RootStackParamList } from '../../navigation/types';
+import { useApp } from '../../store/AppContext';
 
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
 
@@ -23,11 +23,13 @@ export function SettingsScreen() {
   const { t, textDirectionStyle } = useLanguage();
 
   return (
-    <Screen>
-      <SectionHeader title={t('settings.title')} />
+    <ScreenContainer>
+      <AppHeader title={t('settings.title')} subtitle={t('settings.subtitle')} />
 
-      <Card>
-        <SectionHeader title={t('settings.language')} />
+      <AppCard>
+        <Text style={[styles.sectionTitle, textDirectionStyle, { color: theme.colors.text }]}>
+          {t('settings.language')}
+        </Text>
         <LanguageSwitcher value={settings.selectedLanguage} onChange={setLanguage} />
         <AppButton
           title={t('settings.changeLanguage')}
@@ -35,10 +37,12 @@ export function SettingsScreen() {
           variant="ghost"
           onPress={() => navigation.navigate('Language', { fromSettings: true })}
         />
-      </Card>
+      </AppCard>
 
-      <Card>
-        <SectionHeader title={t('settings.theme')} />
+      <AppCard>
+        <Text style={[styles.sectionTitle, textDirectionStyle, { color: theme.colors.text }]}>
+          {t('settings.theme')}
+        </Text>
         <SegmentedControl<ThemeMode>
           value={settings.themeMode}
           onChange={(themeMode) => updateSettings({ themeMode })}
@@ -48,10 +52,12 @@ export function SettingsScreen() {
             { value: 'dark', label: t('settings.themeDark') },
           ]}
         />
-      </Card>
+      </AppCard>
 
-      <Card>
-        <SectionHeader title={t('settings.units')} />
+      <AppCard>
+        <Text style={[styles.sectionTitle, textDirectionStyle, { color: theme.colors.text }]}>
+          {t('settings.units')}
+        </Text>
         <SegmentedControl<MeasurementUnits>
           value={settings.measurementUnits}
           onChange={(measurementUnits) => updateSettings({ measurementUnits })}
@@ -60,21 +66,28 @@ export function SettingsScreen() {
             { value: 'imperial', label: t('settings.imperial') },
           ]}
         />
-      </Card>
+      </AppCard>
 
-      <Card>
-        <SectionHeader title={t('settings.about')} />
+      <AppCard>
+        <Text style={[styles.sectionTitle, textDirectionStyle, { color: theme.colors.text }]}>
+          {t('settings.about')}
+        </Text>
         <Text style={[styles.body, textDirectionStyle, { color: theme.colors.textMuted }]}>
           {t('settings.aboutBody')}
         </Text>
-      </Card>
-    </Screen>
+      </AppCard>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+  },
   body: {
     fontSize: 14,
     lineHeight: 22,
+    fontWeight: '700',
   },
 });
