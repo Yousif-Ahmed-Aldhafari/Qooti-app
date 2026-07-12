@@ -13,6 +13,7 @@ export const darkTheme: AppTheme = {
     cardSoft: '#2B2E30',
     cardMuted: '#26292A',
     inputBackground: '#26292A',
+    filterInactiveBackground: '#26292A',
     text: '#FFFFFF',
     textSecondary: '#C6C7C8',
     textMuted: '#A3A3A3',

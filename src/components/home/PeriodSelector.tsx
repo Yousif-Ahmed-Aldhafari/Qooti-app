@@ -39,7 +39,7 @@ export function PeriodFilterButton({ label, value, selected, onPress }: PeriodFi
       style={({ pressed }) => [
         styles.pill,
         {
-          backgroundColor: selected ? colors.primary : colors.white,
+          backgroundColor: selected ? colors.primary : colors.filterInactiveBackground,
           borderColor: colors.primary,
           opacity: pressed ? 0.78 : 1,
         },

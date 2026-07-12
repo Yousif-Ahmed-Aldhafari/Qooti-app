@@ -13,6 +13,7 @@ export const lightTheme: AppTheme = {
     cardSoft: '#F0F5EF',
     cardMuted: '#F3F6F1',
     inputBackground: '#FFFFFF',
+    filterInactiveBackground: '#FFFFFF',
     text: '#171A1A',
     textSecondary: '#3F4A44',
     textMuted: '#6E7A73',

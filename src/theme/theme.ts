@@ -13,6 +13,7 @@ export type ThemeColors = {
   cardSoft: string;
   cardMuted: string;
   inputBackground: string;
+  filterInactiveBackground: string;
   text: string;
   textSecondary: string;
   textMuted: string;
