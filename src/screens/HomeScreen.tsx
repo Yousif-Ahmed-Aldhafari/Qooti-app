@@ -124,7 +124,7 @@ export function HomeScreen({ t, profile, meals, workouts, onAddMeal, onAddWorkou
           value={`${duration} ${t('common.minutes')}`}
           subtitle={t('home.metrics.exercises', { count: exerciseCount })}
           icon="barbell-outline"
-          accent={colors.lavender}
+          accent={colors.workout}
           progress={duration > 0 ? 1 : 0}
         />
       </View>

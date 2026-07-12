@@ -30,6 +30,7 @@ export const darkTheme: AppTheme = {
     lavender: '#D4B9EF',
     orange: '#FFB85C',
     blue: '#66D9EF',
+    workout: '#3B82F6',
     green: brandColors.primaryGreen,
     red: '#FF6B7A',
     success: brandColors.primaryGreen,

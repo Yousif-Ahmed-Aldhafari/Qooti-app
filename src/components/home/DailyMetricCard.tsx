@@ -5,7 +5,7 @@ import { themeColors } from '../../theme/colors';
 import { radius } from '../../theme/radius';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
-import { activeRowStyle, activeTextAlign, activeWritingDirection } from '../../utils/rtl';
+import { activeRowStyle, activeWritingDirection } from '../../utils/rtl';
 
 type DailyMetricCardProps = {
   title: string;
@@ -19,15 +19,15 @@ type DailyMetricCardProps = {
 
 export function DailyMetricCard({ title, value, subtitle, icon, accent, progress = 0, bars }: DailyMetricCardProps) {
   const colors = themeColors();
-  const directionalText = {
-    textAlign: activeTextAlign(),
+  const centeredText = {
+    textAlign: 'center' as const,
     writingDirection: activeWritingDirection(),
-  } as const;
+  };
   const safeProgress = Math.min(1, Math.max(0, progress));
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card }]}>
-      <Text style={[styles.title, { color: colors.text, writingDirection: activeWritingDirection() }]} numberOfLines={1}>
+      <Text style={[styles.title, centeredText, { color: colors.text }]} numberOfLines={1}>
         {title}
       </Text>
       {bars?.length ? (
@@ -53,10 +53,10 @@ export function DailyMetricCard({ title, value, subtitle, icon, accent, progress
           </View>
         </View>
       )}
-      <Text style={[styles.value, directionalText, { color: colors.text }]} numberOfLines={1}>
+      <Text style={[styles.value, centeredText, { color: colors.text }]} numberOfLines={1}>
         {value}
       </Text>
-      <Text style={[styles.subtitle, directionalText, { color: colors.textMuted }]} numberOfLines={1}>
+      <Text style={[styles.subtitle, centeredText, { color: colors.textMuted }]} numberOfLines={1}>
         {subtitle}
       </Text>
     </View>
@@ -70,6 +70,7 @@ const styles = StyleSheet.create({
     minHeight: 156,
     borderRadius: radius.sm,
     padding: spacing.lg,
+    alignItems: 'center',
     gap: spacing.sm,
   },
   title: {
@@ -115,8 +116,12 @@ const styles = StyleSheet.create({
   },
   value: {
     ...typography.h3,
+    alignSelf: 'center',
+    width: '100%',
   },
   subtitle: {
     ...typography.caption,
+    alignSelf: 'center',
+    width: '100%',
   },
 });

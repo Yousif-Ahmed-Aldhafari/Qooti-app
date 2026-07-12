@@ -34,6 +34,7 @@ export type ThemeColors = {
   lavender: string;
   orange: string;
   blue: string;
+  workout: string;
   green: string;
   red: string;
   success: string;
