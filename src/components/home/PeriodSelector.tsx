@@ -40,7 +40,6 @@ export function PeriodFilterButton({ label, value, selected, onPress }: PeriodFi
         styles.pill,
         {
           backgroundColor: selected ? colors.primary : colors.filterInactiveBackground,
-          borderColor: colors.primary,
           opacity: pressed ? 0.78 : 1,
         },
       ]}
@@ -85,7 +84,6 @@ const styles = StyleSheet.create({
     minHeight: 38,
     flex: 1,
     borderRadius: radius.lg,
-    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.md,
