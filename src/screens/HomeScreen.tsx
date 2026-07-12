@@ -55,8 +55,6 @@ export function HomeScreen({ t, profile, meals, workouts, onAddMeal, onAddWorkou
   const periodDays = getPeriodDayCount(selectedDate, period);
   const calorieTarget = profile.targetCalories * periodDays;
   const proteinTarget = profile.targetProtein * periodDays;
-  const carbsTarget = profile.targetCarbs * periodDays;
-  const fatsTarget = profile.targetFats * periodDays;
   const duration = workoutMinutes(filteredWorkouts);
   const exerciseCount = filteredWorkouts.reduce((sum, workout) => sum + workout.exercises.length, 0);
   const mealCount = filteredMeals.length;
@@ -76,11 +74,6 @@ export function HomeScreen({ t, profile, meals, workouts, onAddMeal, onAddWorkou
     { key: 'today' as const, label: t('home.period.today') },
     { key: 'week' as const, label: t('home.period.week') },
     { key: 'month' as const, label: t('home.period.month') },
-  ];
-  const macroBars = [
-    progressRatio(totals.protein, proteinTarget) * 100,
-    progressRatio(totals.carbs, carbsTarget) * 100,
-    progressRatio(totals.fats, fatsTarget) * 100,
   ];
   const goals = [
     {
@@ -125,14 +118,6 @@ export function HomeScreen({ t, profile, meals, workouts, onAddMeal, onAddWorkou
           icon="flame"
           accent={colors.accent}
           progress={progressRatio(totals.calories, calorieTarget)}
-        />
-        <DailyMetricCard
-          title={t('home.metrics.macros')}
-          value={`${Math.round(totals.protein)}${t('common.grams')} / ${Math.round(totals.carbs)}${t('common.grams')}`}
-          subtitle={`${Math.round(totals.fats)}${t('common.grams')} ${t('common.fats')}`}
-          icon="nutrition-outline"
-          accent={colors.blue}
-          bars={macroBars}
         />
         <DailyMetricCard
           title={t('home.metrics.workout')}
