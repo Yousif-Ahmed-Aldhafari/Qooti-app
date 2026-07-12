@@ -1,13 +1,12 @@
 import { useColorScheme } from 'react-native';
 
-import { getTheme } from '../theme/colors';
+import { getTheme, resolveThemePreference } from '../theme/colors';
 import { useApp } from '../store/AppContext';
 
 export function useAppTheme() {
-  const systemTheme = useColorScheme();
+  const systemColorScheme = useColorScheme();
   const { settings } = useApp();
-  const selectedTheme =
-    settings.themeMode === 'system' ? (systemTheme === 'dark' ? 'dark' : 'light') : settings.themeMode;
+  const resolvedTheme = resolveThemePreference(settings.themeMode, systemColorScheme);
 
-  return getTheme(selectedTheme);
+  return getTheme(resolvedTheme);
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -20,7 +20,13 @@ import { SettingsScreen } from '../screens/SettingsScreen';
 import { SplashScreen } from '../screens/SplashScreen';
 import { WorkoutDetailsScreen } from '../screens/WorkoutDetailsScreen';
 import { WorkoutsScreen } from '../screens/WorkoutsScreen';
-import { setActiveTheme, themeColors, type ThemeMode } from '../theme/colors';
+import {
+  isThemePreference,
+  resolveThemePreference,
+  setActiveTheme,
+  themeColors,
+  type ThemePreference,
+} from '../theme/colors';
 import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
@@ -29,7 +35,8 @@ import { applyRTL, direction, isRTL, rowDirection, textAlign, writingDirection }
 
 const LANGUAGE_STORAGE_KEY = '@qooti/language';
 const ONBOARDING_STORAGE_KEY = '@qooti/hasOnboarded';
-const THEME_STORAGE_KEY = '@qooti/themeMode';
+const THEME_STORAGE_KEY = '@qooti/themePreference';
+const LEGACY_THEME_STORAGE_KEY = '@qooti/themeMode';
 const mainTabs: TabKey[] = ['home', 'meals', 'workouts', 'progress', 'profile'];
 
 function isMainTab(screen: ScreenKey): screen is TabKey {
@@ -41,13 +48,18 @@ export function AppNavigator() {
   const [showSplash, setShowSplash] = useState(true);
   const [hasOnboarded, setHasOnboarded] = useState(false);
   const [language, setLanguage] = useState<Language>('en');
-  const [themeMode, setThemeMode] = useState<ThemeMode>('dark');
+  const [themePreference, setThemePreference] = useState<ThemePreference>('system');
   const [activeTab, setActiveTab] = useState<TabKey>('home');
   const [activeScreen, setActiveScreen] = useState<ScreenKey>('home');
   const [meals, setMeals] = useState<Meal[]>(sampleMeals);
   const [workouts, setWorkouts] = useState<Workout[]>(sampleWorkouts);
   const [selectedMeal, setSelectedMeal] = useState<Meal | null>(sampleMeals[0] ?? null);
   const [selectedWorkout, setSelectedWorkout] = useState<Workout | null>(sampleWorkouts[0] ?? null);
+  const systemColorScheme = useColorScheme();
+  const resolvedTheme = useMemo(
+    () => resolveThemePreference(themePreference, systemColorScheme),
+    [systemColorScheme, themePreference],
+  );
 
   const t = useCallback<Translator>(
     (key, values) => translate(language, key, values),
@@ -69,20 +81,23 @@ export function AppNavigator() {
     let mounted = true;
 
     async function bootstrap() {
-      const [savedLanguage, savedOnboarding, savedTheme] = await Promise.all([
+      const [savedLanguage, savedOnboarding, savedThemePreference, legacyThemeMode] = await Promise.all([
         AsyncStorage.getItem(LANGUAGE_STORAGE_KEY),
         AsyncStorage.getItem(ONBOARDING_STORAGE_KEY),
         AsyncStorage.getItem(THEME_STORAGE_KEY),
+        AsyncStorage.getItem(LEGACY_THEME_STORAGE_KEY),
       ]);
       const nextLanguage: Language = savedLanguage === 'ar' ? 'ar' : 'en';
-      const nextTheme: ThemeMode = savedTheme === 'light' ? 'light' : 'dark';
+      const storedThemePreference = savedThemePreference ?? legacyThemeMode;
+      const nextThemePreference: ThemePreference = isThemePreference(storedThemePreference)
+        ? storedThemePreference
+        : 'system';
 
       applyRTL(nextLanguage);
-      setActiveTheme(nextTheme);
 
       if (mounted) {
         setLanguage(nextLanguage);
-        setThemeMode(nextTheme);
+        setThemePreference(nextThemePreference);
         setHasOnboarded(savedOnboarding === 'true');
         setIsReady(true);
       }
@@ -118,10 +133,9 @@ export function AppNavigator() {
     await AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, nextLanguage);
   }
 
-  async function changeTheme(nextTheme: ThemeMode) {
-    setActiveTheme(nextTheme);
-    setThemeMode(nextTheme);
-    await AsyncStorage.setItem(THEME_STORAGE_KEY, nextTheme);
+  async function changeTheme(nextThemePreference: ThemePreference) {
+    setThemePreference(nextThemePreference);
+    await AsyncStorage.setItem(THEME_STORAGE_KEY, nextThemePreference);
   }
 
   function openMealDetails(meal: Meal) {
@@ -188,7 +202,16 @@ export function AppNavigator() {
       case 'profile':
         return <ProfileScreen t={t} profile={sampleProfile} onSettingsPress={() => setActiveScreen('settings')} />;
       case 'settings':
-        return <SettingsScreen t={t} language={language} themeMode={themeMode} onLanguageChange={changeLanguage} onThemeChange={changeTheme} />;
+        return (
+          <SettingsScreen
+            t={t}
+            language={language}
+            themePreference={themePreference}
+            resolvedTheme={resolvedTheme}
+            onLanguageChange={changeLanguage}
+            onThemeChange={changeTheme}
+          />
+        );
       default:
         return null;
     }
@@ -198,6 +221,7 @@ export function AppNavigator() {
   const showBack = hasOnboarded && !isMainTab(activeScreen);
   const layoutDirection = direction(language);
   const rtl = isRTL(language);
+  setActiveTheme(resolvedTheme);
   const palette = themeColors();
   const directionalText = {
     textAlign: textAlign(language),
@@ -208,7 +232,7 @@ export function AppNavigator() {
     return (
       <View style={[styles.root, { direction: layoutDirection, backgroundColor: palette.background }]}>
         <SplashScreen t={t} />
-        <StatusBar style={themeMode === 'dark' ? 'light' : 'dark'} />
+        <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
       </View>
     );
   }
@@ -238,7 +262,7 @@ export function AppNavigator() {
       </View>
 
       {showTabs ? <BottomTabs activeTab={activeTab} labels={tabLabels} onChange={selectTab} /> : null}
-      <StatusBar style={themeMode === 'dark' ? 'light' : 'dark'} />
+      <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
     </SafeAreaView>
   );
 }

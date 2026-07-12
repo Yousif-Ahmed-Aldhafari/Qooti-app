@@ -152,6 +152,7 @@ export const en = {
     theme: 'Theme',
     lightMode: 'Light Mode',
     darkMode: 'Dark Mode',
+    systemMode: 'System',
     english: 'English',
     arabic: 'Arabic',
     selected: 'Selected',

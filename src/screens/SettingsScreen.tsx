@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { AppCard } from '../components/AppCard';
 import { AppHeader } from '../components/AppHeader';
 import type { Translator } from '../i18n';
-import { themeColors, type ThemeMode } from '../theme/colors';
+import { themeColors, type ResolvedTheme, type ThemePreference } from '../theme/colors';
 import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
@@ -14,12 +14,13 @@ import { activeRowDirection, activeTextAlign, activeWritingDirection } from '../
 type SettingsScreenProps = {
   t: Translator;
   language: Language;
-  themeMode: ThemeMode;
+  themePreference: ThemePreference;
+  resolvedTheme: ResolvedTheme;
   onLanguageChange: (language: Language) => void;
-  onThemeChange: (themeMode: ThemeMode) => void;
+  onThemeChange: (themePreference: ThemePreference) => void;
 };
 
-export function SettingsScreen({ t, language, themeMode, onLanguageChange, onThemeChange }: SettingsScreenProps) {
+export function SettingsScreen({ t, language, themePreference, resolvedTheme, onLanguageChange, onThemeChange }: SettingsScreenProps) {
   const palette = themeColors();
   const directionalText = {
     textAlign: activeTextAlign(),
@@ -30,9 +31,10 @@ export function SettingsScreen({ t, language, themeMode, onLanguageChange, onThe
     { value: 'en', label: t('settings.english') },
     { value: 'ar', label: t('settings.arabic') },
   ];
-  const themeOptions: Array<{ value: ThemeMode; label: string }> = [
-    { value: 'light', label: t('settings.lightMode') },
-    { value: 'dark', label: t('settings.darkMode') },
+  const themeOptions: Array<{ value: ThemePreference; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
+    { value: 'light', label: t('settings.lightMode'), icon: 'sunny-outline' },
+    { value: 'dark', label: t('settings.darkMode'), icon: 'moon-outline' },
+    { value: 'system', label: t('settings.systemMode'), icon: 'phone-portrait-outline' },
   ];
 
   return (
@@ -78,7 +80,7 @@ export function SettingsScreen({ t, language, themeMode, onLanguageChange, onThe
         <Text style={[styles.about, directionalText, { color: palette.textMuted }]}>{t('settings.theme')}</Text>
         <View style={styles.options}>
           {themeOptions.map((option) => {
-            const selected = option.value === themeMode;
+            const selected = option.value === themePreference;
 
             return (
               <Pressable
@@ -96,11 +98,17 @@ export function SettingsScreen({ t, language, themeMode, onLanguageChange, onThe
                 ]}
               >
                 <View style={styles.optionIcon}>
-                  <Ionicons name={option.value === 'dark' ? 'moon-outline' : 'sunny-outline'} size={22} color={selected ? palette.accent : palette.textMuted} />
+                  <Ionicons name={option.icon} size={22} color={selected ? palette.accent : palette.textMuted} />
                 </View>
                 <View style={styles.optionCopy}>
                   <Text style={[styles.optionLabel, directionalText, { color: palette.text }]}>{option.label}</Text>
-                  {selected ? <Text style={[styles.optionMeta, directionalText, { color: palette.accent }]}>{t('settings.selected')}</Text> : null}
+                  {selected ? (
+                    <Text style={[styles.optionMeta, directionalText, { color: palette.accent }]}>
+                      {option.value === 'system'
+                        ? `${t('settings.selected')} - ${resolvedTheme === 'dark' ? t('settings.darkMode') : t('settings.lightMode')}`
+                        : t('settings.selected')}
+                    </Text>
+                  ) : null}
                 </View>
               </Pressable>
             );

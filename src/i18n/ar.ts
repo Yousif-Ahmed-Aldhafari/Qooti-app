@@ -152,6 +152,7 @@ export const ar = {
     theme: 'السمة',
     lightMode: 'الوضع الفاتح',
     darkMode: 'الوضع الداكن',
+    systemMode: 'النظام',
     english: 'English',
     arabic: 'العربية',
     selected: 'محدد',

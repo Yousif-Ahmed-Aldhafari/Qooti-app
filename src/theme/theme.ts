@@ -1,4 +1,7 @@
-export type ThemeMode = 'light' | 'dark';
+export type ResolvedTheme = 'light' | 'dark';
+export type ThemePreference = ResolvedTheme | 'system';
+export type ThemeMode = ResolvedTheme;
+export type SystemColorScheme = ResolvedTheme | null | undefined;
 
 export type ThemeColors = {
   background: string;
@@ -39,7 +42,7 @@ export type ThemeColors = {
 };
 
 export type AppTheme = {
-  mode: ThemeMode;
+  mode: ResolvedTheme;
   isDark: boolean;
   colors: ThemeColors;
 };
