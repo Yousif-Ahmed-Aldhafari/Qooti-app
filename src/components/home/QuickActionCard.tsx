@@ -5,7 +5,7 @@ import { themeColors } from '../../theme/colors';
 import { radius } from '../../theme/radius';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
-import { activeIsRTL, activeRowDirection, activeTextAlign, activeWritingDirection } from '../../utils/rtl';
+import { activeFlexStart, activeIsRTL, activeRowDirection, activeTextAlign, activeWritingDirection } from '../../utils/rtl';
 
 type QuickActionCardProps = {
   title: string;
@@ -35,8 +35,8 @@ export function QuickActionCard({ title, subtitle, actionLabel, icon, accent, on
           {subtitle}
         </Text>
       </View>
-      <View style={[styles.action, { flexDirection: activeRowDirection() }]}>
-        <Text style={styles.actionText} numberOfLines={1}>
+      <View style={[styles.action, { alignSelf: activeFlexStart(), flexDirection: activeRowDirection() }]}>
+        <Text style={[styles.actionText, { writingDirection: activeWritingDirection() }]} numberOfLines={1}>
           {actionLabel}
         </Text>
         <Ionicons name={rtl ? 'arrow-back' : 'arrow-forward'} size={20} color={colors.white} />
@@ -67,7 +67,6 @@ const styles = StyleSheet.create({
   },
   action: {
     minHeight: 36,
-    alignSelf: 'flex-start',
     alignItems: 'center',
     gap: spacing.sm,
     borderRadius: radius.pill,

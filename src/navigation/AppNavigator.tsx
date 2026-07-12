@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
+import { Alert, DevSettings, Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -128,9 +128,26 @@ export function AppNavigator() {
   }
 
   async function changeLanguage(nextLanguage: Language) {
-    applyRTL(nextLanguage);
+    const restartRequired = applyRTL(nextLanguage);
     setLanguage(nextLanguage);
     await AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, nextLanguage);
+
+    if (restartRequired) {
+      Alert.alert(
+        translate(nextLanguage, 'settings.restartTitle'),
+        translate(nextLanguage, 'settings.restartMessage'),
+        [
+          {
+            text: translate(nextLanguage, 'settings.restartAction'),
+            onPress: () => {
+              if (typeof DevSettings.reload === 'function') {
+                DevSettings.reload();
+              }
+            },
+          },
+        ],
+      );
+    }
   }
 
   async function changeTheme(nextThemePreference: ThemePreference) {

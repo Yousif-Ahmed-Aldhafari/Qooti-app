@@ -23,10 +23,21 @@ export function getRowDirection(language: Language): ViewStyle['flexDirection'] 
   return isRTLLanguage(language) ? 'row-reverse' : 'row';
 }
 
-export function applyAppDirection(language: Language): void {
+export function getFlexStart(language: Language): ViewStyle['alignSelf'] {
+  return isRTLLanguage(language) ? 'flex-end' : 'flex-start';
+}
+
+export function getFlexEnd(language: Language): ViewStyle['alignSelf'] {
+  return isRTLLanguage(language) ? 'flex-start' : 'flex-end';
+}
+
+export function applyAppDirection(language: Language): boolean {
   const shouldUseRTL = isRTLLanguage(language);
+  const restartRequired = I18nManager.isRTL !== shouldUseRTL;
 
   I18nManager.allowRTL(shouldUseRTL);
   I18nManager.forceRTL(shouldUseRTL);
   I18nManager.swapLeftAndRightInRTL(shouldUseRTL);
+
+  return restartRequired;
 }

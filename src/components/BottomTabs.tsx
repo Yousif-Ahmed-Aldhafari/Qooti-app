@@ -6,7 +6,7 @@ import { themeColors } from '../theme/colors';
 import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
-import { activeRowDirection } from '../utils/rtl';
+import { activeRowDirection, activeWritingDirection } from '../utils/rtl';
 
 type BottomTabsProps = {
   activeTab: TabKey;
@@ -35,7 +35,13 @@ export function BottomTabs({ activeTab, labels, onChange }: BottomTabsProps) {
             <View style={[styles.iconWrap, active ? { backgroundColor: colors.accent } : null]}>
               <Ionicons name={icons[tab]} size={20} color={active ? colors.buttonText : colors.textMuted} />
             </View>
-            <Text style={[styles.label, { color: active ? colors.accent : colors.textMuted }]} numberOfLines={1}>
+            <Text
+              style={[
+                styles.label,
+                { color: active ? colors.accent : colors.textMuted, writingDirection: activeWritingDirection() },
+              ]}
+              numberOfLines={1}
+            >
               {labels[tab]}
             </Text>
           </Pressable>

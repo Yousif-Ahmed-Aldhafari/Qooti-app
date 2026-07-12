@@ -3,6 +3,8 @@ import type { TextStyle, ViewStyle } from 'react-native';
 import { useApp } from '../store/AppContext';
 import {
   getDirection,
+  getFlexEnd,
+  getFlexStart,
   getRowDirection,
   getTextAlign,
   getWritingDirection,
@@ -17,8 +19,9 @@ export function useLanguage() {
   const textAlign = getTextAlign(language);
   const writingDirection = getWritingDirection(language);
   const rowDirection = getRowDirection(language);
-  const alignItems = (isRTL ? 'flex-end' : 'flex-start') as ViewStyle['alignItems'];
-  const alignSelf = (isRTL ? 'flex-end' : 'flex-start') as ViewStyle['alignSelf'];
+  const alignItems = getFlexStart(language) as ViewStyle['alignItems'];
+  const alignSelf = getFlexStart(language);
+  const alignEnd = getFlexEnd(language);
   const stretchAlignItems = 'stretch' as ViewStyle['alignItems'];
 
   return {
@@ -32,6 +35,7 @@ export function useLanguage() {
     rowDirection,
     alignItems,
     alignSelf,
+    alignEnd,
     directionStyle: { direction } as ViewStyle,
     contentDirectionStyle: { direction, alignItems: stretchAlignItems } as ViewStyle,
     textDirectionStyle: {
