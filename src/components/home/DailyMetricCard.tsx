@@ -27,7 +27,7 @@ export function DailyMetricCard({ title, value, subtitle, icon, accent, progress
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card }]}>
-      <Text style={[styles.title, directionalText, { color: colors.text }]} numberOfLines={1}>
+      <Text style={[styles.title, { color: colors.text, writingDirection: activeWritingDirection() }]} numberOfLines={1}>
         {title}
       </Text>
       {bars?.length ? (
@@ -67,14 +67,18 @@ const styles = StyleSheet.create({
   card: {
     flex: 1,
     minWidth: 116,
-    minHeight: 120,
+    minHeight: 156,
     borderRadius: radius.sm,
-    padding: spacing.md,
-    justifyContent: 'space-between',
+    padding: spacing.lg,
+    gap: spacing.sm,
   },
   title: {
     ...typography.body,
     fontWeight: '800',
+    textAlign: 'center',
+    alignSelf: 'center',
+    width: '100%',
+    marginBottom: spacing.xs,
   },
   ringOuter: {
     width: 68,
