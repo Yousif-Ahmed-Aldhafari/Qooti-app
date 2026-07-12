@@ -73,9 +73,9 @@ export function HomeScreen({ t, profile, meals, workouts, onAddMeal, onAddWorkou
     [rtl, selectedDateKey],
   );
   const periodOptions = [
-    { key: 'today' as const, label: t('home.period.today'), accent: colors.lavender },
-    { key: 'week' as const, label: t('home.period.week'), accent: colors.orange },
-    { key: 'month' as const, label: t('home.period.month'), accent: colors.blue },
+    { key: 'today' as const, label: t('home.period.today') },
+    { key: 'week' as const, label: t('home.period.week') },
+    { key: 'month' as const, label: t('home.period.month') },
   ];
   const macroBars = [
     progressRatio(totals.protein, proteinTarget) * 100,
