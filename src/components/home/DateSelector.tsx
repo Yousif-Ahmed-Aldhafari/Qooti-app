@@ -4,7 +4,7 @@ import { themeColors } from '../../theme/colors';
 import { radius } from '../../theme/radius';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
-import { activeRowDirection, activeWritingDirection } from '../../utils/rtl';
+import { activeRowStyle, activeWritingDirection } from '../../utils/rtl';
 
 export type DateOption = {
   key: string;
@@ -25,7 +25,7 @@ export function DateSelector({ title, dates, selectedDate, onSelect }: DateSelec
   return (
     <View style={styles.wrap}>
       <Text style={[styles.title, { color: colors.text, writingDirection }]}>{title}</Text>
-      <View style={[styles.row, { flexDirection: activeRowDirection() }]}>
+      <View style={[styles.row, activeRowStyle()]}>
         {dates.map((date) => {
           const selected = date.key === selectedDate;
 

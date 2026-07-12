@@ -10,7 +10,7 @@ import { themeColors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import type { Meal } from '../types';
 import { parseInputNumber } from '../utils/nutrition';
-import { activeRowDirection } from '../utils/rtl';
+import { activeRowStyle } from '../utils/rtl';
 
 type AddMealScreenProps = {
   t: Translator;
@@ -58,11 +58,11 @@ export function AddMealScreen({ t, onSave }: AddMealScreenProps) {
       <AppCard>
         <AppInput label={t('meals.mealName')} placeholder={t('meals.mealNamePlaceholder')} value={mealName} onChangeText={setMealName} />
         <AppInput label={t('meals.foodName')} placeholder={t('meals.foodPlaceholder')} value={foodName} onChangeText={setFoodName} />
-        <View style={[styles.row, { flexDirection: activeRowDirection() }]}>
+        <View style={[styles.row, activeRowStyle()]}>
           <AppInput label={t('meals.quantity')} keyboardType="decimal-pad" value={quantity} onChangeText={setQuantity} style={styles.input} />
           <AppInput label={t('meals.calories')} keyboardType="decimal-pad" value={calories} onChangeText={setCalories} style={styles.input} />
         </View>
-        <View style={[styles.row, { flexDirection: activeRowDirection() }]}>
+        <View style={[styles.row, activeRowStyle()]}>
           <AppInput label={t('meals.protein')} keyboardType="decimal-pad" value={protein} onChangeText={setProtein} style={styles.input} />
           <AppInput label={t('meals.carbs')} keyboardType="decimal-pad" value={carbs} onChangeText={setCarbs} style={styles.input} />
           <AppInput label={t('meals.fats')} keyboardType="decimal-pad" value={fats} onChangeText={setFats} style={styles.input} />

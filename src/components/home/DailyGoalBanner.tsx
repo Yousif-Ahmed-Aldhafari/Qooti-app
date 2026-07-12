@@ -5,7 +5,7 @@ import { getActiveTheme, themeColors } from '../../theme/colors';
 import { radius } from '../../theme/radius';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
-import { activeIsRTL, activeRowDirection, activeTextAlign, activeWritingDirection } from '../../utils/rtl';
+import { activeFlexStart, activeRowStyle, activeTextAlign, activeWritingDirection } from '../../utils/rtl';
 
 type DailyGoalBannerProps = {
   title: string;
@@ -18,7 +18,6 @@ type DailyGoalBannerProps = {
 export function DailyGoalBanner({ title, calorieValue, proteinValue, mealsValue, workoutValue }: DailyGoalBannerProps) {
   const colors = themeColors();
   const theme = getActiveTheme();
-  const rtl = activeIsRTL();
   const directionalText = {
     textAlign: activeTextAlign(),
     writingDirection: activeWritingDirection(),
@@ -28,13 +27,13 @@ export function DailyGoalBanner({ title, calorieValue, proteinValue, mealsValue,
     <View style={[styles.card, { backgroundColor: theme.isDark ? colors.black : colors.accentDark }]}>
       <View style={styles.accentPanel} />
       <View style={styles.accentStripe} />
-      <View style={[styles.content, { alignSelf: rtl ? 'flex-end' : 'flex-start' }]}>
+      <View style={[styles.content, { alignSelf: activeFlexStart() }]}>
         <Text style={[styles.title, directionalText]}>{title}</Text>
-        <View style={[styles.metrics, { flexDirection: activeRowDirection() }]}>
+        <View style={[styles.metrics, activeRowStyle()]}>
           <BannerMetric icon="flame" value={calorieValue} color={colors.orange} />
           <BannerMetric icon="nutrition-outline" value={proteinValue} color={colors.accent} />
         </View>
-        <View style={[styles.metrics, { flexDirection: activeRowDirection() }]}>
+        <View style={[styles.metrics, activeRowStyle()]}>
           <BannerMetric icon="restaurant-outline" value={mealsValue} color={colors.lavender} />
           <BannerMetric icon="barbell-outline" value={workoutValue} color={colors.blue} />
         </View>
@@ -48,7 +47,7 @@ export function DailyGoalBanner({ title, calorieValue, proteinValue, mealsValue,
 
 function BannerMetric({ icon, value, color }: { icon: keyof typeof Ionicons.glyphMap; value: string; color: string }) {
   return (
-    <View style={[styles.bannerMetric, { flexDirection: activeRowDirection() }]}>
+    <View style={[styles.bannerMetric, activeRowStyle()]}>
       <Ionicons name={icon} size={16} color={color} />
       <Text style={styles.metricText} numberOfLines={1}>
         {value}

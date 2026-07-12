@@ -10,7 +10,7 @@ import { themeColors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import type { Workout } from '../types';
 import { parseInputNumber } from '../utils/nutrition';
-import { activeRowDirection } from '../utils/rtl';
+import { activeRowStyle } from '../utils/rtl';
 
 type AddWorkoutScreenProps = {
   t: Translator;
@@ -58,11 +58,11 @@ export function AddWorkoutScreen({ t, onSave }: AddWorkoutScreenProps) {
       <AppCard>
         <AppInput label={t('workouts.workoutName')} placeholder={t('workouts.workoutPlaceholder')} value={workoutName} onChangeText={setWorkoutName} />
         <AppInput label={t('workouts.exerciseName')} placeholder={t('workouts.exercisePlaceholder')} value={exerciseName} onChangeText={setExerciseName} />
-        <View style={[styles.row, { flexDirection: activeRowDirection() }]}>
+        <View style={[styles.row, activeRowStyle()]}>
           <AppInput label={t('workouts.sets')} keyboardType="number-pad" value={sets} onChangeText={setSets} style={styles.input} />
           <AppInput label={t('workouts.reps')} keyboardType="number-pad" value={reps} onChangeText={setReps} style={styles.input} />
         </View>
-        <View style={[styles.row, { flexDirection: activeRowDirection() }]}>
+        <View style={[styles.row, activeRowStyle()]}>
           <AppInput label={t('workouts.weight')} keyboardType="decimal-pad" value={weight} onChangeText={setWeight} style={styles.input} />
           <AppInput label={t('workouts.duration')} keyboardType="decimal-pad" value={duration} onChangeText={setDuration} style={styles.input} />
         </View>

@@ -15,7 +15,7 @@ import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import type { Meal, UserProfile, Workout } from '../types';
 import { calculateDailyNutrition, progressRatio, workoutMinutes } from '../utils/nutrition';
-import { activeIsRTL, activeRowDirection, activeTextAlign, activeWritingDirection } from '../utils/rtl';
+import { activeIsRTL, activeRowStyle, activeTextAlign, activeWritingDirection } from '../utils/rtl';
 
 type HomeScreenProps = {
   t: Translator;
@@ -117,7 +117,7 @@ export function HomeScreen({ t, profile, meals, workouts, onAddMeal, onAddWorkou
 
       <PeriodSelector options={periodOptions} selected={period} onChange={setPeriod} />
 
-      <View style={[styles.metricRow, { flexDirection: activeRowDirection() }]}>
+      <View style={[styles.metricRow, activeRowStyle()]}>
         <DailyMetricCard
           title={t('home.metrics.calories')}
           value={`${Math.round(totals.calories)} / ${calorieTarget}`}
@@ -152,7 +152,7 @@ export function HomeScreen({ t, profile, meals, workouts, onAddMeal, onAddWorkou
       />
 
       <Text style={[styles.sectionTitle, directionalText, { color: colors.text }]}>{t('home.todayPlan')}</Text>
-      <View style={[styles.quickRow, { flexDirection: activeRowDirection() }]}>
+      <View style={[styles.quickRow, activeRowStyle()]}>
         <QuickActionCard
           title={t('home.addMeal')}
           subtitle={t('home.addMealSubtitle')}
@@ -335,7 +335,7 @@ function buildDateOptions(center: Date, rtl: boolean): DateOption[] {
     };
   });
 
-  return rtl ? dates.reverse() : dates;
+  return dates;
 }
 
 function formatMonthYear(date: Date, rtl: boolean): string {

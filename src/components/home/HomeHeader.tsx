@@ -5,7 +5,7 @@ import { themeColors } from '../../theme/colors';
 import { radius } from '../../theme/radius';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
-import { activeRowDirection, activeTextAlign, activeWritingDirection } from '../../utils/rtl';
+import { activeRowStyle, activeTextAlign, activeWritingDirection } from '../../utils/rtl';
 
 type HomeHeaderProps = {
   avatarInitials: string;
@@ -22,8 +22,8 @@ export function HomeHeader({ avatarInitials, greeting, subtitle, onActionPress }
   } as const;
 
   return (
-    <View style={[styles.wrap, { flexDirection: activeRowDirection() }]}>
-      <View style={[styles.identity, { flexDirection: activeRowDirection() }]}>
+    <View style={[styles.wrap, activeRowStyle()]}>
+      <View style={[styles.identity, activeRowStyle()]}>
         <View style={[styles.avatar, { backgroundColor: colors.orange }]}>
           <Text style={[styles.avatarText, { color: colors.black }]}>{avatarInitials}</Text>
         </View>

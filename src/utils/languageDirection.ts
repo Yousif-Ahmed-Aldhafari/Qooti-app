@@ -20,15 +20,30 @@ export function getWritingDirection(language: Language): TextStyle['writingDirec
 }
 
 export function getRowDirection(language: Language): ViewStyle['flexDirection'] {
-  return isRTLLanguage(language) ? 'row-reverse' : 'row';
+  return 'row';
+}
+
+export function getRowStyle(language: Language): ViewStyle {
+  return {
+    direction: getDirection(language),
+    flexDirection: getRowDirection(language),
+  };
 }
 
 export function getFlexStart(language: Language): ViewStyle['alignSelf'] {
-  return isRTLLanguage(language) ? 'flex-end' : 'flex-start';
+  return 'flex-start';
 }
 
 export function getFlexEnd(language: Language): ViewStyle['alignSelf'] {
-  return isRTLLanguage(language) ? 'flex-start' : 'flex-end';
+  return 'flex-end';
+}
+
+export function getAlignItems(language: Language): ViewStyle['alignItems'] {
+  return 'flex-start';
+}
+
+export function getOppositeAlignItems(language: Language): ViewStyle['alignItems'] {
+  return 'flex-end';
 }
 
 export function applyAppDirection(language: Language): boolean {

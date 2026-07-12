@@ -4,7 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { themeColors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
-import { activeRowDirection, activeTextAlign, activeWritingDirection } from '../utils/rtl';
+import { activeRowStyle, activeTextAlign, activeWritingDirection } from '../utils/rtl';
 
 type AppHeaderProps = {
   title: string;
@@ -20,7 +20,7 @@ export function AppHeader({ title, subtitle, action }: AppHeaderProps) {
   } as const;
 
   return (
-    <View style={[styles.header, { flexDirection: activeRowDirection() }]}>
+    <View style={[styles.header, activeRowStyle()]}>
       <View style={styles.copy}>
         <Text style={[styles.title, directionalText, { color: colors.text }]}>{title}</Text>
         {subtitle ? <Text style={[styles.subtitle, directionalText, { color: colors.textMuted }]}>{subtitle}</Text> : null}

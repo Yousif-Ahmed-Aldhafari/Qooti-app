@@ -6,7 +6,7 @@ import { themeColors } from '../theme/colors';
 import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
-import { activeRowDirection, activeWritingDirection } from '../utils/rtl';
+import { activeRowStyle, activeWritingDirection } from '../utils/rtl';
 
 type BottomTabsProps = {
   activeTab: TabKey;
@@ -27,7 +27,7 @@ const tabs: TabKey[] = ['home', 'meals', 'workouts', 'progress', 'profile'];
 export function BottomTabs({ activeTab, labels, onChange }: BottomTabsProps) {
   const colors = themeColors();
   return (
-    <View style={[styles.wrap, { flexDirection: activeRowDirection(), backgroundColor: colors.tabBar, borderColor: colors.border, shadowColor: colors.shadow }]}>
+    <View style={[styles.wrap, activeRowStyle(), { backgroundColor: colors.tabBar, borderColor: colors.border, shadowColor: colors.shadow }]}>
       {tabs.map((tab) => {
         const active = tab === activeTab;
         return (

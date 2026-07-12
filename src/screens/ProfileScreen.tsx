@@ -11,7 +11,7 @@ import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import type { UserProfile } from '../types';
-import { activeRowDirection, activeTextAlign, activeWritingDirection } from '../utils/rtl';
+import { activeRowStyle, activeTextAlign, activeWritingDirection } from '../utils/rtl';
 
 type ProfileScreenProps = {
   t: Translator;
@@ -35,7 +35,7 @@ export function ProfileScreen({ t, profile, onSettingsPress }: ProfileScreenProp
       />
 
       <AppCard>
-        <View style={[styles.profileRow, { flexDirection: activeRowDirection() }]}>
+        <View style={[styles.profileRow, activeRowStyle()]}>
           <View style={[styles.avatar, { backgroundColor: colors.accent }]}>
             <Text style={[styles.avatarText, { color: colors.buttonText }]}>{profile.avatarInitials}</Text>
           </View>
@@ -49,13 +49,13 @@ export function ProfileScreen({ t, profile, onSettingsPress }: ProfileScreenProp
         <Text style={[styles.goal, directionalText, { color: colors.text }]}>{profile.goal}</Text>
       </AppCard>
 
-      <View style={[styles.statsRow, { flexDirection: activeRowDirection() }]}>
+      <View style={[styles.statsRow, activeRowStyle()]}>
         <StatCard label={t('profile.height')} value={`${profile.heightCm} ${t('common.cm')}`} />
         <StatCard label={t('profile.weight')} value={`${profile.weightKg} ${t('common.kg')}`} accent={colors.lavender} />
       </View>
 
       <Text style={[styles.sectionTitle, directionalText, { color: colors.text }]}>{t('profile.targets')}</Text>
-      <View style={[styles.grid, { flexDirection: activeRowDirection() }]}>
+      <View style={[styles.grid, activeRowStyle()]}>
         <MacroCard label={t('common.calories')} value={profile.targetCalories} target={profile.targetCalories} unit={t('common.kcal')} />
         <MacroCard label={t('common.protein')} value={profile.targetProtein} target={profile.targetProtein} unit={t('common.grams')} accent={colors.purple} />
         <MacroCard label={t('common.carbs')} value={profile.targetCarbs} target={profile.targetCarbs} unit={t('common.grams')} accent={colors.lavender} />

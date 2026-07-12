@@ -9,7 +9,7 @@ import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import type { Meal, UserProfile } from '../types';
 import { calculateMealTotals } from '../utils/nutrition';
-import { activeRowDirection, activeTextAlign, activeWritingDirection } from '../utils/rtl';
+import { activeRowStyle, activeTextAlign, activeWritingDirection } from '../utils/rtl';
 
 type MealDetailsScreenProps = {
   t: Translator;
@@ -28,7 +28,7 @@ export function MealDetailsScreen({ t, meal, profile }: MealDetailsScreenProps) 
   return (
     <ScrollView style={[styles.screen, { backgroundColor: colors.background }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <AppHeader title={meal.title} subtitle={t('meals.detailsTitle')} />
-      <View style={[styles.grid, { flexDirection: activeRowDirection() }]}>
+      <View style={[styles.grid, activeRowStyle()]}>
         <MacroCard label={t('common.calories')} value={totals.calories} target={profile.targetCalories} unit={t('common.kcal')} />
         <MacroCard label={t('common.protein')} value={totals.protein} target={profile.targetProtein} unit={t('common.grams')} accent={colors.purple} />
         <MacroCard label={t('common.carbs')} value={totals.carbs} target={profile.targetCarbs} unit={t('common.grams')} accent={colors.lavender} />

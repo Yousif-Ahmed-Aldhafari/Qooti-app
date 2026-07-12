@@ -6,7 +6,7 @@ import { themeColors } from '../theme/colors';
 import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
-import { activeRowDirection, activeTextAlign, activeWritingDirection } from '../utils/rtl';
+import { activeRowStyle, activeTextAlign, activeWritingDirection } from '../utils/rtl';
 
 type WorkoutCardProps = {
   workout: Workout;
@@ -29,7 +29,8 @@ export function WorkoutCard({ workout, minutesLabel, exerciseLabel, onPress }: W
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
-        { flexDirection: activeRowDirection(), backgroundColor: colors.card, opacity: pressed ? 0.78 : 1 },
+        activeRowStyle(),
+        { backgroundColor: colors.card, opacity: pressed ? 0.78 : 1 },
       ]}
     >
       <View style={[styles.icon, { backgroundColor: colors.purple }]}>

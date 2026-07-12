@@ -10,7 +10,7 @@ import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import type { ProgressEntry, UserProfile } from '../types';
-import { activeRowDirection, activeTextAlign, activeWritingDirection } from '../utils/rtl';
+import { activeRowStyle, activeTextAlign, activeWritingDirection } from '../utils/rtl';
 
 type ProgressScreenProps = {
   t: Translator;
@@ -35,14 +35,14 @@ export function ProgressScreen({ t, profile, progress }: ProgressScreenProps) {
     <ScrollView style={[styles.screen, { backgroundColor: colors.background }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <AppHeader title={t('progress.title')} subtitle={t('progress.subtitle')} />
 
-      <View style={[styles.statsRow, { flexDirection: activeRowDirection() }]}>
+      <View style={[styles.statsRow, activeRowStyle()]}>
         <StatCard label={t('progress.averageCalories')} value={`${averageCalories} ${t('common.kcal')}`} />
         <StatCard label={t('progress.workoutDays')} value={workoutDays} accent={colors.purple} />
       </View>
 
       <AppCard>
         <Text style={[styles.sectionTitle, directionalText, { color: colors.text }]}>{t('progress.weeklyTrend')}</Text>
-        <View style={[styles.chart, { flexDirection: activeRowDirection() }]}>
+        <View style={[styles.chart, activeRowStyle()]}>
           {progress.map((entry) => (
             <View key={entry.id} style={styles.barColumn}>
               <View style={[styles.barTrack, { backgroundColor: colors.cardMuted }]}>
@@ -54,7 +54,7 @@ export function ProgressScreen({ t, profile, progress }: ProgressScreenProps) {
         </View>
       </AppCard>
 
-      <View style={[styles.progressRow, { flexDirection: activeRowDirection() }]}>
+      <View style={[styles.progressRow, activeRowStyle()]}>
         <ProgressCard
           title={t('progress.weight')}
           value={`${latest?.weightKg ?? profile.weightKg} ${t('common.kg')}`}

@@ -5,7 +5,7 @@ import { themeColors } from '../../theme/colors';
 import { radius } from '../../theme/radius';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
-import { activeIsRTL, activeRowDirection, activeTextAlign, activeWritingDirection } from '../../utils/rtl';
+import { activeIsRTL, activeRowStyle, activeTextAlign, activeWritingDirection } from '../../utils/rtl';
 
 export type HomeActivity = {
   id: string;
@@ -33,7 +33,7 @@ export function LatestActivityList({ title, emptyTitle, activities }: LatestActi
 
   return (
     <View style={styles.wrap}>
-      <View style={[styles.headingRow, { flexDirection: activeRowDirection() }]}>
+      <View style={[styles.headingRow, activeRowStyle()]}>
         <Text style={[styles.heading, directionalText, { color: colors.text }]}>{title}</Text>
         <View style={[styles.headingAction, { borderColor: colors.text }]}>
           <Ionicons name={rtl ? 'arrow-back' : 'arrow-forward'} size={20} color={colors.orange} />
@@ -48,7 +48,8 @@ export function LatestActivityList({ title, emptyTitle, activities }: LatestActi
             onPress={activity.onPress}
             style={({ pressed }) => [
               styles.activity,
-              { flexDirection: activeRowDirection(), backgroundColor: colors.card, opacity: pressed ? 0.76 : 1 },
+              activeRowStyle(),
+              { backgroundColor: colors.card, opacity: pressed ? 0.76 : 1 },
             ]}
           >
             <View style={[styles.icon, { backgroundColor: activity.accent }]}>

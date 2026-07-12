@@ -7,7 +7,7 @@ import { themeColors } from '../theme/colors';
 import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
-import { activeIsRTL, activeRowDirection, activeWritingDirection } from '../utils/rtl';
+import { activeIsRTL, activeRowStyle, activeWritingDirection } from '../utils/rtl';
 
 type AppButtonProps = {
   title: string;
@@ -49,7 +49,8 @@ export function AppButton({ title, onPress, icon, variant = 'primary', style }: 
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
-        { backgroundColor: palette.background, borderColor: palette.border, flexDirection: activeRowDirection(), opacity: pressed ? 0.78 : 1 },
+        { backgroundColor: palette.background, borderColor: palette.border, opacity: pressed ? 0.78 : 1 },
+        activeRowStyle(),
         style,
       ]}
     >

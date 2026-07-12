@@ -5,7 +5,7 @@ import { themeColors } from '../../theme/colors';
 import { radius } from '../../theme/radius';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
-import { activeFlexStart, activeIsRTL, activeRowDirection, activeTextAlign, activeWritingDirection } from '../../utils/rtl';
+import { activeFlexStart, activeIsRTL, activeRowStyle, activeTextAlign, activeWritingDirection } from '../../utils/rtl';
 
 type QuickActionCardProps = {
   title: string;
@@ -35,7 +35,7 @@ export function QuickActionCard({ title, subtitle, actionLabel, icon, accent, on
           {subtitle}
         </Text>
       </View>
-      <View style={[styles.action, { alignSelf: activeFlexStart(), flexDirection: activeRowDirection() }]}>
+      <View style={[styles.action, activeRowStyle(), { alignSelf: activeFlexStart() }]}>
         <Text style={[styles.actionText, { writingDirection: activeWritingDirection() }]} numberOfLines={1}>
           {actionLabel}
         </Text>

@@ -7,7 +7,7 @@ import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import { calculateMealTotals } from '../utils/nutrition';
-import { activeRowDirection, activeTextAlign, activeWritingDirection } from '../utils/rtl';
+import { activeRowStyle, activeTextAlign, activeWritingDirection } from '../utils/rtl';
 
 type MealCardProps = {
   meal: Meal;
@@ -30,7 +30,8 @@ export function MealCard({ meal, caloriesLabel, itemLabel, onPress }: MealCardPr
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
-        { flexDirection: activeRowDirection(), backgroundColor: colors.card, opacity: pressed ? 0.78 : 1 },
+        activeRowStyle(),
+        { backgroundColor: colors.card, opacity: pressed ? 0.78 : 1 },
       ]}
     >
       <View style={[styles.icon, { backgroundColor: colors.accent }]}>

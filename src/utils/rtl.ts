@@ -33,26 +33,48 @@ export function writingDirection(language: Language): TextStyle['writingDirectio
 }
 
 export function rowDirection(language: Language): ViewStyle['flexDirection'] {
-  return isRTL(language) ? 'row-reverse' as const : 'row' as const;
+  return 'row';
+}
+
+export function rowStyle(language: Language): ViewStyle {
+  return {
+    direction: direction(language),
+    flexDirection: rowDirection(language),
+  };
 }
 
 export function flexStart(language: Language): ViewStyle['alignSelf'] {
-  return isRTL(language) ? 'flex-end' as const : 'flex-start' as const;
+  return 'flex-start';
 }
 
 export function flexEnd(language: Language): ViewStyle['alignSelf'] {
-  return isRTL(language) ? 'flex-start' as const : 'flex-end' as const;
+  return 'flex-end';
+}
+
+export function alignItemsStart(language: Language): ViewStyle['alignItems'] {
+  return 'flex-start';
+}
+
+export function alignItemsEnd(language: Language): ViewStyle['alignItems'] {
+  return 'flex-end';
 }
 
 export const getDirection = direction;
 export const getTextAlign = textAlign;
 export const getWritingDirection = writingDirection;
 export const getRowDirection = rowDirection;
+export const getRowStyle = rowStyle;
 export const getFlexStart = flexStart;
 export const getFlexEnd = flexEnd;
+export const getAlignItems = alignItemsStart;
+export const getOppositeAlignItems = alignItemsEnd;
 
 export function activeIsRTL(): boolean {
   return isRTL(activeLanguage);
+}
+
+export function activeDirection() {
+  return direction(activeLanguage);
 }
 
 export function activeTextAlign() {
@@ -65,6 +87,10 @@ export function activeWritingDirection() {
 
 export function activeRowDirection() {
   return rowDirection(activeLanguage);
+}
+
+export function activeRowStyle() {
+  return rowStyle(activeLanguage);
 }
 
 export function activeFlexStart() {

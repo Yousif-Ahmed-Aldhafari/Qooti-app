@@ -6,6 +6,7 @@ import {
   getFlexEnd,
   getFlexStart,
   getRowDirection,
+  getRowStyle,
   getTextAlign,
   getWritingDirection,
   isRTLLanguage,
@@ -45,6 +46,6 @@ export function useLanguage() {
       writingDirection,
       width: '100%',
     } as TextStyle,
-    rowDirectionStyle: { direction, flexDirection: rowDirection } as ViewStyle,
+    rowDirectionStyle: getRowStyle(language),
   };
 }

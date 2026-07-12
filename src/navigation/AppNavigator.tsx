@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, DevSettings, Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
+import { Alert, DevSettings, I18nManager, Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -31,7 +31,7 @@ import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import type { Language, Meal, ScreenKey, TabKey, Workout } from '../types';
-import { applyRTL, direction, isRTL, rowDirection, textAlign, writingDirection } from '../utils/rtl';
+import { applyRTL, direction, isRTL, rowStyle, textAlign, writingDirection } from '../utils/rtl';
 
 const LANGUAGE_STORAGE_KEY = '@qooti/language';
 const ONBOARDING_STORAGE_KEY = '@qooti/hasOnboarded';
@@ -41,6 +41,18 @@ const mainTabs: TabKey[] = ['home', 'meals', 'workouts', 'progress', 'profile'];
 
 function isMainTab(screen: ScreenKey): screen is TabKey {
   return mainTabs.includes(screen as TabKey);
+}
+
+function logDirectionDebug(selectedLanguage: Language) {
+  if (!__DEV__) {
+    return;
+  }
+
+  const shouldBeRTL = isRTL(selectedLanguage);
+  console.log('selectedLanguage:', selectedLanguage);
+  console.log('isRTL:', shouldBeRTL);
+  console.log('I18nManager.isRTL:', I18nManager.isRTL);
+  console.log('resolved direction:', shouldBeRTL ? 'rtl' : 'ltr');
 }
 
 export function AppNavigator() {
@@ -94,6 +106,7 @@ export function AppNavigator() {
         : 'system';
 
       applyRTL(nextLanguage);
+      logDirectionDebug(nextLanguage);
 
       if (mounted) {
         setLanguage(nextLanguage);
@@ -129,6 +142,7 @@ export function AppNavigator() {
 
   async function changeLanguage(nextLanguage: Language) {
     const restartRequired = applyRTL(nextLanguage);
+    logDirectionDebug(nextLanguage);
     setLanguage(nextLanguage);
     await AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, nextLanguage);
 
@@ -264,8 +278,8 @@ export function AppNavigator() {
             style={({ pressed }) => [
               styles.backButton,
               {
-                alignSelf: rtl ? 'flex-end' : 'flex-start',
-                flexDirection: rowDirection(language),
+                alignSelf: 'flex-start',
+                ...rowStyle(language),
                 backgroundColor: palette.cardMuted,
                 opacity: pressed ? 0.72 : 1,
               },

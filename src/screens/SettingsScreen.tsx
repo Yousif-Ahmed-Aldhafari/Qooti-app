@@ -9,7 +9,7 @@ import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import type { Language } from '../types';
-import { activeRowDirection, activeTextAlign, activeWritingDirection } from '../utils/rtl';
+import { activeRowStyle, activeTextAlign, activeWritingDirection } from '../utils/rtl';
 
 type SettingsScreenProps = {
   t: Translator;
@@ -55,7 +55,7 @@ export function SettingsScreen({ t, language, themePreference, resolvedTheme, on
                 style={({ pressed }) => [
                   styles.option,
                   {
-                    flexDirection: activeRowDirection(),
+                    ...activeRowStyle(),
                     borderColor: selected ? palette.accent : palette.border,
                     backgroundColor: palette.cardMuted,
                     opacity: pressed ? 0.78 : 1,
@@ -90,7 +90,7 @@ export function SettingsScreen({ t, language, themePreference, resolvedTheme, on
                 style={({ pressed }) => [
                   styles.option,
                   {
-                    flexDirection: activeRowDirection(),
+                    ...activeRowStyle(),
                     borderColor: selected ? palette.accent : palette.border,
                     backgroundColor: palette.cardMuted,
                     opacity: pressed ? 0.78 : 1,

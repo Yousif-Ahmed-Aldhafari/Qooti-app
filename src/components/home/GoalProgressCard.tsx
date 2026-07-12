@@ -5,7 +5,7 @@ import { themeColors } from '../../theme/colors';
 import { radius } from '../../theme/radius';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
-import { activeFlexStart, activeRowDirection, activeTextAlign, activeWritingDirection } from '../../utils/rtl';
+import { activeFlexStart, activeRowStyle, activeTextAlign, activeWritingDirection } from '../../utils/rtl';
 
 const onGoalCard = '#111412';
 
@@ -28,9 +28,9 @@ export function GoalProgressCard({ title, target, percentLabel, remaining, progr
 
   return (
     <View style={[styles.card, { backgroundColor: accent }]}>
-      <View style={[styles.header, { flexDirection: activeRowDirection() }]}>
+      <View style={[styles.header, activeRowStyle()]}>
         <Text style={[styles.title, directionalText]}>{title}</Text>
-        <View style={[styles.targetRow, { flexDirection: activeRowDirection() }]}>
+        <View style={[styles.targetRow, activeRowStyle()]}>
           <Ionicons name="calendar-outline" size={16} color={colors.black} />
           <Text style={styles.target}>{target}</Text>
         </View>

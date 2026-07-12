@@ -4,7 +4,7 @@ import { themeColors } from '../../theme/colors';
 import { radius } from '../../theme/radius';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
-import { activeRowDirection, activeWritingDirection } from '../../utils/rtl';
+import { activeRowStyle, activeWritingDirection } from '../../utils/rtl';
 
 export type PeriodKey = 'today' | 'week' | 'month';
 
@@ -62,7 +62,7 @@ export function PeriodFilterButton({ label, value, selected, onPress }: PeriodFi
 
 export function PeriodSelector({ options, selected, onChange }: PeriodSelectorProps) {
   return (
-    <View style={[styles.wrap, { flexDirection: activeRowDirection() }]}>
+    <View style={[styles.wrap, activeRowStyle()]}>
       {options.map((option) => (
         <PeriodFilterButton
           key={option.key}
