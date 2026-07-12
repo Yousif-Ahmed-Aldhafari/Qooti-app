@@ -1,7 +1,7 @@
-import ar from './ar.json';
-import en from './en.json';
-import type { Language } from '../models/settings';
-import { isRTLLanguage } from '../utils/languageDirection';
+import type { Language } from '../types';
+import { isRTL } from '../utils/rtl';
+import { ar } from './ar';
+import { en } from './en';
 
 type Dictionary = Record<string, unknown>;
 
@@ -11,7 +11,7 @@ const dictionaries: Record<Language, Dictionary> = {
 };
 
 export const supportedLanguages: Language[] = ['en', 'ar'];
-export { isRTLLanguage };
+export const isRTLLanguage = isRTL;
 
 function readPath(dictionary: Dictionary, key: string): string | undefined {
   const value = key.split('.').reduce<unknown>((current, part) => {
@@ -37,7 +37,7 @@ export function translate(
     return template;
   }
 
-  return template.replace(/\{\{(\w+)\}\}/g, (_, token: string) =>
-    String(values[token] ?? ''),
-  );
+  return template.replace(/\{\{(\w+)\}\}/g, (_, token: string) => String(values[token] ?? ''));
 }
+
+export type Translator = (key: string, values?: Record<string, string | number>) => string;

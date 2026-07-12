@@ -1,0 +1,54 @@
+import { ScrollView, StyleSheet, Text } from 'react-native';
+
+import { AppButton } from '../components/AppButton';
+import { AppHeader } from '../components/AppHeader';
+import { WorkoutCard } from '../components/WorkoutCard';
+import type { Translator } from '../i18n';
+import { colors } from '../theme/colors';
+import { spacing } from '../theme/spacing';
+import { typography } from '../theme/typography';
+import type { Workout } from '../types';
+import { activeTextAlign, activeWritingDirection } from '../utils/rtl';
+
+type WorkoutsScreenProps = {
+  t: Translator;
+  workouts: Workout[];
+  onAddWorkout: () => void;
+  onWorkoutPress: (workout: Workout) => void;
+};
+
+export function WorkoutsScreen({ t, workouts, onAddWorkout, onWorkoutPress }: WorkoutsScreenProps) {
+  const directionalText = {
+    textAlign: activeTextAlign(),
+    writingDirection: activeWritingDirection(),
+  } as const;
+
+  return (
+    <ScrollView style={styles.screen} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <AppHeader title={t('workouts.title')} subtitle={t('workouts.subtitle')} action={<AppButton title={t('common.add')} icon="add" onPress={onAddWorkout} />} />
+      {workouts.length ? (
+        workouts.map((workout) => (
+          <WorkoutCard key={workout.id} workout={workout} minutesLabel={t('common.minutes')} exerciseLabel={t('workouts.exerciseLabel')} onPress={() => onWorkoutPress(workout)} />
+        ))
+      ) : (
+        <Text style={[styles.empty, directionalText]}>{t('workouts.emptyMessage')}</Text>
+      )}
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  content: {
+    padding: spacing.xl,
+    paddingBottom: 120,
+    gap: spacing.lg,
+  },
+  empty: {
+    ...typography.body,
+    color: colors.textMuted,
+  },
+});

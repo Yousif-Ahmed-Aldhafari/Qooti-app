@@ -22,6 +22,30 @@ export type AppTheme = {
   };
 };
 
+export const colors = {
+  background: '#181A1B',
+  backgroundElevated: '#202324',
+  card: '#3E4041',
+  cardSoft: '#2B2E30',
+  cardMuted: '#26292A',
+  text: '#FFFFFF',
+  textSecondary: '#C6C7C8',
+  textMuted: '#A3A3A3',
+  border: '#4B4E50',
+  accent: '#D0FF63',
+  limeSoft: '#E3F28C',
+  accentDark: '#9EDB26',
+  purple: '#8C96F2',
+  lavender: '#D4B9EF',
+  orange: '#FFB85C',
+  blue: '#66D9EF',
+  green: '#5CE1A8',
+  red: '#FF6B7A',
+  black: '#0D0F10',
+  white: '#FFFFFF',
+  shadow: '#000000',
+} as const;
+
 export const lightTheme: AppTheme = {
   isDark: false,
   colors: {
