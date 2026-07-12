@@ -53,11 +53,19 @@ export function HomeScreen({ t, profile, meals, workouts, onAddMeal, onAddWorkou
 
   const totals = calculateDailyNutrition(filteredMeals);
   const periodDays = getPeriodDayCount(selectedDate, period);
-  const calorieTarget = profile.targetCalories * periodDays;
+  const dailyCaloriesGoal = profile.targetCalories || 2500;
+  const dailyMealsGoal = 3;
+  const calorieTarget = dailyCaloriesGoal * periodDays;
   const proteinTarget = profile.targetProtein * periodDays;
   const duration = workoutMinutes(filteredWorkouts);
   const exerciseCount = filteredWorkouts.reduce((sum, workout) => sum + workout.exercises.length, 0);
   const mealCount = filteredMeals.length;
+  const mealTarget = dailyMealsGoal * periodDays;
+  const workoutTarget = Math.max(1, periodDays);
+  const caloriesProgress = progressRatio(totals.calories, calorieTarget);
+  const workoutProgress = progressRatio(filteredWorkouts.length, workoutTarget);
+  const mealsProgress = progressRatio(mealCount, mealTarget);
+  const overallProgress = Math.round(((caloriesProgress + workoutProgress + mealsProgress) / 3) * 100);
   const latestActivities = buildActivities({
     meals: filteredMeals,
     workouts: filteredWorkouts,
@@ -110,14 +118,19 @@ export function HomeScreen({ t, profile, meals, workouts, onAddMeal, onAddWorkou
 
       <PeriodSelector options={periodOptions} selected={period} onChange={setPeriod} />
 
-      <View style={[styles.metricRow, activeRowStyle()]}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.metricScroller}
+        contentContainerStyle={[styles.metricRow, activeRowStyle()]}
+      >
         <DailyMetricCard
           title={t('home.metrics.calories')}
           value={`${Math.round(totals.calories)} / ${calorieTarget}`}
           subtitle={t('common.kcal')}
           icon="flame"
           accent={colors.accent}
-          progress={progressRatio(totals.calories, calorieTarget)}
+          progress={caloriesProgress}
         />
         <DailyMetricCard
           title={t('home.metrics.workout')}
@@ -125,9 +138,17 @@ export function HomeScreen({ t, profile, meals, workouts, onAddMeal, onAddWorkou
           subtitle={t('home.metrics.exercises', { count: exerciseCount })}
           icon="barbell-outline"
           accent={colors.workout}
-          progress={duration > 0 ? 1 : 0}
+          progress={workoutProgress}
         />
-      </View>
+        <DailyMetricCard
+          title={t('home.metrics.progress')}
+          subtitle={t('home.metrics.dailyProgress')}
+          centerValue={`${overallProgress}%`}
+          icon="trending-up-outline"
+          accent={colors.progress}
+          progress={overallProgress / 100}
+        />
+      </ScrollView>
 
       <DateSelector
         title={formatMonthYear(selectedDate, rtl)}
@@ -340,8 +361,11 @@ const styles = StyleSheet.create({
     gap: spacing.xl,
   },
   metricRow: {
-    flexWrap: 'wrap',
     gap: spacing.md,
+    paddingEnd: spacing.xs,
+  },
+  metricScroller: {
+    overflow: 'visible',
   },
   sectionTitle: {
     ...typography.h3,

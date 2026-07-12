@@ -9,15 +9,16 @@ import { activeRowStyle, activeWritingDirection } from '../../utils/rtl';
 
 type DailyMetricCardProps = {
   title: string;
-  value: string;
-  subtitle: string;
+  value?: string;
+  subtitle?: string;
+  centerValue?: string;
   icon: keyof typeof Ionicons.glyphMap;
   accent: string;
   progress?: number;
   bars?: number[];
 };
 
-export function DailyMetricCard({ title, value, subtitle, icon, accent, progress = 0, bars }: DailyMetricCardProps) {
+export function DailyMetricCard({ title, value, subtitle, centerValue, icon, accent, progress = 0, bars }: DailyMetricCardProps) {
   const colors = themeColors();
   const centeredText = {
     textAlign: 'center' as const,
@@ -49,24 +50,34 @@ export function DailyMetricCard({ title, value, subtitle, icon, accent, progress
         <View style={[styles.ringOuter, { borderColor: colors.cardMuted }]}>
           <View style={[styles.ringProgress, { borderColor: accent, opacity: safeProgress > 0 ? 1 : 0.28 }]} />
           <View style={[styles.ringCenter, { backgroundColor: colors.cardSoft }]}>
-            <Ionicons name={icon} size={17} color={accent} />
+            {centerValue ? (
+              <Text style={[styles.centerValue, centeredText, { color: accent }]} numberOfLines={1}>
+                {centerValue}
+              </Text>
+            ) : (
+              <Ionicons name={icon} size={17} color={accent} />
+            )}
           </View>
         </View>
       )}
-      <Text style={[styles.value, centeredText, { color: colors.text }]} numberOfLines={1}>
-        {value}
-      </Text>
-      <Text style={[styles.subtitle, centeredText, { color: colors.textMuted }]} numberOfLines={1}>
-        {subtitle}
-      </Text>
+      {value ? (
+        <Text style={[styles.value, centeredText, { color: colors.text }]} numberOfLines={1}>
+          {value}
+        </Text>
+      ) : null}
+      {subtitle ? (
+        <Text style={[styles.subtitle, centeredText, { color: colors.textMuted }]} numberOfLines={1}>
+          {subtitle}
+        </Text>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    flex: 1,
-    minWidth: 116,
+    width: 148,
+    minWidth: 148,
     minHeight: 156,
     borderRadius: radius.sm,
     padding: spacing.lg,
@@ -103,6 +114,12 @@ const styles = StyleSheet.create({
     borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  centerValue: {
+    ...typography.caption,
+    fontWeight: '900',
+    alignSelf: 'center',
+    width: '100%',
   },
   chart: {
     height: 48,

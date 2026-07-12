@@ -66,6 +66,8 @@ export const ar = {
       calories: 'السعرات',
       macros: 'المغذيات',
       workout: 'التمرين',
+      progress: 'التقدم',
+      dailyProgress: 'تقدم اليوم',
       exercises: '{{count}} تمارين',
     },
     dailyGoal: {

@@ -66,6 +66,8 @@ export const en = {
       calories: 'Calories',
       macros: 'Macros',
       workout: 'Workout',
+      progress: 'Progress',
+      dailyProgress: 'Daily progress',
       exercises: '{{count}} exercises',
     },
     dailyGoal: {

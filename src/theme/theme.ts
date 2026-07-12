@@ -35,6 +35,7 @@ export type ThemeColors = {
   orange: string;
   blue: string;
   workout: string;
+  progress: string;
   green: string;
   red: string;
   success: string;

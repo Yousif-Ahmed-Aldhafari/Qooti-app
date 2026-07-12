@@ -31,6 +31,7 @@ export const lightTheme: AppTheme = {
     orange: '#EF8B45',
     blue: '#2F95C8',
     workout: '#3B82F6',
+    progress: '#8B5CF6',
     green: brandColors.primaryGreen,
     red: '#D95666',
     success: brandColors.primaryGreen,
