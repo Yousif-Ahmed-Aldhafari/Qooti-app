@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { colors } from '../theme/colors';
+import { themeColors } from '../theme/colors';
 import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
@@ -12,16 +12,18 @@ type StatCardProps = {
   accent?: string;
 };
 
-export function StatCard({ label, value, accent = colors.accent }: StatCardProps) {
+export function StatCard({ label, value, accent }: StatCardProps) {
+  const colors = themeColors();
+  const tone = accent ?? colors.accent;
   const directionalText = {
     textAlign: activeTextAlign(),
     writingDirection: activeWritingDirection(),
   } as const;
 
   return (
-    <View style={styles.card}>
-      <Text style={[styles.value, directionalText, { color: accent }]}>{value}</Text>
-      <Text style={[styles.label, directionalText]}>{label}</Text>
+    <View style={[styles.card, { backgroundColor: colors.card }]}>
+      <Text style={[styles.value, directionalText, { color: tone }]}>{value}</Text>
+      <Text style={[styles.label, directionalText, { color: colors.textMuted }]}>{label}</Text>
     </View>
   );
 }
@@ -30,7 +32,6 @@ const styles = StyleSheet.create({
   card: {
     flex: 1,
     minWidth: 100,
-    backgroundColor: colors.card,
     borderRadius: radius.md,
     padding: spacing.lg,
     gap: spacing.xs,
@@ -40,6 +41,5 @@ const styles = StyleSheet.create({
   },
   label: {
     ...typography.caption,
-    color: colors.textMuted,
   },
 });

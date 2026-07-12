@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { colors } from '../../theme/colors';
+import { themeColors } from '../../theme/colors';
 import { radius } from '../../theme/radius';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
@@ -18,6 +18,7 @@ type DailyMetricCardProps = {
 };
 
 export function DailyMetricCard({ title, value, subtitle, icon, accent, progress = 0, bars }: DailyMetricCardProps) {
+  const colors = themeColors();
   const directionalText = {
     textAlign: activeTextAlign(),
     writingDirection: activeWritingDirection(),
@@ -25,8 +26,8 @@ export function DailyMetricCard({ title, value, subtitle, icon, accent, progress
   const safeProgress = Math.min(1, Math.max(0, progress));
 
   return (
-    <View style={styles.card}>
-      <Text style={[styles.title, directionalText]} numberOfLines={1}>
+    <View style={[styles.card, { backgroundColor: colors.card }]}>
+      <Text style={[styles.title, directionalText, { color: colors.text }]} numberOfLines={1}>
         {title}
       </Text>
       {bars?.length ? (
@@ -47,15 +48,15 @@ export function DailyMetricCard({ title, value, subtitle, icon, accent, progress
       ) : (
         <View style={[styles.ringOuter, { borderColor: colors.cardMuted }]}>
           <View style={[styles.ringProgress, { borderColor: accent, opacity: safeProgress > 0 ? 1 : 0.28 }]} />
-          <View style={styles.ringCenter}>
+          <View style={[styles.ringCenter, { backgroundColor: colors.cardSoft }]}>
             <Ionicons name={icon} size={17} color={accent} />
           </View>
         </View>
       )}
-      <Text style={[styles.value, directionalText]} numberOfLines={1}>
+      <Text style={[styles.value, directionalText, { color: colors.text }]} numberOfLines={1}>
         {value}
       </Text>
-      <Text style={[styles.subtitle, directionalText]} numberOfLines={1}>
+      <Text style={[styles.subtitle, directionalText, { color: colors.textMuted }]} numberOfLines={1}>
         {subtitle}
       </Text>
     </View>
@@ -70,12 +71,10 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     padding: spacing.md,
     justifyContent: 'space-between',
-    backgroundColor: colors.card,
   },
   title: {
     ...typography.body,
     fontWeight: '800',
-    color: colors.text,
   },
   ringOuter: {
     width: 68,
@@ -99,7 +98,6 @@ const styles = StyleSheet.create({
     borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.cardSoft,
   },
   chart: {
     height: 48,
@@ -114,10 +112,8 @@ const styles = StyleSheet.create({
   },
   value: {
     ...typography.h3,
-    color: colors.text,
   },
   subtitle: {
     ...typography.caption,
-    color: colors.textMuted,
   },
 });

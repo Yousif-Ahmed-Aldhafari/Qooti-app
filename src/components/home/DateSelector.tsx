@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors } from '../../theme/colors';
+import { themeColors } from '../../theme/colors';
 import { radius } from '../../theme/radius';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
@@ -20,18 +20,24 @@ type DateSelectorProps = {
 };
 
 export function DateSelector({ title, dates, selectedDate, onSelect }: DateSelectorProps) {
+  const colors = themeColors();
   return (
     <View style={styles.wrap}>
-      <Text style={styles.title}>{title}</Text>
+      <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
       <View style={[styles.row, { flexDirection: activeRowDirection() }]}>
         {dates.map((date) => {
           const selected = date.key === selectedDate;
 
           return (
             <Pressable key={date.key} accessibilityRole="button" onPress={() => onSelect(date.key)} style={styles.day}>
-              <Text style={[styles.dayName, selected ? styles.selectedDayName : null]}>{date.dayName}</Text>
-              <View style={[styles.dayCircle, selected ? styles.selectedCircle : null]}>
-                <Text style={[styles.dayNumber, selected ? styles.selectedDayNumber : null]}>{date.dayNumber}</Text>
+              <Text style={[styles.dayName, { color: selected ? colors.text : colors.textMuted }]}>{date.dayName}</Text>
+              <View
+                style={[
+                  styles.dayCircle,
+                  { borderColor: colors.text, backgroundColor: selected ? colors.text : colors.background },
+                ]}
+              >
+                <Text style={[styles.dayNumber, { color: selected ? colors.background : colors.text }]}>{date.dayNumber}</Text>
               </View>
             </Pressable>
           );
@@ -47,7 +53,6 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.h3,
-    color: colors.text,
     textAlign: 'center',
   },
   row: {
@@ -61,10 +66,6 @@ const styles = StyleSheet.create({
   },
   dayName: {
     ...typography.caption,
-    color: colors.textMuted,
-  },
-  selectedDayName: {
-    color: colors.text,
   },
   dayCircle: {
     width: 42,
@@ -73,19 +74,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: colors.text,
-    backgroundColor: colors.background,
-  },
-  selectedCircle: {
-    borderColor: colors.text,
-    backgroundColor: colors.text,
   },
   dayNumber: {
     ...typography.body,
     fontWeight: '900',
-    color: colors.text,
-  },
-  selectedDayNumber: {
-    color: colors.black,
   },
 });

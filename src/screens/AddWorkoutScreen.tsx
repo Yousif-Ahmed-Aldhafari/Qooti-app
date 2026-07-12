@@ -6,7 +6,7 @@ import { AppCard } from '../components/AppCard';
 import { AppHeader } from '../components/AppHeader';
 import { AppInput } from '../components/AppInput';
 import type { Translator } from '../i18n';
-import { colors } from '../theme/colors';
+import { themeColors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import type { Workout } from '../types';
 import { parseInputNumber } from '../utils/nutrition';
@@ -18,6 +18,7 @@ type AddWorkoutScreenProps = {
 };
 
 export function AddWorkoutScreen({ t, onSave }: AddWorkoutScreenProps) {
+  const colors = themeColors();
   const [workoutName, setWorkoutName] = useState('');
   const [exerciseName, setExerciseName] = useState('');
   const [sets, setSets] = useState('3');
@@ -52,7 +53,7 @@ export function AddWorkoutScreen({ t, onSave }: AddWorkoutScreenProps) {
   }
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView style={[styles.screen, { backgroundColor: colors.background }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <AppHeader title={t('workouts.addTitle')} subtitle={t('workouts.subtitle')} />
       <AppCard>
         <AppInput label={t('workouts.workoutName')} placeholder={t('workouts.workoutPlaceholder')} value={workoutName} onChangeText={setWorkoutName} />
@@ -75,7 +76,6 @@ export function AddWorkoutScreen({ t, onSave }: AddWorkoutScreenProps) {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   content: {
     padding: spacing.xl,

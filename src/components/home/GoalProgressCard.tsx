@@ -1,11 +1,13 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { colors } from '../../theme/colors';
+import { themeColors } from '../../theme/colors';
 import { radius } from '../../theme/radius';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { activeRowDirection, activeTextAlign, activeWritingDirection } from '../../utils/rtl';
+
+const onGoalCard = '#111412';
 
 type GoalProgressCardProps = {
   title: string;
@@ -17,6 +19,7 @@ type GoalProgressCardProps = {
 };
 
 export function GoalProgressCard({ title, target, percentLabel, remaining, progress, accent }: GoalProgressCardProps) {
+  const colors = themeColors();
   const directionalText = {
     textAlign: activeTextAlign(),
     writingDirection: activeWritingDirection(),
@@ -57,7 +60,7 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.h2,
-    color: colors.black,
+    color: onGoalCard,
   },
   targetRow: {
     alignItems: 'center',
@@ -65,35 +68,35 @@ const styles = StyleSheet.create({
   },
   target: {
     ...typography.caption,
-    color: colors.black,
+    color: onGoalCard,
   },
   percent: {
     ...typography.body,
-    color: colors.black,
+    color: onGoalCard,
   },
   track: {
     height: 6,
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: colors.black,
+    borderColor: onGoalCard,
     overflow: 'hidden',
   },
   fill: {
     height: '100%',
     borderRadius: radius.pill,
-    backgroundColor: colors.black,
+    backgroundColor: onGoalCard,
   },
   remainingPill: {
     minHeight: 28,
     alignSelf: 'flex-start',
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: colors.black,
+    borderColor: onGoalCard,
     paddingHorizontal: spacing.md,
     justifyContent: 'center',
   },
   remaining: {
     ...typography.caption,
-    color: colors.black,
+    color: onGoalCard,
   },
 });

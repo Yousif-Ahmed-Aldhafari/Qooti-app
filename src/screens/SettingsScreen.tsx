@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { AppCard } from '../components/AppCard';
 import { AppHeader } from '../components/AppHeader';
 import type { Translator } from '../i18n';
-import { colors } from '../theme/colors';
+import { themeColors, type ThemeMode } from '../theme/colors';
 import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
@@ -14,10 +14,13 @@ import { activeRowDirection, activeTextAlign, activeWritingDirection } from '../
 type SettingsScreenProps = {
   t: Translator;
   language: Language;
+  themeMode: ThemeMode;
   onLanguageChange: (language: Language) => void;
+  onThemeChange: (themeMode: ThemeMode) => void;
 };
 
-export function SettingsScreen({ t, language, onLanguageChange }: SettingsScreenProps) {
+export function SettingsScreen({ t, language, themeMode, onLanguageChange, onThemeChange }: SettingsScreenProps) {
+  const palette = themeColors();
   const directionalText = {
     textAlign: activeTextAlign(),
     writingDirection: activeWritingDirection(),
@@ -27,13 +30,17 @@ export function SettingsScreen({ t, language, onLanguageChange }: SettingsScreen
     { value: 'en', label: t('settings.english') },
     { value: 'ar', label: t('settings.arabic') },
   ];
+  const themeOptions: Array<{ value: ThemeMode; label: string }> = [
+    { value: 'light', label: t('settings.lightMode') },
+    { value: 'dark', label: t('settings.darkMode') },
+  ];
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView style={[styles.screen, { backgroundColor: palette.background }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <AppHeader title={t('settings.title')} subtitle={t('settings.subtitle')} />
 
       <AppCard>
-        <Text style={[styles.sectionTitle, directionalText]}>{t('settings.language')}</Text>
+        <Text style={[styles.sectionTitle, directionalText, { color: palette.text }]}>{t('settings.language')}</Text>
         <View style={styles.options}>
           {options.map((option) => {
             const selected = option.value === language;
@@ -45,16 +52,20 @@ export function SettingsScreen({ t, language, onLanguageChange }: SettingsScreen
                 onPress={() => onLanguageChange(option.value)}
                 style={({ pressed }) => [
                   styles.option,
-                  { flexDirection: activeRowDirection(), opacity: pressed ? 0.78 : 1 },
-                  selected ? styles.selectedOption : null,
+                  {
+                    flexDirection: activeRowDirection(),
+                    borderColor: selected ? palette.accent : palette.border,
+                    backgroundColor: palette.cardMuted,
+                    opacity: pressed ? 0.78 : 1,
+                  },
                 ]}
               >
                 <View style={styles.optionIcon}>
-                  <Ionicons name={selected ? 'checkmark-circle' : 'ellipse-outline'} size={22} color={selected ? colors.accent : colors.textMuted} />
+                  <Ionicons name={selected ? 'checkmark-circle' : 'ellipse-outline'} size={22} color={selected ? palette.accent : palette.textMuted} />
                 </View>
                 <View style={styles.optionCopy}>
-                  <Text style={[styles.optionLabel, directionalText]}>{option.label}</Text>
-                  {selected ? <Text style={[styles.optionMeta, directionalText]}>{t('settings.selected')}</Text> : null}
+                  <Text style={[styles.optionLabel, directionalText, { color: palette.text }]}>{option.label}</Text>
+                  {selected ? <Text style={[styles.optionMeta, directionalText, { color: palette.accent }]}>{t('settings.selected')}</Text> : null}
                 </View>
               </Pressable>
             );
@@ -63,8 +74,43 @@ export function SettingsScreen({ t, language, onLanguageChange }: SettingsScreen
       </AppCard>
 
       <AppCard>
-        <Text style={[styles.sectionTitle, directionalText]}>{t('settings.aboutTitle')}</Text>
-        <Text style={[styles.about, directionalText]}>{t('settings.about')}</Text>
+        <Text style={[styles.sectionTitle, directionalText, { color: palette.text }]}>{t('settings.appearance')}</Text>
+        <Text style={[styles.about, directionalText, { color: palette.textMuted }]}>{t('settings.theme')}</Text>
+        <View style={styles.options}>
+          {themeOptions.map((option) => {
+            const selected = option.value === themeMode;
+
+            return (
+              <Pressable
+                key={option.value}
+                accessibilityRole="button"
+                onPress={() => onThemeChange(option.value)}
+                style={({ pressed }) => [
+                  styles.option,
+                  {
+                    flexDirection: activeRowDirection(),
+                    borderColor: selected ? palette.accent : palette.border,
+                    backgroundColor: palette.cardMuted,
+                    opacity: pressed ? 0.78 : 1,
+                  },
+                ]}
+              >
+                <View style={styles.optionIcon}>
+                  <Ionicons name={option.value === 'dark' ? 'moon-outline' : 'sunny-outline'} size={22} color={selected ? palette.accent : palette.textMuted} />
+                </View>
+                <View style={styles.optionCopy}>
+                  <Text style={[styles.optionLabel, directionalText, { color: palette.text }]}>{option.label}</Text>
+                  {selected ? <Text style={[styles.optionMeta, directionalText, { color: palette.accent }]}>{t('settings.selected')}</Text> : null}
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+      </AppCard>
+
+      <AppCard>
+        <Text style={[styles.sectionTitle, directionalText, { color: palette.text }]}>{t('settings.aboutTitle')}</Text>
+        <Text style={[styles.about, directionalText, { color: palette.textMuted }]}>{t('settings.about')}</Text>
       </AppCard>
     </ScrollView>
   );
@@ -73,7 +119,6 @@ export function SettingsScreen({ t, language, onLanguageChange }: SettingsScreen
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   content: {
     padding: spacing.xl,
@@ -82,7 +127,6 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     ...typography.h3,
-    color: colors.text,
   },
   options: {
     gap: spacing.md,
@@ -93,12 +137,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.border,
     padding: spacing.md,
-    backgroundColor: colors.cardMuted,
-  },
-  selectedOption: {
-    borderColor: colors.accent,
   },
   optionIcon: {
     width: 32,
@@ -110,14 +149,11 @@ const styles = StyleSheet.create({
   },
   optionLabel: {
     ...typography.body,
-    color: colors.text,
   },
   optionMeta: {
     ...typography.caption,
-    color: colors.accent,
   },
   about: {
     ...typography.body,
-    color: colors.textMuted,
   },
 });

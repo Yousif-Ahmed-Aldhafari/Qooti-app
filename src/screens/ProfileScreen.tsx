@@ -6,7 +6,7 @@ import { AppHeader } from '../components/AppHeader';
 import { MacroCard } from '../components/MacroCard';
 import { StatCard } from '../components/StatCard';
 import type { Translator } from '../i18n';
-import { colors } from '../theme/colors';
+import { themeColors } from '../theme/colors';
 import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
@@ -20,13 +20,14 @@ type ProfileScreenProps = {
 };
 
 export function ProfileScreen({ t, profile, onSettingsPress }: ProfileScreenProps) {
+  const colors = themeColors();
   const directionalText = {
     textAlign: activeTextAlign(),
     writingDirection: activeWritingDirection(),
   } as const;
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView style={[styles.screen, { backgroundColor: colors.background }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <AppHeader
         title={t('profile.title')}
         subtitle={t('profile.subtitle')}
@@ -35,17 +36,17 @@ export function ProfileScreen({ t, profile, onSettingsPress }: ProfileScreenProp
 
       <AppCard>
         <View style={[styles.profileRow, { flexDirection: activeRowDirection() }]}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{profile.avatarInitials}</Text>
+          <View style={[styles.avatar, { backgroundColor: colors.accent }]}>
+            <Text style={[styles.avatarText, { color: colors.buttonText }]}>{profile.avatarInitials}</Text>
           </View>
           <View style={styles.copy}>
-            <Text style={[styles.name, directionalText]}>{profile.name}</Text>
-            <Text style={[styles.email, directionalText]}>{profile.email}</Text>
+            <Text style={[styles.name, directionalText, { color: colors.text }]}>{profile.name}</Text>
+            <Text style={[styles.email, directionalText, { color: colors.textMuted }]}>{profile.email}</Text>
           </View>
         </View>
-        <View style={styles.divider} />
-        <Text style={[styles.label, directionalText]}>{t('profile.goal')}</Text>
-        <Text style={[styles.goal, directionalText]}>{profile.goal}</Text>
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+        <Text style={[styles.label, directionalText, { color: colors.textMuted }]}>{t('profile.goal')}</Text>
+        <Text style={[styles.goal, directionalText, { color: colors.text }]}>{profile.goal}</Text>
       </AppCard>
 
       <View style={[styles.statsRow, { flexDirection: activeRowDirection() }]}>
@@ -53,7 +54,7 @@ export function ProfileScreen({ t, profile, onSettingsPress }: ProfileScreenProp
         <StatCard label={t('profile.weight')} value={`${profile.weightKg} ${t('common.kg')}`} accent={colors.lavender} />
       </View>
 
-      <Text style={[styles.sectionTitle, directionalText]}>{t('profile.targets')}</Text>
+      <Text style={[styles.sectionTitle, directionalText, { color: colors.text }]}>{t('profile.targets')}</Text>
       <View style={[styles.grid, { flexDirection: activeRowDirection() }]}>
         <MacroCard label={t('common.calories')} value={profile.targetCalories} target={profile.targetCalories} unit={t('common.kcal')} />
         <MacroCard label={t('common.protein')} value={profile.targetProtein} target={profile.targetProtein} unit={t('common.grams')} accent={colors.purple} />
@@ -67,7 +68,6 @@ export function ProfileScreen({ t, profile, onSettingsPress }: ProfileScreenProp
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   content: {
     padding: spacing.xl,
@@ -84,11 +84,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.accent,
   },
   avatarText: {
     ...typography.h2,
-    color: colors.black,
   },
   copy: {
     flex: 1,
@@ -96,23 +94,18 @@ const styles = StyleSheet.create({
   },
   name: {
     ...typography.h2,
-    color: colors.text,
   },
   email: {
     ...typography.body,
-    color: colors.textMuted,
   },
   divider: {
     height: 1,
-    backgroundColor: colors.border,
   },
   label: {
     ...typography.caption,
-    color: colors.textMuted,
   },
   goal: {
     ...typography.body,
-    color: colors.text,
   },
   statsRow: {
     flexWrap: 'wrap',
@@ -120,7 +113,6 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     ...typography.h3,
-    color: colors.text,
   },
   grid: {
     flexWrap: 'wrap',

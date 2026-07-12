@@ -3,7 +3,7 @@ import type { StyleProp, ViewStyle } from 'react-native';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { colors } from '../theme/colors';
+import { themeColors } from '../theme/colors';
 import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
@@ -19,10 +19,11 @@ type AppButtonProps = {
 };
 
 export function AppButton({ title, onPress, icon, variant = 'primary', style }: AppButtonProps) {
+  const colors = themeColors();
   const rtl = activeIsRTL();
   const mirroredIcon = rtl && icon === 'arrow-forward' ? 'arrow-back' : rtl && icon === 'arrow-back' ? 'arrow-forward' : icon;
   const palette = {
-    primary: { background: colors.accent, text: colors.black, border: colors.accent },
+    primary: { background: colors.accent, text: colors.buttonText, border: colors.accent },
     secondary: { background: colors.card, text: colors.text, border: colors.border },
     ghost: { background: colors.cardMuted, text: colors.textSecondary, border: colors.cardMuted },
   }[variant];

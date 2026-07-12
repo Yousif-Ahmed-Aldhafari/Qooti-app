@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import type { Meal } from '../types';
-import { colors } from '../theme/colors';
+import { themeColors } from '../theme/colors';
 import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
@@ -17,6 +17,7 @@ type MealCardProps = {
 };
 
 export function MealCard({ meal, caloriesLabel, itemLabel, onPress }: MealCardProps) {
+  const colors = themeColors();
   const totals = calculateMealTotals(meal.items);
   const directionalText = {
     textAlign: activeTextAlign(),
@@ -29,21 +30,21 @@ export function MealCard({ meal, caloriesLabel, itemLabel, onPress }: MealCardPr
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
-        { flexDirection: activeRowDirection(), opacity: pressed ? 0.78 : 1 },
+        { flexDirection: activeRowDirection(), backgroundColor: colors.card, opacity: pressed ? 0.78 : 1 },
       ]}
     >
-      <View style={styles.icon}>
-        <Ionicons name="restaurant-outline" color={colors.black} size={22} />
+      <View style={[styles.icon, { backgroundColor: colors.accent }]}>
+        <Ionicons name="restaurant-outline" color={colors.buttonText} size={22} />
       </View>
       <View style={styles.copy}>
-        <Text style={[styles.title, directionalText]} numberOfLines={1}>
+        <Text style={[styles.title, directionalText, { color: colors.text }]} numberOfLines={1}>
           {meal.title}
         </Text>
-        <Text style={[styles.meta, directionalText]} numberOfLines={1}>
+        <Text style={[styles.meta, directionalText, { color: colors.textMuted }]} numberOfLines={1}>
           {meal.time} - {meal.items.length} {itemLabel}
         </Text>
       </View>
-      <Text style={[styles.calories, directionalText]}>
+      <Text style={[styles.calories, directionalText, { color: colors.accent }]}>
         {Math.round(totals.calories)} {caloriesLabel}
       </Text>
     </Pressable>
@@ -53,7 +54,6 @@ export function MealCard({ meal, caloriesLabel, itemLabel, onPress }: MealCardPr
 const styles = StyleSheet.create({
   card: {
     minHeight: 76,
-    backgroundColor: colors.card,
     borderRadius: radius.lg,
     padding: spacing.md,
     alignItems: 'center',
@@ -65,7 +65,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.accent,
   },
   copy: {
     flex: 1,
@@ -73,14 +72,11 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.h3,
-    color: colors.text,
   },
   meta: {
     ...typography.caption,
-    color: colors.textMuted,
   },
   calories: {
     ...typography.caption,
-    color: colors.accent,
   },
 });

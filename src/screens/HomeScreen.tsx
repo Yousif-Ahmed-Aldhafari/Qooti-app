@@ -10,7 +10,7 @@ import { LatestActivityList, type HomeActivity } from '../components/home/Latest
 import { PeriodSelector, type PeriodKey } from '../components/home/PeriodSelector';
 import { QuickActionCard } from '../components/home/QuickActionCard';
 import type { Translator } from '../i18n';
-import { colors } from '../theme/colors';
+import { themeColors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import type { Meal, UserProfile, Workout } from '../types';
@@ -31,6 +31,7 @@ type HomeScreenProps = {
 const dayMs = 24 * 60 * 60 * 1000;
 
 export function HomeScreen({ t, profile, meals, workouts, onAddMeal, onAddWorkout, onMealPress, onWorkoutPress }: HomeScreenProps) {
+  const colors = themeColors();
   const [period, setPeriod] = useState<PeriodKey>('today');
   const [selectedDateKey, setSelectedDateKey] = useState(toDateKey(new Date()));
   const selectedDate = dateFromKey(selectedDateKey);
@@ -106,7 +107,7 @@ export function HomeScreen({ t, profile, meals, workouts, onAddMeal, onAddWorkou
   }
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView style={[styles.screen, { backgroundColor: colors.background }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <HomeHeader
         avatarInitials={profile.avatarInitials}
         greeting={t('home.headerGreeting', { name: firstName })}
@@ -150,7 +151,7 @@ export function HomeScreen({ t, profile, meals, workouts, onAddMeal, onAddWorkou
         onSelect={handleDateSelect}
       />
 
-      <Text style={[styles.sectionTitle, directionalText]}>{t('home.todayPlan')}</Text>
+      <Text style={[styles.sectionTitle, directionalText, { color: colors.text }]}>{t('home.todayPlan')}</Text>
       <View style={[styles.quickRow, { flexDirection: activeRowDirection() }]}>
         <QuickActionCard
           title={t('home.addMeal')}
@@ -194,8 +195,8 @@ export function HomeScreen({ t, profile, meals, workouts, onAddMeal, onAddWorkou
             />
           ))
         ) : (
-          <View style={styles.emptyGoal}>
-            <Text style={[styles.emptyGoalText, directionalText]}>{t('home.goals.empty')}</Text>
+          <View style={[styles.emptyGoal, { backgroundColor: colors.card }]}>
+            <Text style={[styles.emptyGoalText, directionalText, { color: colors.textMuted }]}>{t('home.goals.empty')}</Text>
           </View>
         )}
       </View>
@@ -216,6 +217,7 @@ function buildActivities({
   onMealPress: (meal: Meal) => void;
   onWorkoutPress: (workout: Workout) => void;
 }): HomeActivity[] {
+  const colors = themeColors();
   const mealActivities = meals.map((meal) => {
     const calories = meal.items.reduce((sum, item) => sum + item.calories, 0);
 
@@ -346,7 +348,6 @@ function formatMonthYear(date: Date, rtl: boolean): string {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   content: {
     padding: spacing.xl,
@@ -359,7 +360,6 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     ...typography.h3,
-    color: colors.text,
   },
   quickRow: {
     flexWrap: 'wrap',
@@ -371,10 +371,8 @@ const styles = StyleSheet.create({
   emptyGoal: {
     borderRadius: 22,
     padding: spacing.lg,
-    backgroundColor: colors.card,
   },
   emptyGoalText: {
     ...typography.body,
-    color: colors.textMuted,
   },
 });

@@ -6,7 +6,7 @@ import { AppCard } from '../components/AppCard';
 import { AppHeader } from '../components/AppHeader';
 import { AppInput } from '../components/AppInput';
 import type { Translator } from '../i18n';
-import { colors } from '../theme/colors';
+import { themeColors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import type { Meal } from '../types';
 import { parseInputNumber } from '../utils/nutrition';
@@ -18,6 +18,7 @@ type AddMealScreenProps = {
 };
 
 export function AddMealScreen({ t, onSave }: AddMealScreenProps) {
+  const colors = themeColors();
   const [mealName, setMealName] = useState('');
   const [foodName, setFoodName] = useState('');
   const [quantity, setQuantity] = useState('1');
@@ -52,7 +53,7 @@ export function AddMealScreen({ t, onSave }: AddMealScreenProps) {
   }
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView style={[styles.screen, { backgroundColor: colors.background }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <AppHeader title={t('meals.addTitle')} subtitle={t('meals.subtitle')} />
       <AppCard>
         <AppInput label={t('meals.mealName')} placeholder={t('meals.mealNamePlaceholder')} value={mealName} onChangeText={setMealName} />
@@ -75,7 +76,6 @@ export function AddMealScreen({ t, onSave }: AddMealScreenProps) {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   content: {
     padding: spacing.xl,

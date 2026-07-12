@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import type { TabKey } from '../types';
-import { colors } from '../theme/colors';
+import { themeColors } from '../theme/colors';
 import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
@@ -25,14 +25,15 @@ const icons: Record<TabKey, keyof typeof Ionicons.glyphMap> = {
 const tabs: TabKey[] = ['home', 'meals', 'workouts', 'progress', 'profile'];
 
 export function BottomTabs({ activeTab, labels, onChange }: BottomTabsProps) {
+  const colors = themeColors();
   return (
-    <View style={[styles.wrap, { flexDirection: activeRowDirection() }]}>
+    <View style={[styles.wrap, { flexDirection: activeRowDirection(), backgroundColor: colors.tabBar, borderColor: colors.border, shadowColor: colors.shadow }]}>
       {tabs.map((tab) => {
         const active = tab === activeTab;
         return (
           <Pressable key={tab} accessibilityRole="tab" onPress={() => onChange(tab)} style={styles.tab}>
-            <View style={[styles.iconWrap, active ? styles.activeIcon : null]}>
-              <Ionicons name={icons[tab]} size={20} color={active ? colors.black : colors.textMuted} />
+            <View style={[styles.iconWrap, active ? { backgroundColor: colors.accent } : null]}>
+              <Ionicons name={icons[tab]} size={20} color={active ? colors.buttonText : colors.textMuted} />
             </View>
             <Text style={[styles.label, { color: active ? colors.accent : colors.textMuted }]} numberOfLines={1}>
               {labels[tab]}
@@ -53,14 +54,11 @@ const styles = StyleSheet.create({
     height: 96,
     borderTopLeftRadius: radius.md,
     borderTopRightRadius: radius.md,
-    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'space-around',
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.md,
-    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 0.3,
     shadowRadius: 24,
@@ -77,9 +75,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  activeIcon: {
-    backgroundColor: colors.accent,
   },
   label: {
     ...typography.tab,

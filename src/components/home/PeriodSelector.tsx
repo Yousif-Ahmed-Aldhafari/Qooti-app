@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors } from '../../theme/colors';
+import { themeColors } from '../../theme/colors';
 import { radius } from '../../theme/radius';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
@@ -21,6 +21,7 @@ type PeriodSelectorProps = {
 };
 
 export function PeriodSelector({ options, selected, onChange }: PeriodSelectorProps) {
+  const colors = themeColors();
   return (
     <View style={[styles.wrap, { flexDirection: activeRowDirection() }]}>
       {options.map((option) => {

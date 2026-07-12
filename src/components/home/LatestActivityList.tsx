@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { colors } from '../../theme/colors';
+import { themeColors } from '../../theme/colors';
 import { radius } from '../../theme/radius';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
@@ -24,6 +24,7 @@ type LatestActivityListProps = {
 };
 
 export function LatestActivityList({ title, emptyTitle, activities }: LatestActivityListProps) {
+  const colors = themeColors();
   const rtl = activeIsRTL();
   const directionalText = {
     textAlign: activeTextAlign(),
@@ -33,8 +34,8 @@ export function LatestActivityList({ title, emptyTitle, activities }: LatestActi
   return (
     <View style={styles.wrap}>
       <View style={[styles.headingRow, { flexDirection: activeRowDirection() }]}>
-        <Text style={[styles.heading, directionalText]}>{title}</Text>
-        <View style={styles.headingAction}>
+        <Text style={[styles.heading, directionalText, { color: colors.text }]}>{title}</Text>
+        <View style={[styles.headingAction, { borderColor: colors.text }]}>
           <Ionicons name={rtl ? 'arrow-back' : 'arrow-forward'} size={20} color={colors.orange} />
         </View>
       </View>
@@ -45,16 +46,19 @@ export function LatestActivityList({ title, emptyTitle, activities }: LatestActi
             key={activity.id}
             accessibilityRole="button"
             onPress={activity.onPress}
-            style={({ pressed }) => [styles.activity, { flexDirection: activeRowDirection(), opacity: pressed ? 0.76 : 1 }]}
+            style={({ pressed }) => [
+              styles.activity,
+              { flexDirection: activeRowDirection(), backgroundColor: colors.card, opacity: pressed ? 0.76 : 1 },
+            ]}
           >
             <View style={[styles.icon, { backgroundColor: activity.accent }]}>
               <Ionicons name={activity.icon} size={20} color={colors.black} />
             </View>
             <View style={styles.copy}>
-              <Text style={[styles.activityTitle, directionalText]} numberOfLines={1}>
+              <Text style={[styles.activityTitle, directionalText, { color: colors.text }]} numberOfLines={1}>
                 {activity.title}
               </Text>
-              <Text style={[styles.activityMeta, directionalText]} numberOfLines={1}>
+              <Text style={[styles.activityMeta, directionalText, { color: colors.textMuted }]} numberOfLines={1}>
                 {activity.time} - {activity.meta}
               </Text>
             </View>
@@ -62,8 +66,8 @@ export function LatestActivityList({ title, emptyTitle, activities }: LatestActi
           </Pressable>
         ))
       ) : (
-        <View style={styles.empty}>
-          <Text style={[styles.emptyText, directionalText]}>{emptyTitle}</Text>
+        <View style={[styles.empty, { backgroundColor: colors.card }]}>
+          <Text style={[styles.emptyText, directionalText, { color: colors.textMuted }]}>{emptyTitle}</Text>
         </View>
       )}
     </View>
@@ -80,7 +84,6 @@ const styles = StyleSheet.create({
   },
   heading: {
     ...typography.h3,
-    color: colors.text,
   },
   headingAction: {
     width: 32,
@@ -89,7 +92,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: colors.text,
   },
   activity: {
     minHeight: 76,
@@ -97,7 +99,6 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     borderRadius: radius.lg,
     padding: spacing.md,
-    backgroundColor: colors.card,
   },
   icon: {
     width: 44,
@@ -113,19 +114,15 @@ const styles = StyleSheet.create({
   activityTitle: {
     ...typography.body,
     fontWeight: '800',
-    color: colors.text,
   },
   activityMeta: {
     ...typography.caption,
-    color: colors.textMuted,
   },
   empty: {
     borderRadius: radius.lg,
     padding: spacing.lg,
-    backgroundColor: colors.card,
   },
   emptyText: {
     ...typography.body,
-    color: colors.textMuted,
   },
 });

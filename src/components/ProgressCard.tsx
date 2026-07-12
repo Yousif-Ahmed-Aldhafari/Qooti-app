@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { colors } from '../theme/colors';
+import { themeColors } from '../theme/colors';
 import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
@@ -13,17 +13,19 @@ type ProgressCardProps = {
   accent?: string;
 };
 
-export function ProgressCard({ title, value, helper, accent = colors.purple }: ProgressCardProps) {
+export function ProgressCard({ title, value, helper, accent }: ProgressCardProps) {
+  const colors = themeColors();
+  const tone = accent ?? colors.purple;
   const directionalText = {
     textAlign: activeTextAlign(),
     writingDirection: activeWritingDirection(),
   } as const;
 
   return (
-    <View style={[styles.card, { borderColor: accent }]}>
-      <Text style={[styles.title, directionalText]}>{title}</Text>
-      <Text style={[styles.value, directionalText, { color: accent }]}>{value}</Text>
-      <Text style={[styles.helper, directionalText]}>{helper}</Text>
+    <View style={[styles.card, { borderColor: tone, backgroundColor: colors.card }]}>
+      <Text style={[styles.title, directionalText, { color: colors.textMuted }]}>{title}</Text>
+      <Text style={[styles.value, directionalText, { color: tone }]}>{value}</Text>
+      <Text style={[styles.helper, directionalText, { color: colors.textSecondary }]}>{helper}</Text>
     </View>
   );
 }
@@ -32,7 +34,6 @@ const styles = StyleSheet.create({
   card: {
     flex: 1,
     minWidth: 150,
-    backgroundColor: colors.card,
     borderRadius: radius.lg,
     borderWidth: 1,
     padding: spacing.lg,
@@ -40,13 +41,11 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.caption,
-    color: colors.textMuted,
   },
   value: {
     ...typography.h2,
   },
   helper: {
     ...typography.caption,
-    color: colors.textSecondary,
   },
 });

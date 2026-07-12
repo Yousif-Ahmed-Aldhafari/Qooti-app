@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { colors } from '../../theme/colors';
+import { themeColors } from '../../theme/colors';
 import { radius } from '../../theme/radius';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
@@ -17,6 +17,7 @@ type QuickActionCardProps = {
 };
 
 export function QuickActionCard({ title, subtitle, actionLabel, icon, accent, onPress }: QuickActionCardProps) {
+  const colors = themeColors();
   const rtl = activeIsRTL();
   const directionalText = {
     textAlign: activeTextAlign(),
@@ -38,7 +39,7 @@ export function QuickActionCard({ title, subtitle, actionLabel, icon, accent, on
         <Text style={styles.actionText} numberOfLines={1}>
           {actionLabel}
         </Text>
-        <Ionicons name={rtl ? 'arrow-back' : 'arrow-forward'} size={20} color={colors.text} />
+        <Ionicons name={rtl ? 'arrow-back' : 'arrow-forward'} size={20} color={colors.white} />
       </View>
     </Pressable>
   );
@@ -58,11 +59,11 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.h2,
-    color: colors.black,
+    color: '#111412',
   },
   subtitle: {
     ...typography.body,
-    color: colors.cardSoft,
+    color: '#2B2E30',
   },
   action: {
     minHeight: 36,
@@ -71,10 +72,10 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
-    backgroundColor: colors.cardSoft,
+    backgroundColor: '#2B2E30',
   },
   actionText: {
     ...typography.caption,
-    color: colors.textMuted,
+    color: '#D7D9DA',
   },
 });

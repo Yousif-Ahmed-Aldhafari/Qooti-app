@@ -5,7 +5,7 @@ import { AppHeader } from '../components/AppHeader';
 import { ProgressCard } from '../components/ProgressCard';
 import { StatCard } from '../components/StatCard';
 import type { Translator } from '../i18n';
-import { colors } from '../theme/colors';
+import { themeColors } from '../theme/colors';
 import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
@@ -19,6 +19,7 @@ type ProgressScreenProps = {
 };
 
 export function ProgressScreen({ t, profile, progress }: ProgressScreenProps) {
+  const colors = themeColors();
   const latest = progress[progress.length - 1];
   const workoutDays = progress.reduce((sum, entry) => sum + entry.workouts, 0);
   const averageCalories = progress.length
@@ -31,7 +32,7 @@ export function ProgressScreen({ t, profile, progress }: ProgressScreenProps) {
   } as const;
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView style={[styles.screen, { backgroundColor: colors.background }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <AppHeader title={t('progress.title')} subtitle={t('progress.subtitle')} />
 
       <View style={[styles.statsRow, { flexDirection: activeRowDirection() }]}>
@@ -40,14 +41,14 @@ export function ProgressScreen({ t, profile, progress }: ProgressScreenProps) {
       </View>
 
       <AppCard>
-        <Text style={[styles.sectionTitle, directionalText]}>{t('progress.weeklyTrend')}</Text>
+        <Text style={[styles.sectionTitle, directionalText, { color: colors.text }]}>{t('progress.weeklyTrend')}</Text>
         <View style={[styles.chart, { flexDirection: activeRowDirection() }]}>
           {progress.map((entry) => (
             <View key={entry.id} style={styles.barColumn}>
-              <View style={styles.barTrack}>
-                <View style={[styles.barFill, { height: `${Math.max((entry.calories / maxCalories) * 100, 10)}%` }]} />
+              <View style={[styles.barTrack, { backgroundColor: colors.cardMuted }]}>
+                <View style={[styles.barFill, { height: `${Math.max((entry.calories / maxCalories) * 100, 10)}%`, backgroundColor: colors.accent }]} />
               </View>
-              <Text style={styles.barLabel}>{entry.label}</Text>
+              <Text style={[styles.barLabel, { color: colors.textMuted }]}>{entry.label}</Text>
             </View>
           ))}
         </View>
@@ -68,7 +69,7 @@ export function ProgressScreen({ t, profile, progress }: ProgressScreenProps) {
         />
       </View>
 
-      <Text style={[styles.helper, directionalText]}>{t('progress.daysTracked', { count: progress.length })}</Text>
+      <Text style={[styles.helper, directionalText, { color: colors.textMuted }]}>{t('progress.daysTracked', { count: progress.length })}</Text>
     </ScrollView>
   );
 }
@@ -76,7 +77,6 @@ export function ProgressScreen({ t, profile, progress }: ProgressScreenProps) {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   content: {
     padding: spacing.xl,
@@ -89,7 +89,6 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     ...typography.h3,
-    color: colors.text,
   },
   chart: {
     height: 180,
@@ -110,16 +109,13 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     justifyContent: 'flex-end',
     overflow: 'hidden',
-    backgroundColor: colors.cardMuted,
   },
   barFill: {
     width: '100%',
     borderRadius: radius.pill,
-    backgroundColor: colors.accent,
   },
   barLabel: {
     ...typography.caption,
-    color: colors.textMuted,
     textAlign: 'center',
   },
   progressRow: {
@@ -128,6 +124,5 @@ const styles = StyleSheet.create({
   },
   helper: {
     ...typography.caption,
-    color: colors.textMuted,
   },
 });

@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { colors } from '../../theme/colors';
+import { getActiveTheme, themeColors } from '../../theme/colors';
 import { radius } from '../../theme/radius';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
@@ -16,6 +16,8 @@ type DailyGoalBannerProps = {
 };
 
 export function DailyGoalBanner({ title, calorieValue, proteinValue, mealsValue, workoutValue }: DailyGoalBannerProps) {
+  const colors = themeColors();
+  const theme = getActiveTheme();
   const rtl = activeIsRTL();
   const directionalText = {
     textAlign: activeTextAlign(),
@@ -23,7 +25,7 @@ export function DailyGoalBanner({ title, calorieValue, proteinValue, mealsValue,
   } as const;
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, { backgroundColor: theme.isDark ? colors.black : colors.accentDark }]}>
       <View style={styles.accentPanel} />
       <View style={styles.accentStripe} />
       <View style={[styles.content, { alignSelf: rtl ? 'flex-end' : 'flex-start' }]}>
@@ -38,7 +40,7 @@ export function DailyGoalBanner({ title, calorieValue, proteinValue, mealsValue,
         </View>
       </View>
       <View style={styles.visual}>
-        <Ionicons name="fitness-outline" size={92} color={colors.accent} />
+        <Ionicons name="fitness-outline" size={92} color={colors.limeSoft} />
       </View>
     </View>
   );
@@ -60,7 +62,6 @@ const styles = StyleSheet.create({
     minHeight: 190,
     borderRadius: radius.lg,
     overflow: 'hidden',
-    backgroundColor: colors.black,
   },
   accentPanel: {
     position: 'absolute',
@@ -87,7 +88,7 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.h3,
-    color: colors.text,
+    color: '#FFFFFF',
     textTransform: 'uppercase',
   },
   metrics: {
@@ -100,7 +101,7 @@ const styles = StyleSheet.create({
   },
   metricText: {
     ...typography.caption,
-    color: colors.text,
+    color: '#FFFFFF',
   },
   visual: {
     position: 'absolute',

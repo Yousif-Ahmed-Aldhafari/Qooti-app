@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BottomTabs } from '../components/BottomTabs';
@@ -19,7 +20,7 @@ import { SettingsScreen } from '../screens/SettingsScreen';
 import { SplashScreen } from '../screens/SplashScreen';
 import { WorkoutDetailsScreen } from '../screens/WorkoutDetailsScreen';
 import { WorkoutsScreen } from '../screens/WorkoutsScreen';
-import { colors } from '../theme/colors';
+import { setActiveTheme, themeColors, type ThemeMode } from '../theme/colors';
 import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
@@ -28,6 +29,7 @@ import { applyRTL, direction, isRTL, rowDirection, textAlign, writingDirection }
 
 const LANGUAGE_STORAGE_KEY = '@qooti/language';
 const ONBOARDING_STORAGE_KEY = '@qooti/hasOnboarded';
+const THEME_STORAGE_KEY = '@qooti/themeMode';
 const mainTabs: TabKey[] = ['home', 'meals', 'workouts', 'progress', 'profile'];
 
 function isMainTab(screen: ScreenKey): screen is TabKey {
@@ -39,6 +41,7 @@ export function AppNavigator() {
   const [showSplash, setShowSplash] = useState(true);
   const [hasOnboarded, setHasOnboarded] = useState(false);
   const [language, setLanguage] = useState<Language>('en');
+  const [themeMode, setThemeMode] = useState<ThemeMode>('dark');
   const [activeTab, setActiveTab] = useState<TabKey>('home');
   const [activeScreen, setActiveScreen] = useState<ScreenKey>('home');
   const [meals, setMeals] = useState<Meal[]>(sampleMeals);
@@ -66,16 +69,20 @@ export function AppNavigator() {
     let mounted = true;
 
     async function bootstrap() {
-      const [savedLanguage, savedOnboarding] = await Promise.all([
+      const [savedLanguage, savedOnboarding, savedTheme] = await Promise.all([
         AsyncStorage.getItem(LANGUAGE_STORAGE_KEY),
         AsyncStorage.getItem(ONBOARDING_STORAGE_KEY),
+        AsyncStorage.getItem(THEME_STORAGE_KEY),
       ]);
       const nextLanguage: Language = savedLanguage === 'ar' ? 'ar' : 'en';
+      const nextTheme: ThemeMode = savedTheme === 'light' ? 'light' : 'dark';
 
       applyRTL(nextLanguage);
+      setActiveTheme(nextTheme);
 
       if (mounted) {
         setLanguage(nextLanguage);
+        setThemeMode(nextTheme);
         setHasOnboarded(savedOnboarding === 'true');
         setIsReady(true);
       }
@@ -109,6 +116,12 @@ export function AppNavigator() {
     applyRTL(nextLanguage);
     setLanguage(nextLanguage);
     await AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, nextLanguage);
+  }
+
+  async function changeTheme(nextTheme: ThemeMode) {
+    setActiveTheme(nextTheme);
+    setThemeMode(nextTheme);
+    await AsyncStorage.setItem(THEME_STORAGE_KEY, nextTheme);
   }
 
   function openMealDetails(meal: Meal) {
@@ -175,7 +188,7 @@ export function AppNavigator() {
       case 'profile':
         return <ProfileScreen t={t} profile={sampleProfile} onSettingsPress={() => setActiveScreen('settings')} />;
       case 'settings':
-        return <SettingsScreen t={t} language={language} onLanguageChange={changeLanguage} />;
+        return <SettingsScreen t={t} language={language} themeMode={themeMode} onLanguageChange={changeLanguage} onThemeChange={changeTheme} />;
       default:
         return null;
     }
@@ -185,6 +198,7 @@ export function AppNavigator() {
   const showBack = hasOnboarded && !isMainTab(activeScreen);
   const layoutDirection = direction(language);
   const rtl = isRTL(language);
+  const palette = themeColors();
   const directionalText = {
     textAlign: textAlign(language),
     writingDirection: writingDirection(language),
@@ -192,15 +206,16 @@ export function AppNavigator() {
 
   if (!isReady || showSplash) {
     return (
-      <View style={[styles.root, { direction: layoutDirection }]}>
+      <View style={[styles.root, { direction: layoutDirection, backgroundColor: palette.background }]}>
         <SplashScreen t={t} />
+        <StatusBar style={themeMode === 'dark' ? 'light' : 'dark'} />
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.root, { direction: layoutDirection }]} edges={['top', 'bottom']}>
-      <View style={styles.screenSlot}>
+    <SafeAreaView style={[styles.root, { direction: layoutDirection, backgroundColor: palette.background }]} edges={['top', 'bottom']}>
+      <View style={[styles.screenSlot, { backgroundColor: palette.background }]}>
         {showBack ? (
           <Pressable
             accessibilityRole="button"
@@ -210,18 +225,20 @@ export function AppNavigator() {
               {
                 alignSelf: rtl ? 'flex-end' : 'flex-start',
                 flexDirection: rowDirection(language),
+                backgroundColor: palette.cardMuted,
                 opacity: pressed ? 0.72 : 1,
               },
             ]}
           >
-            <Ionicons name={rtl ? 'chevron-forward' : 'chevron-back'} size={20} color={colors.text} />
-            <Text style={[styles.backText, directionalText]}>{t('common.back')}</Text>
+            <Ionicons name={rtl ? 'chevron-forward' : 'chevron-back'} size={20} color={palette.text} />
+            <Text style={[styles.backText, directionalText, { color: palette.text }]}>{t('common.back')}</Text>
           </Pressable>
         ) : null}
         {renderActiveScreen()}
       </View>
 
       {showTabs ? <BottomTabs activeTab={activeTab} labels={tabLabels} onChange={selectTab} /> : null}
+      <StatusBar style={themeMode === 'dark' ? 'light' : 'dark'} />
     </SafeAreaView>
   );
 }
@@ -229,11 +246,9 @@ export function AppNavigator() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   screenSlot: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   backButton: {
     minHeight: 44,
@@ -243,10 +258,8 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.xl,
     marginTop: spacing.sm,
     paddingHorizontal: spacing.md,
-    backgroundColor: colors.cardMuted,
   },
   backText: {
     ...typography.caption,
-    color: colors.text,
   },
 });

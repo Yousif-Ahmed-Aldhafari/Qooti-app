@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { colors } from '../../theme/colors';
+import { themeColors } from '../../theme/colors';
 import { radius } from '../../theme/radius';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
@@ -15,6 +15,7 @@ type HomeHeaderProps = {
 };
 
 export function HomeHeader({ avatarInitials, greeting, subtitle, onActionPress }: HomeHeaderProps) {
+  const colors = themeColors();
   const directionalText = {
     textAlign: activeTextAlign(),
     writingDirection: activeWritingDirection(),
@@ -23,20 +24,24 @@ export function HomeHeader({ avatarInitials, greeting, subtitle, onActionPress }
   return (
     <View style={[styles.wrap, { flexDirection: activeRowDirection() }]}>
       <View style={[styles.identity, { flexDirection: activeRowDirection() }]}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{avatarInitials}</Text>
+        <View style={[styles.avatar, { backgroundColor: colors.orange }]}>
+          <Text style={[styles.avatarText, { color: colors.black }]}>{avatarInitials}</Text>
         </View>
         <View style={styles.copy}>
-          <Text style={[styles.greeting, directionalText]} numberOfLines={1}>
+          <Text style={[styles.greeting, directionalText, { color: colors.text }]} numberOfLines={1}>
             {greeting}
           </Text>
-          <Text style={[styles.subtitle, directionalText]} numberOfLines={2}>
+          <Text style={[styles.subtitle, directionalText, { color: colors.textMuted }]} numberOfLines={2}>
             {subtitle}
           </Text>
         </View>
       </View>
 
-      <Pressable accessibilityRole="button" onPress={onActionPress} style={({ pressed }) => [styles.action, { opacity: pressed ? 0.72 : 1 }]}>
+      <Pressable
+        accessibilityRole="button"
+        onPress={onActionPress}
+        style={({ pressed }) => [styles.action, { borderColor: colors.text, backgroundColor: colors.background, opacity: pressed ? 0.72 : 1 }]}
+      >
         <Ionicons name="chatbubble-ellipses-outline" size={25} color={colors.text} />
       </Pressable>
     </View>
@@ -60,11 +65,9 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.orange,
   },
   avatarText: {
     ...typography.h3,
-    color: colors.black,
   },
   copy: {
     flex: 1,
@@ -72,11 +75,9 @@ const styles = StyleSheet.create({
   },
   greeting: {
     ...typography.h2,
-    color: colors.text,
   },
   subtitle: {
     ...typography.body,
-    color: colors.textMuted,
   },
   action: {
     width: 40,
@@ -85,7 +86,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: colors.text,
-    backgroundColor: colors.background,
   },
 });

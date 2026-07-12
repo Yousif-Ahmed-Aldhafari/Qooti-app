@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import type { Workout } from '../types';
-import { colors } from '../theme/colors';
+import { themeColors } from '../theme/colors';
 import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
@@ -16,6 +16,7 @@ type WorkoutCardProps = {
 };
 
 export function WorkoutCard({ workout, minutesLabel, exerciseLabel, onPress }: WorkoutCardProps) {
+  const colors = themeColors();
   const minutes = workout.exercises.reduce((sum, exercise) => sum + exercise.duration, 0);
   const directionalText = {
     textAlign: activeTextAlign(),
@@ -28,22 +29,22 @@ export function WorkoutCard({ workout, minutesLabel, exerciseLabel, onPress }: W
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
-        { flexDirection: activeRowDirection(), opacity: pressed ? 0.78 : 1 },
+        { flexDirection: activeRowDirection(), backgroundColor: colors.card, opacity: pressed ? 0.78 : 1 },
       ]}
     >
-      <View style={styles.icon}>
+      <View style={[styles.icon, { backgroundColor: colors.purple }]}>
         <Ionicons name="barbell-outline" color={colors.text} size={23} />
       </View>
       <View style={styles.copy}>
-        <Text style={[styles.title, directionalText]} numberOfLines={1}>
+        <Text style={[styles.title, directionalText, { color: colors.text }]} numberOfLines={1}>
           {workout.title}
         </Text>
-        <Text style={[styles.meta, directionalText]} numberOfLines={1}>
+        <Text style={[styles.meta, directionalText, { color: colors.textMuted }]} numberOfLines={1}>
           {workout.time} - {workout.exercises.length} {exerciseLabel}
         </Text>
       </View>
-      <View style={styles.pill}>
-        <Text style={[styles.pillText, directionalText]}>
+      <View style={[styles.pill, { backgroundColor: colors.cardMuted }]}>
+        <Text style={[styles.pillText, directionalText, { color: colors.accent }]}>
           {minutes || 45} {minutesLabel}
         </Text>
       </View>
@@ -54,7 +55,6 @@ export function WorkoutCard({ workout, minutesLabel, exerciseLabel, onPress }: W
 const styles = StyleSheet.create({
   card: {
     minHeight: 76,
-    backgroundColor: colors.card,
     borderRadius: radius.lg,
     padding: spacing.md,
     alignItems: 'center',
@@ -66,7 +66,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.purple,
   },
   copy: {
     flex: 1,
@@ -74,20 +73,16 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.h3,
-    color: colors.text,
   },
   meta: {
     ...typography.caption,
-    color: colors.textMuted,
   },
   pill: {
     borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    backgroundColor: colors.cardMuted,
   },
   pillText: {
     ...typography.caption,
-    color: colors.accent,
   },
 });

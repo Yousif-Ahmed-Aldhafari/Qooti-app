@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { AppButton } from '../components/AppButton';
 import { AppCard } from '../components/AppCard';
 import type { Translator } from '../i18n';
-import { colors } from '../theme/colors';
+import { themeColors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
@@ -14,16 +14,17 @@ type OnboardingScreenProps = {
 };
 
 export function OnboardingScreen({ t, onDone }: OnboardingScreenProps) {
+  const colors = themeColors();
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <View style={styles.hero}>
-        <View style={styles.circle}>
-          <Ionicons name="barbell-outline" size={82} color={colors.black} />
+        <View style={[styles.circle, { backgroundColor: colors.accent }]}>
+          <Ionicons name="barbell-outline" size={82} color={colors.buttonText} />
         </View>
       </View>
-      <AppCard accent="lime" style={styles.card}>
-        <Text style={styles.title}>{t('onboarding.title')}</Text>
-        <Text style={styles.body}>{t('onboarding.body')}</Text>
+      <AppCard style={styles.card}>
+        <Text style={[styles.title, { color: colors.text }]}>{t('onboarding.title')}</Text>
+        <Text style={[styles.body, { color: colors.textMuted }]}>{t('onboarding.body')}</Text>
       </AppCard>
       <AppButton title={t('common.start')} icon="arrow-forward" onPress={onDone} />
     </View>
@@ -36,7 +37,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: spacing.xxl,
     padding: spacing.xl,
-    backgroundColor: colors.background,
   },
   hero: {
     alignItems: 'center',
@@ -47,17 +47,13 @@ const styles = StyleSheet.create({
     borderRadius: 125,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.accent,
   },
   card: {
-    backgroundColor: colors.card,
   },
   title: {
     ...typography.title,
-    color: colors.text,
   },
   body: {
     ...typography.body,
-    color: colors.textMuted,
   },
 });

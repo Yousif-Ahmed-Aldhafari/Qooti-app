@@ -4,7 +4,7 @@ import { AppCard } from '../components/AppCard';
 import { AppHeader } from '../components/AppHeader';
 import { MacroCard } from '../components/MacroCard';
 import type { Translator } from '../i18n';
-import { colors } from '../theme/colors';
+import { themeColors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import type { Meal, UserProfile } from '../types';
@@ -18,6 +18,7 @@ type MealDetailsScreenProps = {
 };
 
 export function MealDetailsScreen({ t, meal, profile }: MealDetailsScreenProps) {
+  const colors = themeColors();
   const totals = calculateMealTotals(meal.items);
   const directionalText = {
     textAlign: activeTextAlign(),
@@ -25,7 +26,7 @@ export function MealDetailsScreen({ t, meal, profile }: MealDetailsScreenProps) 
   } as const;
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView style={[styles.screen, { backgroundColor: colors.background }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <AppHeader title={meal.title} subtitle={t('meals.detailsTitle')} />
       <View style={[styles.grid, { flexDirection: activeRowDirection() }]}>
         <MacroCard label={t('common.calories')} value={totals.calories} target={profile.targetCalories} unit={t('common.kcal')} />
@@ -35,8 +36,8 @@ export function MealDetailsScreen({ t, meal, profile }: MealDetailsScreenProps) 
       </View>
       {meal.items.map((item) => (
         <AppCard key={item.id}>
-          <Text style={[styles.itemTitle, directionalText]}>{item.foodName}</Text>
-          <Text style={[styles.itemMeta, directionalText]}>
+          <Text style={[styles.itemTitle, directionalText, { color: colors.text }]}>{item.foodName}</Text>
+          <Text style={[styles.itemMeta, directionalText, { color: colors.textMuted }]}>
             {item.quantity} - {item.calories} {t('common.kcal')} - {item.protein}{t('common.grams')} {t('common.protein')}
           </Text>
         </AppCard>
@@ -48,7 +49,6 @@ export function MealDetailsScreen({ t, meal, profile }: MealDetailsScreenProps) 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   content: {
     padding: spacing.xl,
@@ -61,10 +61,8 @@ const styles = StyleSheet.create({
   },
   itemTitle: {
     ...typography.h3,
-    color: colors.text,
   },
   itemMeta: {
     ...typography.body,
-    color: colors.textMuted,
   },
 });
