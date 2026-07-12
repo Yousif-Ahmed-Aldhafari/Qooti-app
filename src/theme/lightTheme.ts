@@ -30,6 +30,7 @@ export const lightTheme: AppTheme = {
     lavender: '#E7D7F6',
     orange: '#EF8B45',
     blue: '#2F95C8',
+    calories: '#F59E0B',
     workout: '#3B82F6',
     progress: '#8B5CF6',
     green: brandColors.primaryGreen,

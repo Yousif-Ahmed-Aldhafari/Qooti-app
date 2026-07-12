@@ -129,7 +129,7 @@ export function HomeScreen({ t, profile, meals, workouts, onAddMeal, onAddWorkou
           value={`${Math.round(totals.calories)} / ${calorieTarget}`}
           subtitle={t('common.kcal')}
           icon="flame"
-          accent={colors.accent}
+          accent={colors.calories}
           progress={caloriesProgress}
         />
         <DailyMetricCard
