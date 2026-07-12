@@ -1,7 +1,8 @@
 import { I18nManager } from 'react-native';
+import type { TextStyle, ViewStyle } from 'react-native';
 import type { Language } from '../types';
 
-let activeLanguage: Language = I18nManager.isRTL ? 'ar' : 'en';
+let activeLanguage: Language = 'en';
 
 export function isRTL(language: Language): boolean {
   return language === 'ar';
@@ -10,26 +11,31 @@ export function isRTL(language: Language): boolean {
 export function applyRTL(language: Language): void {
   activeLanguage = language;
   const shouldUseRTL = isRTL(language);
-  I18nManager.allowRTL(true);
+  I18nManager.allowRTL(shouldUseRTL);
   I18nManager.forceRTL(shouldUseRTL);
   I18nManager.swapLeftAndRightInRTL(shouldUseRTL);
 }
 
-export function direction(language: Language) {
+export function direction(language: Language): ViewStyle['direction'] {
   return isRTL(language) ? 'rtl' : 'ltr';
 }
 
-export function textAlign(language: Language) {
+export function textAlign(language: Language): TextStyle['textAlign'] {
   return isRTL(language) ? 'right' as const : 'left' as const;
 }
 
-export function writingDirection(language: Language) {
+export function writingDirection(language: Language): TextStyle['writingDirection'] {
   return isRTL(language) ? 'rtl' : 'ltr';
 }
 
-export function rowDirection(language: Language) {
+export function rowDirection(language: Language): ViewStyle['flexDirection'] {
   return isRTL(language) ? 'row-reverse' as const : 'row' as const;
 }
+
+export const getDirection = direction;
+export const getTextAlign = textAlign;
+export const getWritingDirection = writingDirection;
+export const getRowDirection = rowDirection;
 
 export function activeIsRTL(): boolean {
   return isRTL(activeLanguage);

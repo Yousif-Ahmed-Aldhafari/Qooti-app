@@ -5,7 +5,7 @@ import { themeColors } from '../../theme/colors';
 import { radius } from '../../theme/radius';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
-import { activeTextAlign, activeWritingDirection } from '../../utils/rtl';
+import { activeRowDirection, activeTextAlign, activeWritingDirection } from '../../utils/rtl';
 
 type DailyMetricCardProps = {
   title: string;
@@ -31,7 +31,7 @@ export function DailyMetricCard({ title, value, subtitle, icon, accent, progress
         {title}
       </Text>
       {bars?.length ? (
-        <View style={styles.chart}>
+        <View style={[styles.chart, { flexDirection: activeRowDirection() }]}>
           {bars.map((bar, index) => (
             <View
               key={`${bar}-${index}`}

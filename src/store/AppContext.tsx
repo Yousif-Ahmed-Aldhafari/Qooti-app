@@ -144,6 +144,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         loadProgressEntries(),
         loadSettings(),
       ]);
+      const hydratedSettings = { ...defaultSettings, ...savedSettings };
+
+      applyAppDirection(hydratedSettings.selectedLanguage);
 
       dispatch({
         type: 'hydrate',
@@ -151,7 +154,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         workouts: savedWorkouts ?? getSeedWorkouts(),
         profile: savedProfile ?? getSeedProfile(),
         progressEntries: savedProgressEntries ?? getSeedProgressEntries(),
-        settings: { ...defaultSettings, ...savedSettings },
+        settings: hydratedSettings,
       });
     }
 

@@ -12,7 +12,7 @@ export function getDirection(language: Language): ViewStyle['direction'] {
 }
 
 export function getTextAlign(language: Language): TextStyle['textAlign'] {
-  return 'left';
+  return isRTLLanguage(language) ? 'right' : 'left';
 }
 
 export function getWritingDirection(language: Language): TextStyle['writingDirection'] {
@@ -20,7 +20,7 @@ export function getWritingDirection(language: Language): TextStyle['writingDirec
 }
 
 export function getRowDirection(language: Language): ViewStyle['flexDirection'] {
-  return 'row';
+  return isRTLLanguage(language) ? 'row-reverse' : 'row';
 }
 
 export function applyAppDirection(language: Language): void {
