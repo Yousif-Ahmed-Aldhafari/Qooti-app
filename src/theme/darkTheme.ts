@@ -1,4 +1,4 @@
-import type { AppTheme } from './theme';
+import { brandColors, type AppTheme } from './theme';
 
 export const darkTheme: AppTheme = {
   mode: 'dark',
@@ -18,21 +18,21 @@ export const darkTheme: AppTheme = {
     textSecondary: '#C6C7C8',
     textMuted: '#A3A3A3',
     border: '#4B4E50',
-    primary: '#D0FF63',
-    primaryMuted: 'rgba(208, 255, 99, 0.16)',
+    primary: brandColors.primaryGreen,
+    primaryMuted: 'rgba(47, 158, 103, 0.22)',
     secondary: '#8C96F2',
     secondaryMuted: 'rgba(140, 150, 242, 0.18)',
-    accent: '#D0FF63',
-    accentMuted: 'rgba(208, 255, 99, 0.16)',
+    accent: brandColors.primaryGreen,
+    accentMuted: 'rgba(47, 158, 103, 0.22)',
     limeSoft: '#E3F28C',
     accentDark: '#9EDB26',
     purple: '#8C96F2',
     lavender: '#D4B9EF',
     orange: '#FFB85C',
     blue: '#66D9EF',
-    green: '#5CE1A8',
+    green: brandColors.primaryGreen,
     red: '#FF6B7A',
-    success: '#5CE1A8',
+    success: brandColors.primaryGreen,
     warning: '#FFB85C',
     danger: '#FF6B7A',
     tabBar: '#3E4041',

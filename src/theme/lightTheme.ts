@@ -1,4 +1,4 @@
-import type { AppTheme } from './theme';
+import { brandColors, type AppTheme } from './theme';
 
 export const lightTheme: AppTheme = {
   mode: 'light',
@@ -18,11 +18,11 @@ export const lightTheme: AppTheme = {
     textSecondary: '#3F4A44',
     textMuted: '#6E7A73',
     border: '#DDE5DC',
-    primary: '#2F9E67',
+    primary: brandColors.primaryGreen,
     primaryMuted: '#DFF4E9',
     secondary: '#5D6BD8',
     secondaryMuted: '#E8EAFF',
-    accent: '#2F9E67',
+    accent: brandColors.primaryGreen,
     accentMuted: '#DFF4E9',
     limeSoft: '#DFF6B8',
     accentDark: '#207A4E',
@@ -30,9 +30,9 @@ export const lightTheme: AppTheme = {
     lavender: '#E7D7F6',
     orange: '#EF8B45',
     blue: '#2F95C8',
-    green: '#2F9E67',
+    green: brandColors.primaryGreen,
     red: '#D95666',
-    success: '#2F9E67',
+    success: brandColors.primaryGreen,
     warning: '#EF8B45',
     danger: '#D95666',
     tabBar: '#FFFFFF',

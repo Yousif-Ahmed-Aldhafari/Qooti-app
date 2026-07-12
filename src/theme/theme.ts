@@ -3,6 +3,10 @@ export type ThemePreference = ResolvedTheme | 'system';
 export type ThemeMode = ResolvedTheme;
 export type SystemColorScheme = ResolvedTheme | null | undefined;
 
+export const brandColors = {
+  primaryGreen: '#2F9E67',
+} as const;
+
 export type ThemeColors = {
   background: string;
   backgroundAlt: string;
