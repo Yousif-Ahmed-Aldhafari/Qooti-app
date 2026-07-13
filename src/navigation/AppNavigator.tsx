@@ -269,7 +269,7 @@ export function AppNavigator() {
   }
 
   return (
-    <SafeAreaView style={[styles.root, { direction: layoutDirection, backgroundColor: palette.background }]} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.root, { direction: layoutDirection, backgroundColor: palette.background }]} edges={['top']}>
       <View style={[styles.screenSlot, { backgroundColor: palette.background }]}>
         {showBack ? (
           <Pressable
