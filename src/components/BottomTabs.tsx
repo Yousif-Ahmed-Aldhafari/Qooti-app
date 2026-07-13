@@ -30,13 +30,14 @@ export function BottomTabs({ activeTab, labels, onChange }: BottomTabsProps) {
   const colors = themeColors();
   const theme = getActiveTheme();
   const insets = useSafeAreaInsets();
+  const bottomOffset = Math.max(insets.bottom, 6);
 
   return (
     <View
       style={[
         styles.wrap,
         {
-          bottom: Math.max(insets.bottom, 12) + 8,
+          bottom: bottomOffset,
           shadowColor: colors.shadow,
         },
       ]}
