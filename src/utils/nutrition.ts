@@ -42,6 +42,16 @@ export function progressRatio(value: number, target: number): number {
   return Math.min(1, Math.max(0, value / target));
 }
 
+export function estimateWeightGainKg(calorieSurplus: number): number {
+  const safeSurplus = safeNumber(calorieSurplus);
+  return safeSurplus > 0 ? safeSurplus / 7700 : 0;
+}
+
+export function formatWeightGainKg(kg: number, unit = 'kg'): string {
+  const safeKg = Math.max(safeNumber(kg), 0);
+  return safeKg > 0 ? `+${safeKg.toFixed(2)} ${unit}` : `0.00 ${unit}`;
+}
+
 export function safeNumber(value: number): number {
   return Number.isFinite(value) ? value : 0;
 }

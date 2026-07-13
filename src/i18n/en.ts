@@ -68,6 +68,9 @@ export const en = {
       workout: 'Workout',
       progress: 'Progress',
       dailyProgress: 'Daily progress',
+      expectedGainToday: 'Expected gain today',
+      expectedGainThisWeek: 'Expected gain this week',
+      expectedGainThisMonth: 'Expected gain this month',
       exercises: '{{count}} exercises',
     },
     dailyGoal: {

@@ -14,7 +14,7 @@ import { themeColors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import type { Meal, UserProfile, Workout } from '../types';
-import { calculateDailyNutrition, progressRatio, workoutMinutes } from '../utils/nutrition';
+import { calculateDailyNutrition, estimateWeightGainKg, formatWeightGainKg, progressRatio, workoutMinutes } from '../utils/nutrition';
 import { activeIsRTL, activeRowStyle, activeTextAlign, activeWritingDirection } from '../utils/rtl';
 
 type HomeScreenProps = {
@@ -54,9 +54,13 @@ export function HomeScreen({ t, profile, meals, workouts, onAddMeal, onAddWorkou
   const totals = calculateDailyNutrition(filteredMeals);
   const periodDays = getPeriodDayCount(selectedDate, period);
   const dailyCaloriesGoal = profile.targetCalories || 2500;
+  const dailyMaintenanceCalories = profile.targetCalories || 2500;
   const dailyMealsGoal = 3;
   const calorieTarget = dailyCaloriesGoal * periodDays;
   const proteinTarget = profile.targetProtein * periodDays;
+  const maintenancePeriodDays = getMaintenancePeriodDayCount(period);
+  const expectedWeightGain = estimateWeightGainKg(totals.calories - (dailyMaintenanceCalories * maintenancePeriodDays));
+  const expectedWeightGainLabel = getExpectedGainLabel(t, period);
   const duration = workoutMinutes(filteredWorkouts);
   const exerciseCount = filteredWorkouts.reduce((sum, workout) => sum + workout.exercises.length, 0);
   const mealCount = filteredMeals.length;
@@ -125,6 +129,15 @@ export function HomeScreen({ t, profile, meals, workouts, onAddMeal, onAddWorkou
         contentContainerStyle={[styles.metricRow, activeRowStyle()]}
       >
         <DailyMetricCard
+          title={t('home.metrics.progress')}
+          subtitle={expectedWeightGainLabel}
+          value={formatWeightGainKg(expectedWeightGain, t('common.kg'))}
+          centerValue={`${overallProgress}%`}
+          icon="trending-up-outline"
+          accent={colors.progress}
+          progress={overallProgress / 100}
+        />
+        <DailyMetricCard
           title={t('home.metrics.calories')}
           value={`${Math.round(totals.calories)} / ${calorieTarget}`}
           subtitle={t('common.kcal')}
@@ -139,14 +152,6 @@ export function HomeScreen({ t, profile, meals, workouts, onAddMeal, onAddWorkou
           icon="barbell-outline"
           accent={colors.workout}
           progress={workoutProgress}
-        />
-        <DailyMetricCard
-          title={t('home.metrics.progress')}
-          subtitle={t('home.metrics.dailyProgress')}
-          centerValue={`${overallProgress}%`}
-          icon="trending-up-outline"
-          accent={colors.progress}
-          progress={overallProgress / 100}
         />
       </ScrollView>
 
@@ -327,6 +332,30 @@ function getPeriodDayCount(date: Date, period: PeriodKey): number {
   }
 
   return 1;
+}
+
+function getMaintenancePeriodDayCount(period: PeriodKey): number {
+  if (period === 'week') {
+    return 7;
+  }
+
+  if (period === 'month') {
+    return 30;
+  }
+
+  return 1;
+}
+
+function getExpectedGainLabel(t: Translator, period: PeriodKey): string {
+  if (period === 'week') {
+    return t('home.metrics.expectedGainThisWeek');
+  }
+
+  if (period === 'month') {
+    return t('home.metrics.expectedGainThisMonth');
+  }
+
+  return t('home.metrics.expectedGainToday');
 }
 
 function buildDateOptions(center: Date, rtl: boolean): DateOption[] {

@@ -78,7 +78,7 @@ const styles = StyleSheet.create({
   card: {
     width: 148,
     minWidth: 148,
-    minHeight: 156,
+    minHeight: 184,
     borderRadius: radius.sm,
     padding: spacing.lg,
     alignItems: 'center',

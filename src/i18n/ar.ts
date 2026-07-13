@@ -68,6 +68,9 @@ export const ar = {
       workout: 'التمرين',
       progress: 'التقدم',
       dailyProgress: 'تقدم اليوم',
+      expectedGainToday: 'الزيادة المتوقعة اليوم',
+      expectedGainThisWeek: 'الزيادة المتوقعة هذا الأسبوع',
+      expectedGainThisMonth: 'الزيادة المتوقعة هذا الشهر',
       exercises: '{{count}} تمارين',
     },
     dailyGoal: {
