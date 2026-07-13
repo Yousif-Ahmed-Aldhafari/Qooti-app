@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
+import { GlassCard } from '../GlassCard';
 import { themeColors } from '../../theme/colors';
 import { radius } from '../../theme/radius';
 import { spacing } from '../../theme/spacing';
@@ -27,7 +28,7 @@ export function DailyMetricCard({ title, value, subtitle, centerValue, icon, acc
   const safeProgress = Math.min(1, Math.max(0, progress));
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.card }]}>
+    <GlassCard style={styles.card} contentStyle={styles.cardContent}>
       <Text style={[styles.title, centeredText, { color: colors.text }]} numberOfLines={1}>
         {title}
       </Text>
@@ -70,7 +71,7 @@ export function DailyMetricCard({ title, value, subtitle, centerValue, icon, acc
           {subtitle}
         </Text>
       ) : null}
-    </View>
+    </GlassCard>
   );
 }
 
@@ -79,7 +80,9 @@ const styles = StyleSheet.create({
     width: 148,
     minWidth: 148,
     minHeight: 184,
-    borderRadius: radius.sm,
+    borderRadius: radius.md,
+  },
+  cardContent: {
     padding: spacing.lg,
     alignItems: 'center',
     gap: spacing.sm,

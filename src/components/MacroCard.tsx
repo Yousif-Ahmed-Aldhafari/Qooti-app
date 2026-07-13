@@ -24,7 +24,7 @@ export function MacroCard({ label, value, target, unit, accent }: MacroCardProps
   } as const;
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.card }]}>
+    <View style={[styles.card, { backgroundColor: colors.glassBackground, borderColor: colors.glassBorder, shadowColor: colors.shadow }]}>
       <Text style={[styles.label, directionalText, { color: colors.textMuted }]}>{label}</Text>
       <Text style={[styles.value, directionalText, { color: colors.text }]}>
         {Math.round(value)} <Text style={[styles.unit, { color: colors.textMuted }]}>{unit}</Text>
@@ -41,8 +41,13 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 148,
     borderRadius: radius.lg,
+    borderWidth: 1,
     padding: spacing.lg,
     gap: spacing.sm,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 4,
   },
   label: {
     ...typography.caption,

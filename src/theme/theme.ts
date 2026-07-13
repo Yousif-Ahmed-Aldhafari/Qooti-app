@@ -43,6 +43,9 @@ export type ThemeColors = {
   warning: string;
   danger: string;
   tabBar: string;
+  glassBackground: string;
+  glassBorder: string;
+  glassTabBackground: string;
   buttonText: string;
   black: string;
   white: string;

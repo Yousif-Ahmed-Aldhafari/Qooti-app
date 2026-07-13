@@ -22,7 +22,7 @@ export function ProgressCard({ title, value, helper, accent }: ProgressCardProps
   } as const;
 
   return (
-    <View style={[styles.card, { borderColor: tone, backgroundColor: colors.card }]}>
+    <View style={[styles.card, { borderColor: tone, backgroundColor: colors.glassBackground, shadowColor: colors.shadow }]}>
       <Text style={[styles.title, directionalText, { color: colors.textMuted }]}>{title}</Text>
       <Text style={[styles.value, directionalText, { color: tone }]}>{value}</Text>
       <Text style={[styles.helper, directionalText, { color: colors.textSecondary }]}>{helper}</Text>
@@ -38,6 +38,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: spacing.lg,
     gap: spacing.sm,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 4,
   },
   title: {
     ...typography.caption,
