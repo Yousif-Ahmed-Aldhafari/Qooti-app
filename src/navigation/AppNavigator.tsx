@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BottomTabs } from '../components/BottomTabs';
+import { BottomNavProvider } from '../context/BottomNavContext';
 import { sampleMeals, sampleProfile, sampleProgress, sampleWorkouts } from '../data/sampleData';
 import { translate, type Translator } from '../i18n';
 import { AddMealScreen } from '../screens/AddMealScreen';
@@ -269,32 +270,34 @@ export function AppNavigator() {
   }
 
   return (
-    <SafeAreaView style={[styles.root, { direction: layoutDirection, backgroundColor: palette.background }]} edges={['top']}>
-      <View style={[styles.screenSlot, { backgroundColor: palette.background }]}>
-        {showBack ? (
-          <Pressable
-            accessibilityRole="button"
-            onPress={goBack}
-            style={({ pressed }) => [
-              styles.backButton,
-              {
-                alignSelf: 'flex-start',
-                ...rowStyle(language),
-                backgroundColor: palette.cardMuted,
-                opacity: pressed ? 0.72 : 1,
-              },
-            ]}
-          >
-            <Ionicons name={rtl ? 'chevron-forward' : 'chevron-back'} size={20} color={palette.text} />
-            <Text style={[styles.backText, directionalText, { color: palette.text }]}>{t('common.back')}</Text>
-          </Pressable>
-        ) : null}
-        {renderActiveScreen()}
-      </View>
+    <BottomNavProvider>
+      <SafeAreaView style={[styles.root, { direction: layoutDirection, backgroundColor: palette.background }]} edges={['top']}>
+        <View style={[styles.screenSlot, { backgroundColor: palette.background }]}>
+          {showBack ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={goBack}
+              style={({ pressed }) => [
+                styles.backButton,
+                {
+                  alignSelf: 'flex-start',
+                  ...rowStyle(language),
+                  backgroundColor: palette.cardMuted,
+                  opacity: pressed ? 0.72 : 1,
+                },
+              ]}
+            >
+              <Ionicons name={rtl ? 'chevron-forward' : 'chevron-back'} size={20} color={palette.text} />
+              <Text style={[styles.backText, directionalText, { color: palette.text }]}>{t('common.back')}</Text>
+            </Pressable>
+          ) : null}
+          {renderActiveScreen()}
+        </View>
 
-      {showTabs ? <BottomTabs activeTab={activeTab} labels={tabLabels} onChange={selectTab} /> : null}
-      <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
-    </SafeAreaView>
+        {showTabs ? <BottomTabs activeTab={activeTab} labels={tabLabels} onChange={selectTab} /> : null}
+        <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
+      </SafeAreaView>
+    </BottomNavProvider>
   );
 }
 

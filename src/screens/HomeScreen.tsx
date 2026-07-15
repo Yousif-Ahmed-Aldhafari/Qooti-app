@@ -9,6 +9,7 @@ import { HomeHeader } from '../components/home/HomeHeader';
 import { LatestActivityList, type HomeActivity } from '../components/home/LatestActivityList';
 import { PeriodSelector, type PeriodKey } from '../components/home/PeriodSelector';
 import { QuickActionCard } from '../components/home/QuickActionCard';
+import { useBottomNavScrollHandler } from '../context/BottomNavContext';
 import type { Translator } from '../i18n';
 import { themeColors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
@@ -32,6 +33,7 @@ const dayMs = 24 * 60 * 60 * 1000;
 
 export function HomeScreen({ t, profile, meals, workouts, onAddMeal, onAddWorkout, onMealPress, onWorkoutPress }: HomeScreenProps) {
   const colors = themeColors();
+  const handleBottomNavScroll = useBottomNavScrollHandler();
   const [period, setPeriod] = useState<PeriodKey>('today');
   const [selectedDateKey, setSelectedDateKey] = useState(toDateKey(new Date()));
   const selectedDate = dateFromKey(selectedDateKey);
@@ -113,7 +115,13 @@ export function HomeScreen({ t, profile, meals, workouts, onAddMeal, onAddWorkou
   }
 
   return (
-    <ScrollView style={[styles.screen, { backgroundColor: colors.background }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={[styles.screen, { backgroundColor: colors.background }]}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+      onScroll={handleBottomNavScroll}
+      scrollEventThrottle={16}
+    >
       <HomeHeader
         avatarInitials={profile.avatarInitials}
         greeting={t('home.headerGreeting', { name: firstName })}

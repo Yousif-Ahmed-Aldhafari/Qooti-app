@@ -5,6 +5,7 @@ import { AppCard } from '../components/AppCard';
 import { AppHeader } from '../components/AppHeader';
 import { MacroCard } from '../components/MacroCard';
 import { StatCard } from '../components/StatCard';
+import { useBottomNavScrollHandler } from '../context/BottomNavContext';
 import type { Translator } from '../i18n';
 import { themeColors } from '../theme/colors';
 import { radius } from '../theme/radius';
@@ -21,13 +22,20 @@ type ProfileScreenProps = {
 
 export function ProfileScreen({ t, profile, onSettingsPress }: ProfileScreenProps) {
   const colors = themeColors();
+  const handleBottomNavScroll = useBottomNavScrollHandler();
   const directionalText = {
     textAlign: activeTextAlign(),
     writingDirection: activeWritingDirection(),
   } as const;
 
   return (
-    <ScrollView style={[styles.screen, { backgroundColor: colors.background }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={[styles.screen, { backgroundColor: colors.background }]}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+      onScroll={handleBottomNavScroll}
+      scrollEventThrottle={16}
+    >
       <AppHeader
         title={t('profile.title')}
         subtitle={t('profile.subtitle')}

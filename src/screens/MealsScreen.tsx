@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, Text } from 'react-native';
 import { AppButton } from '../components/AppButton';
 import { AppHeader } from '../components/AppHeader';
 import { MealCard } from '../components/MealCard';
+import { useBottomNavScrollHandler } from '../context/BottomNavContext';
 import type { Translator } from '../i18n';
 import { themeColors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
@@ -19,13 +20,20 @@ type MealsScreenProps = {
 
 export function MealsScreen({ t, meals, onAddMeal, onMealPress }: MealsScreenProps) {
   const colors = themeColors();
+  const handleBottomNavScroll = useBottomNavScrollHandler();
   const directionalText = {
     textAlign: activeTextAlign(),
     writingDirection: activeWritingDirection(),
   } as const;
 
   return (
-    <ScrollView style={[styles.screen, { backgroundColor: colors.background }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={[styles.screen, { backgroundColor: colors.background }]}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+      onScroll={handleBottomNavScroll}
+      scrollEventThrottle={16}
+    >
       <AppHeader title={t('meals.title')} subtitle={t('meals.subtitle')} action={<AppButton title={t('common.add')} icon="add" onPress={onAddMeal} />} />
       {meals.length ? (
         meals.map((meal) => (

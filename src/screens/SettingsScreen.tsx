@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { AppCard } from '../components/AppCard';
 import { AppHeader } from '../components/AppHeader';
+import { useBottomNavScrollHandler } from '../context/BottomNavContext';
 import type { Translator } from '../i18n';
 import { themeColors, type ResolvedTheme, type ThemePreference } from '../theme/colors';
 import { radius } from '../theme/radius';
@@ -22,6 +23,7 @@ type SettingsScreenProps = {
 
 export function SettingsScreen({ t, language, themePreference, resolvedTheme, onLanguageChange, onThemeChange }: SettingsScreenProps) {
   const palette = themeColors();
+  const handleBottomNavScroll = useBottomNavScrollHandler();
   const directionalText = {
     textAlign: activeTextAlign(),
     writingDirection: activeWritingDirection(),
@@ -38,7 +40,13 @@ export function SettingsScreen({ t, language, themePreference, resolvedTheme, on
   ];
 
   return (
-    <ScrollView style={[styles.screen, { backgroundColor: palette.background }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={[styles.screen, { backgroundColor: palette.background }]}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+      onScroll={handleBottomNavScroll}
+      scrollEventThrottle={16}
+    >
       <AppHeader title={t('settings.title')} subtitle={t('settings.subtitle')} />
 
       <AppCard>

@@ -1,8 +1,10 @@
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Animated, Easing, Platform, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useBottomNav } from '../context/BottomNavContext';
 import type { TabKey } from '../types';
 import { getActiveTheme, themeColors } from '../theme/colors';
 import { radius } from '../theme/radius';
@@ -29,25 +31,45 @@ export function BottomTabs({ activeTab, labels, onChange }: BottomTabsProps) {
   const colors = themeColors();
   const theme = getActiveTheme();
   const insets = useSafeAreaInsets();
+  const { isBottomNavCompact } = useBottomNav();
+  const navProgress = useRef(new Animated.Value(isBottomNavCompact ? 1 : 0)).current;
   const bottomOffset = Platform.OS === 'ios' ? Math.max(insets.bottom - 8, 2) : 4;
+  const navHeight = navProgress.interpolate({ inputRange: [0, 1], outputRange: [60, 48] });
+  const navRadius = navProgress.interpolate({ inputRange: [0, 1], outputRange: [28, 24] });
+  const navPaddingX = navProgress.interpolate({ inputRange: [0, 1], outputRange: [spacing.md, spacing.sm] });
+  const iconWrapSize = navProgress.interpolate({ inputRange: [0, 1], outputRange: [42, 36] });
+  const iconScale = navProgress.interpolate({ inputRange: [0, 1], outputRange: [1, 0.875] });
+
+  useEffect(() => {
+    Animated.timing(navProgress, {
+      toValue: isBottomNavCompact ? 1 : 0,
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [isBottomNavCompact, navProgress]);
 
   return (
-    <View
+    <Animated.View
       style={[
         styles.wrap,
         {
           bottom: bottomOffset,
+          borderRadius: navRadius,
+          height: navHeight,
           shadowColor: colors.shadow,
         },
       ]}
     >
-      <View
+      <Animated.View
         style={[
           styles.glass,
           activeRowStyle(),
           {
             backgroundColor: colors.glassTabBackground,
+            borderRadius: navRadius,
             borderColor: colors.glassBorder,
+            paddingHorizontal: navPaddingX,
           },
         ]}
       >
@@ -67,14 +89,20 @@ export function BottomTabs({ activeTab, labels, onChange }: BottomTabsProps) {
               onPress={() => onChange(tab)}
               style={({ pressed }) => [styles.tab, { opacity: pressed ? 0.76 : 1 }]}
             >
-              <View style={[styles.iconWrap, active ? { backgroundColor: colors.primaryMuted } : null]}>
-                <Ionicons name={icons[tab]} size={22} color={active ? colors.primary : colors.textMuted} />
-              </View>
+              <Animated.View
+                style={[
+                  styles.iconWrap,
+                  active ? { backgroundColor: colors.primaryMuted } : null,
+                  { height: iconWrapSize, width: iconWrapSize, transform: [{ scale: iconScale }] },
+                ]}
+              >
+                <Ionicons name={icons[tab]} size={24} color={active ? colors.primary : colors.textMuted} />
+              </Animated.View>
             </Pressable>
           );
         })}
-      </View>
-    </View>
+      </Animated.View>
+    </Animated.View>
   );
 }
 
@@ -83,8 +111,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     start: spacing.lg,
     end: spacing.lg,
-    height: 64,
-    borderRadius: 26,
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.18,
     shadowRadius: 24,
@@ -92,22 +118,18 @@ const styles = StyleSheet.create({
   },
   glass: {
     flex: 1,
-    borderRadius: 26,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'space-around',
-    paddingHorizontal: spacing.md,
     overflow: 'hidden',
   },
   tab: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 56,
+    minHeight: 44,
   },
   iconWrap: {
-    width: 42,
-    height: 42,
     borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',

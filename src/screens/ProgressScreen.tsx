@@ -4,6 +4,7 @@ import { AppCard } from '../components/AppCard';
 import { AppHeader } from '../components/AppHeader';
 import { ProgressCard } from '../components/ProgressCard';
 import { StatCard } from '../components/StatCard';
+import { useBottomNavScrollHandler } from '../context/BottomNavContext';
 import type { Translator } from '../i18n';
 import { themeColors } from '../theme/colors';
 import { radius } from '../theme/radius';
@@ -20,6 +21,7 @@ type ProgressScreenProps = {
 
 export function ProgressScreen({ t, profile, progress }: ProgressScreenProps) {
   const colors = themeColors();
+  const handleBottomNavScroll = useBottomNavScrollHandler();
   const latest = progress[progress.length - 1];
   const workoutDays = progress.reduce((sum, entry) => sum + entry.workouts, 0);
   const averageCalories = progress.length
@@ -32,7 +34,13 @@ export function ProgressScreen({ t, profile, progress }: ProgressScreenProps) {
   } as const;
 
   return (
-    <ScrollView style={[styles.screen, { backgroundColor: colors.background }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={[styles.screen, { backgroundColor: colors.background }]}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+      onScroll={handleBottomNavScroll}
+      scrollEventThrottle={16}
+    >
       <AppHeader title={t('progress.title')} subtitle={t('progress.subtitle')} />
 
       <View style={[styles.statsRow, activeRowStyle()]}>
