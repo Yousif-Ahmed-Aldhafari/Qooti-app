@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { CombinedDonutStatsCard } from '../components/home/CombinedDonutStatsCard';
 import { DailyGoalBanner } from '../components/home/DailyGoalBanner';
 import { DateSelector, type DateOption } from '../components/home/DateSelector';
+import { DonutStatCard } from '../components/home/DonutStatCard';
 import { GoalProgressCard } from '../components/home/GoalProgressCard';
 import { HomeHeader } from '../components/home/HomeHeader';
 import { LatestActivityList, type HomeActivity } from '../components/home/LatestActivityList';
@@ -72,7 +72,6 @@ export function HomeScreen({ t, profile, meals, workouts, onAddMeal, onAddWorkou
   const workoutProgress = progressRatio(filteredWorkouts.length, workoutTarget);
   const mealsProgress = progressRatio(mealCount, mealTarget);
   const overallProgress = (caloriesProgress + workoutProgress + mealsProgress) / 3;
-  const overallProgressLabel = Math.round(overallProgress * 100);
   const latestActivities = buildActivities({
     meals: filteredMeals,
     workouts: filteredWorkouts,
@@ -131,32 +130,35 @@ export function HomeScreen({ t, profile, meals, workouts, onAddMeal, onAddWorkou
 
       <PeriodSelector options={periodOptions} selected={period} onChange={setPeriod} />
 
-      <CombinedDonutStatsCard
-        progressStat={{
-          title: t('home.metrics.progress'),
-          value: formatWeightGainKg(expectedWeightGain, t('common.kg')),
-          subtitle: expectedWeightGainLabel,
-          centerValue: `${overallProgressLabel}%`,
-          accent: colors.progress,
-          progress: overallProgress,
-        }}
-        caloriesStat={{
-          title: t('home.metrics.calories'),
-          value: `${Math.round(totals.calories)}/${calorieTarget}`,
-          subtitle: t('common.kcal'),
-          icon: 'flame',
-          accent: colors.calories,
-          progress: caloriesProgress,
-        }}
-        workoutStat={{
-          title: t('home.metrics.workout'),
-          value: `${filteredWorkouts.length}/${workoutTarget}`,
-          subtitle: t('home.metrics.exercises', { count: exerciseCount }),
-          icon: 'barbell-outline',
-          accent: colors.workout,
-          progress: workoutProgress,
-        }}
-      />
+      <View style={styles.statsSection}>
+        <View style={styles.progressRow}>
+          <DonutStatCard
+            title={t('home.metrics.progress')}
+            value={formatWeightGainKg(expectedWeightGain, t('common.kg'))}
+            subtitle={expectedWeightGainLabel}
+            progress={overallProgress}
+            color={colors.progress}
+            fullWidth
+          />
+        </View>
+
+        <View style={[styles.secondStatsRow, { flexDirection: rtl ? 'row-reverse' : 'row' }]}>
+          <DonutStatCard
+            title={t('home.metrics.calories')}
+            value={`${Math.round(totals.calories)}/${calorieTarget}`}
+            subtitle={t('common.kcal')}
+            progress={caloriesProgress}
+            color={colors.calories}
+          />
+          <DonutStatCard
+            title={t('home.metrics.workout')}
+            value={`${filteredWorkouts.length}/${workoutTarget}`}
+            subtitle={t('home.metrics.exercises', { count: exerciseCount })}
+            progress={workoutProgress}
+            color={colors.workout}
+          />
+        </View>
+      </View>
 
       <DateSelector
         title={formatMonthYear(selectedDate, rtl)}
@@ -394,6 +396,17 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     ...typography.h3,
+  },
+  statsSection: {
+    gap: spacing.md,
+  },
+  progressRow: {
+    width: '100%',
+  },
+  secondStatsRow: {
+    alignItems: 'stretch',
+    gap: spacing.md,
+    width: '100%',
   },
   quickRow: {
     flexWrap: 'wrap',
