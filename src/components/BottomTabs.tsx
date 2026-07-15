@@ -8,7 +8,6 @@ import { useBottomNav } from '../context/BottomNavContext';
 import type { TabKey } from '../types';
 import { getActiveTheme, themeColors } from '../theme/colors';
 import { radius } from '../theme/radius';
-import { spacing } from '../theme/spacing';
 import { activeRowStyle } from '../utils/rtl';
 
 type BottomTabsProps = {
@@ -28,8 +27,15 @@ const icons: Record<TabKey, keyof typeof Ionicons.glyphMap> = {
 const tabs: TabKey[] = ['home', 'meals', 'workouts', 'progress', 'profile'];
 const normalNavHorizontalInset = 16;
 const compactNavHorizontalInset = 42;
-const normalNavHeight = 60;
-const compactNavHeight = 46;
+const normalNavHeight = 64;
+const compactNavHeight = 52;
+const normalNavRadius = normalNavHeight / 2;
+const compactNavRadius = compactNavHeight / 2;
+const normalNavPaddingX = 4;
+const compactNavPaddingX = 0;
+const tabVerticalPadding = 2;
+const normalActiveButtonRadius = (normalNavHeight - (tabVerticalPadding * 2)) / 2;
+const compactActiveButtonRadius = (compactNavHeight - (tabVerticalPadding * 2)) / 2;
 const normalIconContainerSize = 44;
 const compactIconContainerSize = 34;
 const normalIconSize = 24;
@@ -47,9 +53,9 @@ export function BottomTabs({ activeTab, labels, onChange }: BottomTabsProps) {
     inputRange: [0, 1],
     outputRange: [normalNavHorizontalInset, compactNavHorizontalInset],
   });
-  const navRadius = navProgress.interpolate({ inputRange: [0, 1], outputRange: [28, 24] });
-  const navPaddingX = navProgress.interpolate({ inputRange: [0, 1], outputRange: [spacing.sm, 2] });
-  const tabRadius = navProgress.interpolate({ inputRange: [0, 1], outputRange: [24, 20] });
+  const navRadius = navProgress.interpolate({ inputRange: [0, 1], outputRange: [normalNavRadius, compactNavRadius] });
+  const navPaddingX = navProgress.interpolate({ inputRange: [0, 1], outputRange: [normalNavPaddingX, compactNavPaddingX] });
+  const tabRadius = navProgress.interpolate({ inputRange: [0, 1], outputRange: [normalActiveButtonRadius, compactActiveButtonRadius] });
   const iconWrapSize = navProgress.interpolate({
     inputRange: [0, 1],
     outputRange: [normalIconContainerSize, compactIconContainerSize],
@@ -149,8 +155,8 @@ const styles = StyleSheet.create({
   tabPressable: {
     flex: 1,
     height: '100%',
-    paddingHorizontal: 1,
-    paddingVertical: 2,
+    paddingHorizontal: 0,
+    paddingVertical: tabVerticalPadding,
   },
   tabItem: {
     flex: 1,
