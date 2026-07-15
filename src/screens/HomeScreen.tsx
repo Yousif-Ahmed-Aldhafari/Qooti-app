@@ -131,12 +131,7 @@ export function HomeScreen({ t, profile, meals, workouts, onAddMeal, onAddWorkou
 
       <PeriodSelector options={periodOptions} selected={period} onChange={setPeriod} />
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.metricScroller}
-        contentContainerStyle={[styles.metricRow, activeRowStyle()]}
-      >
+      <View style={[styles.metricRow, activeRowStyle()]}>
         <DailyMetricCard
           title={t('home.metrics.progress')}
           subtitle={expectedWeightGainLabel}
@@ -148,21 +143,23 @@ export function HomeScreen({ t, profile, meals, workouts, onAddMeal, onAddWorkou
         />
         <DailyMetricCard
           title={t('home.metrics.calories')}
-          value={`${Math.round(totals.calories)} / ${calorieTarget}`}
+          value={`${Math.round(totals.calories)}/${calorieTarget}`}
           subtitle={t('common.kcal')}
           icon="flame"
           accent={colors.calories}
           progress={caloriesProgress}
+          variant="compact"
         />
         <DailyMetricCard
           title={t('home.metrics.workout')}
-          value={`${filteredWorkouts.length} / ${workoutTarget}`}
+          value={`${filteredWorkouts.length}/${workoutTarget}`}
           subtitle={t('home.metrics.exercises', { count: exerciseCount })}
           icon="barbell-outline"
           accent={colors.workout}
           progress={workoutProgress}
+          variant="compact"
         />
-      </ScrollView>
+      </View>
 
       <DateSelector
         title={formatMonthYear(selectedDate, rtl)}
@@ -399,11 +396,8 @@ const styles = StyleSheet.create({
     gap: spacing.xl,
   },
   metricRow: {
-    gap: spacing.md,
-    paddingEnd: spacing.xs,
-  },
-  metricScroller: {
-    overflow: 'visible',
+    alignItems: 'stretch',
+    gap: spacing.sm,
   },
   sectionTitle: {
     ...typography.h3,
