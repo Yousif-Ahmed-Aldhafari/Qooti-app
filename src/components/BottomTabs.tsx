@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -30,7 +30,7 @@ export function BottomTabs({ activeTab, labels, onChange }: BottomTabsProps) {
   const colors = themeColors();
   const theme = getActiveTheme();
   const insets = useSafeAreaInsets();
-  const bottomOffset = Math.max(insets.bottom, 6);
+  const bottomOffset = Platform.OS === 'ios' ? Math.max(insets.bottom - 8, 2) : 4;
 
   return (
     <View
