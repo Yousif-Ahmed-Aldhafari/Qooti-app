@@ -49,6 +49,7 @@ export function BottomTabs({ activeTab, labels, onChange }: BottomTabsProps) {
   });
   const navRadius = navProgress.interpolate({ inputRange: [0, 1], outputRange: [28, 24] });
   const navPaddingX = navProgress.interpolate({ inputRange: [0, 1], outputRange: [spacing.sm, 2] });
+  const tabRadius = navProgress.interpolate({ inputRange: [0, 1], outputRange: [24, 20] });
   const iconWrapSize = navProgress.interpolate({
     inputRange: [0, 1],
     outputRange: [normalIconContainerSize, compactIconContainerSize],
@@ -107,17 +108,19 @@ export function BottomTabs({ activeTab, labels, onChange }: BottomTabsProps) {
               accessibilityRole="tab"
               accessibilityState={{ selected: active }}
               onPress={() => onChange(tab)}
-              style={({ pressed }) => [styles.tab, { opacity: pressed ? 0.76 : 1 }]}
+              style={({ pressed }) => [styles.tabPressable, { opacity: pressed ? 0.76 : 1 }]}
             >
               <Animated.View
                 style={[
-                  styles.iconWrap,
-                  active ? { backgroundColor: colors.primaryMuted } : null,
-                  { height: iconWrapSize, width: iconWrapSize },
+                  styles.tabItem,
+                  active ? { backgroundColor: colors.activeTabBackground } : null,
+                  { borderRadius: tabRadius },
                 ]}
               >
-                <Animated.View style={{ transform: [{ scale: iconScale }] }}>
-                  <Ionicons name={icons[tab]} size={normalIconSize} color={active ? colors.primary : colors.textMuted} />
+                <Animated.View style={[styles.iconWrap, { height: iconWrapSize, width: iconWrapSize }]}>
+                  <Animated.View style={{ transform: [{ scale: iconScale }] }}>
+                    <Ionicons name={icons[tab]} size={normalIconSize} color={active ? colors.primary : colors.textMuted} />
+                  </Animated.View>
                 </Animated.View>
               </Animated.View>
             </Pressable>
@@ -143,11 +146,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     overflow: 'hidden',
   },
-  tab: {
+  tabPressable: {
     flex: 1,
+    height: '100%',
+    paddingHorizontal: 1,
+    paddingVertical: 2,
+  },
+  tabItem: {
+    flex: 1,
+    height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 44,
+    width: '100%',
   },
   iconWrap: {
     borderRadius: radius.pill,

@@ -47,6 +47,7 @@ export type ThemeColors = {
   glassBackground: string;
   glassBorder: string;
   glassTabBackground: string;
+  activeTabBackground: string;
   buttonText: string;
   black: string;
   white: string;

@@ -43,6 +43,7 @@ export const darkTheme: AppTheme = {
     glassBackground: 'rgba(255, 255, 255, 0.07)',
     glassBorder: 'rgba(255, 255, 255, 0.12)',
     glassTabBackground: 'rgba(30, 32, 33, 0.78)',
+    activeTabBackground: 'rgba(47, 158, 103, 0.24)',
     buttonText: '#0D0F10',
     black: '#0D0F10',
     white: '#FFFFFF',
