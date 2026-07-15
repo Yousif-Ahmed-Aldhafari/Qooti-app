@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Svg, { Circle } from 'react-native-svg';
 
 import { GlassCard } from '../GlassCard';
 import { themeColors } from '../../theme/colors';
@@ -19,6 +20,12 @@ type DailyMetricCardProps = {
   bars?: number[];
 };
 
+const ringSize = 68;
+const ringStroke = 9;
+const ringRadius = (ringSize - ringStroke) / 2;
+const ringCircumference = 2 * Math.PI * ringRadius;
+const ringCenter = ringSize / 2;
+
 export function DailyMetricCard({ title, value, subtitle, centerValue, icon, accent, progress = 0, bars }: DailyMetricCardProps) {
   const colors = themeColors();
   const centeredText = {
@@ -26,6 +33,7 @@ export function DailyMetricCard({ title, value, subtitle, centerValue, icon, acc
     writingDirection: activeWritingDirection(),
   };
   const safeProgress = Math.min(1, Math.max(0, progress));
+  const strokeDashoffset = ringCircumference * (1 - safeProgress);
 
   return (
     <GlassCard style={styles.card} contentStyle={styles.cardContent}>
@@ -48,8 +56,30 @@ export function DailyMetricCard({ title, value, subtitle, centerValue, icon, acc
           ))}
         </View>
       ) : (
-        <View style={[styles.ringOuter, { borderColor: colors.cardMuted }]}>
-          <View style={[styles.ringProgress, { borderColor: accent, opacity: safeProgress > 0 ? 1 : 0.28 }]} />
+        <View style={styles.ringOuter}>
+          <Svg width={ringSize} height={ringSize} style={styles.ringSvg}>
+            <Circle
+              cx={ringCenter}
+              cy={ringCenter}
+              r={ringRadius}
+              stroke={colors.donutTrack}
+              strokeWidth={ringStroke}
+              fill="none"
+            />
+            <Circle
+              cx={ringCenter}
+              cy={ringCenter}
+              r={ringRadius}
+              stroke={accent}
+              strokeWidth={ringStroke}
+              strokeLinecap="round"
+              strokeDasharray={`${ringCircumference} ${ringCircumference}`}
+              strokeDashoffset={strokeDashoffset}
+              strokeOpacity={safeProgress > 0 ? 1 : 0}
+              fill="none"
+              transform={`rotate(-90 ${ringCenter} ${ringCenter})`}
+            />
+          </Svg>
           <View style={[styles.ringCenter, { backgroundColor: colors.cardSoft }]}>
             {centerValue ? (
               <Text style={[styles.centerValue, centeredText, { color: accent }]} numberOfLines={1}>
@@ -96,20 +126,17 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   ringOuter: {
-    width: 68,
-    height: 68,
+    width: ringSize,
+    height: ringSize,
     alignSelf: 'center',
-    borderRadius: 34,
-    borderWidth: 9,
+    borderRadius: ringSize / 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  ringProgress: {
+  ringSvg: {
     position: 'absolute',
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    borderWidth: 9,
+    top: 0,
+    left: 0,
   },
   ringCenter: {
     width: 38,

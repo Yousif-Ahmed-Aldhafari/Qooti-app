@@ -35,11 +35,13 @@ export function workoutMinutes(workouts: Workout[]): number {
 }
 
 export function progressRatio(value: number, target: number): number {
-  if (!target) {
+  const safeTarget = safeNumber(target);
+
+  if (safeTarget <= 0) {
     return 0;
   }
 
-  return Math.min(1, Math.max(0, value / target));
+  return Math.min(1, Math.max(0, safeNumber(value) / safeTarget));
 }
 
 export function estimateWeightGainKg(calorieSurplus: number): number {

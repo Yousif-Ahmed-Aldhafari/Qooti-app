@@ -33,6 +33,7 @@ export const darkTheme: AppTheme = {
     calories: '#F59E0B',
     workout: '#3B82F6',
     progress: '#8B5CF6',
+    donutTrack: 'rgba(255, 255, 255, 0.16)',
     green: brandColors.primaryGreen,
     red: '#FF6B7A',
     success: brandColors.primaryGreen,

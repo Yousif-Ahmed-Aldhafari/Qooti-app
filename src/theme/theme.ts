@@ -37,6 +37,7 @@ export type ThemeColors = {
   calories: string;
   workout: string;
   progress: string;
+  donutTrack: string;
   green: string;
   red: string;
   success: string;

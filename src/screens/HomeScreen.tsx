@@ -52,24 +52,25 @@ export function HomeScreen({ t, profile, meals, workouts, onAddMeal, onAddWorkou
   );
 
   const totals = calculateDailyNutrition(filteredMeals);
-  const periodDays = getPeriodDayCount(selectedDate, period);
-  const dailyCaloriesGoal = profile.targetCalories || 2500;
-  const dailyMaintenanceCalories = profile.targetCalories || 2500;
+  const goalDayCount = getGoalDayCount(period);
+  const dailyCaloriesGoal = profile.targetCalories || 2200;
+  const dailyMaintenanceCalories = profile.targetCalories || 2200;
   const dailyMealsGoal = 3;
-  const calorieTarget = dailyCaloriesGoal * periodDays;
-  const proteinTarget = profile.targetProtein * periodDays;
+  const dailyWorkoutGoal = 1;
+  const calorieTarget = dailyCaloriesGoal * goalDayCount;
+  const proteinTarget = profile.targetProtein * goalDayCount;
   const maintenancePeriodDays = getMaintenancePeriodDayCount(period);
   const expectedWeightGain = estimateWeightGainKg(totals.calories - (dailyMaintenanceCalories * maintenancePeriodDays));
   const expectedWeightGainLabel = getExpectedGainLabel(t, period);
-  const duration = workoutMinutes(filteredWorkouts);
   const exerciseCount = filteredWorkouts.reduce((sum, workout) => sum + workout.exercises.length, 0);
   const mealCount = filteredMeals.length;
-  const mealTarget = dailyMealsGoal * periodDays;
-  const workoutTarget = Math.max(1, periodDays);
+  const mealTarget = dailyMealsGoal * goalDayCount;
+  const workoutTarget = dailyWorkoutGoal * goalDayCount;
   const caloriesProgress = progressRatio(totals.calories, calorieTarget);
   const workoutProgress = progressRatio(filteredWorkouts.length, workoutTarget);
   const mealsProgress = progressRatio(mealCount, mealTarget);
-  const overallProgress = Math.round(((caloriesProgress + workoutProgress + mealsProgress) / 3) * 100);
+  const overallProgress = (caloriesProgress + workoutProgress + mealsProgress) / 3;
+  const overallProgressLabel = Math.round(overallProgress * 100);
   const latestActivities = buildActivities({
     meals: filteredMeals,
     workouts: filteredWorkouts,
@@ -132,10 +133,10 @@ export function HomeScreen({ t, profile, meals, workouts, onAddMeal, onAddWorkou
           title={t('home.metrics.progress')}
           subtitle={expectedWeightGainLabel}
           value={formatWeightGainKg(expectedWeightGain, t('common.kg'))}
-          centerValue={`${overallProgress}%`}
+          centerValue={`${overallProgressLabel}%`}
           icon="trending-up-outline"
           accent={colors.progress}
-          progress={overallProgress / 100}
+          progress={overallProgress}
         />
         <DailyMetricCard
           title={t('home.metrics.calories')}
@@ -147,7 +148,7 @@ export function HomeScreen({ t, profile, meals, workouts, onAddMeal, onAddWorkou
         />
         <DailyMetricCard
           title={t('home.metrics.workout')}
-          value={`${duration} ${t('common.minutes')}`}
+          value={`${filteredWorkouts.length} / ${workoutTarget}`}
           subtitle={t('home.metrics.exercises', { count: exerciseCount })}
           icon="barbell-outline"
           accent={colors.workout}
@@ -322,13 +323,13 @@ function isInSelectedPeriod(value: Date, selectedDate: Date, period: PeriodKey):
   return value.getFullYear() === selectedDate.getFullYear() && value.getMonth() === selectedDate.getMonth();
 }
 
-function getPeriodDayCount(date: Date, period: PeriodKey): number {
+function getGoalDayCount(period: PeriodKey): number {
   if (period === 'week') {
     return 7;
   }
 
   if (period === 'month') {
-    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+    return 30;
   }
 
   return 1;

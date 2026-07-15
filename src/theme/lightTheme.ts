@@ -33,6 +33,7 @@ export const lightTheme: AppTheme = {
     calories: '#F59E0B',
     workout: '#3B82F6',
     progress: '#8B5CF6',
+    donutTrack: '#DDE5DC',
     green: brandColors.primaryGreen,
     red: '#D95666',
     success: brandColors.primaryGreen,
