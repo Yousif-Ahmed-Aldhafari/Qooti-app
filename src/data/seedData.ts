@@ -204,6 +204,8 @@ export function getSeedProfile(): UserProfile {
     targetProtein: 135,
     targetCarbs: 240,
     targetFat: 65,
+    sleepGoalHours: 8,
+    waterGoalLiters: 3,
   };
 }
 

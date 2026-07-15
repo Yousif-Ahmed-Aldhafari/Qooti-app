@@ -1,4 +1,4 @@
-import type { Meal, ProgressEntry, UserProfile, Workout } from '../types';
+import type { Meal, ProgressEntry, SleepEntry, UserProfile, WaterEntry, Workout } from '../types';
 
 export const sampleProfile: UserProfile = {
   id: 'profile-1',
@@ -12,6 +12,8 @@ export const sampleProfile: UserProfile = {
   targetProtein: 140,
   targetCarbs: 240,
   targetFats: 70,
+  sleepGoalHours: 8,
+  waterGoalLiters: 3,
 };
 
 export const sampleMeals: Meal[] = [
@@ -75,4 +77,14 @@ export const sampleProgress: ProgressEntry[] = [
   { id: 'p5', label: 'Fri', calories: 1900, workouts: 1, weightKg: 64.2 },
   { id: 'p6', label: 'Sat', calories: 2160, workouts: 0, weightKg: 64.1 },
   { id: 'p7', label: 'Sun', calories: 2060, workouts: 1, weightKg: 64 },
+];
+
+export const sampleSleepEntries: SleepEntry[] = [
+  { id: 'sleep-1', date: 'Today', hours: 6.5 },
+  { id: 'sleep-2', date: 'Yesterday', hours: 7.25 },
+];
+
+export const sampleWaterEntries: WaterEntry[] = [
+  { id: 'water-1', date: 'Today', liters: 1.8 },
+  { id: 'water-2', date: 'Yesterday', liters: 2.4 },
 ];

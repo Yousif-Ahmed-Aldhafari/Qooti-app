@@ -14,7 +14,7 @@ import type { Translator } from '../i18n';
 import { themeColors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
-import type { Meal, UserProfile, Workout } from '../types';
+import type { Meal, SleepEntry, UserProfile, WaterEntry, Workout } from '../types';
 import { calculateDailyNutrition, estimateWeightGainKg, formatWeightGainKg, progressRatio, workoutMinutes } from '../utils/nutrition';
 import { activeIsRTL, activeRowStyle, activeTextAlign, activeWritingDirection } from '../utils/rtl';
 
@@ -23,6 +23,8 @@ type HomeScreenProps = {
   profile: UserProfile;
   meals: Meal[];
   workouts: Workout[];
+  sleepEntries?: SleepEntry[];
+  waterEntries?: WaterEntry[];
   onAddMeal: () => void;
   onAddWorkout: () => void;
   onMealPress: (meal: Meal) => void;
@@ -40,7 +42,18 @@ const muscleTranslationKeys: Record<string, string> = {
   shoulders: 'shoulders',
 };
 
-export function HomeScreen({ t, profile, meals, workouts, onAddMeal, onAddWorkout, onMealPress, onWorkoutPress }: HomeScreenProps) {
+export function HomeScreen({
+  t,
+  profile,
+  meals,
+  workouts,
+  sleepEntries = [],
+  waterEntries = [],
+  onAddMeal,
+  onAddWorkout,
+  onMealPress,
+  onWorkoutPress,
+}: HomeScreenProps) {
   const colors = themeColors();
   const handleBottomNavScroll = useBottomNavScrollHandler();
   const [period, setPeriod] = useState<PeriodKey>('today');
@@ -61,6 +74,14 @@ export function HomeScreen({ t, profile, meals, workouts, onAddMeal, onAddWorkou
     () => workouts.filter((workout) => isInSelectedPeriod(resolveStoredDate(workout.date), selectedDate, period)),
     [workouts, period, selectedDateKey],
   );
+  const filteredSleepEntries = useMemo(
+    () => sleepEntries.filter((entry) => isInSelectedPeriod(resolveStoredDate(entry.date), selectedDate, period)),
+    [sleepEntries, period, selectedDateKey],
+  );
+  const filteredWaterEntries = useMemo(
+    () => waterEntries.filter((entry) => isInSelectedPeriod(resolveStoredDate(entry.date), selectedDate, period)),
+    [waterEntries, period, selectedDateKey],
+  );
 
   const totals = calculateDailyNutrition(filteredMeals);
   const goalDayCount = getGoalDayCount(period);
@@ -68,8 +89,12 @@ export function HomeScreen({ t, profile, meals, workouts, onAddMeal, onAddWorkou
   const dailyMaintenanceCalories = profile.targetCalories || 2200;
   const dailyMealsGoal = 3;
   const dailyWorkoutGoal = 1;
+  const dailySleepGoalHours = profile.sleepGoalHours || 8;
+  const dailyWaterGoalLiters = profile.waterGoalLiters || 3;
   const calorieTarget = dailyCaloriesGoal * goalDayCount;
   const proteinTarget = profile.targetProtein * goalDayCount;
+  const sleepTarget = dailySleepGoalHours * goalDayCount;
+  const waterTarget = dailyWaterGoalLiters * goalDayCount;
   const maintenancePeriodDays = getMaintenancePeriodDayCount(period);
   const expectedWeightGain = estimateWeightGainKg(totals.calories - (dailyMaintenanceCalories * maintenancePeriodDays));
   const expectedWeightGainLabel = getExpectedGainLabel(t, period);
@@ -78,13 +103,17 @@ export function HomeScreen({ t, profile, meals, workouts, onAddMeal, onAddWorkou
   const estimatedFatGain = Math.max(expectedWeightGain - estimatedMuscleGain, 0);
   const targetedBodyLabel = getTargetedBodyLabel(filteredWorkouts, t, period, rtl);
   const exerciseCount = filteredWorkouts.reduce((sum, workout) => sum + workout.exercises.length, 0);
+  const sleepHours = sumSleepHours(filteredSleepEntries);
+  const waterLiters = sumWaterLiters(filteredWaterEntries);
   const mealCount = filteredMeals.length;
   const mealTarget = dailyMealsGoal * goalDayCount;
   const workoutTarget = dailyWorkoutGoal * goalDayCount;
   const caloriesProgress = progressRatio(totals.calories, calorieTarget);
   const workoutProgress = progressRatio(filteredWorkouts.length, workoutTarget);
+  const sleepProgress = progressRatio(sleepHours, sleepTarget);
+  const waterProgress = progressRatio(waterLiters, waterTarget);
   const mealsProgress = progressRatio(mealCount, mealTarget);
-  const overallProgress = (caloriesProgress + workoutProgress + mealsProgress) / 3;
+  const overallProgress = (caloriesProgress + workoutProgress + mealsProgress + sleepProgress + waterProgress) / 5;
   const latestActivities = buildActivities({
     meals: filteredMeals,
     workouts: filteredWorkouts,
@@ -166,20 +195,41 @@ export function HomeScreen({ t, profile, meals, workouts, onAddMeal, onAddWorkou
           accent: colors.workout,
           progress: workoutProgress,
         }}
+        sleepStat={{
+          title: t('home.metrics.sleep'),
+          value: `${formatDecimal(sleepHours)}${t('common.hoursShort')} / ${formatDecimal(sleepTarget)}${t('common.hoursShort')}`,
+          subtitle: t('home.metrics.sleepGoal'),
+          accent: colors.sleep,
+          progress: sleepProgress,
+        }}
+        waterStat={{
+          title: t('home.metrics.water'),
+          value: `${formatDecimal(waterLiters)}${t('common.litersShort')} / ${formatDecimal(waterTarget)}${t('common.litersShort')}`,
+          subtitle: t('home.metrics.waterGoal'),
+          accent: colors.water,
+          progress: waterProgress,
+        }}
         progressInfo={[
           {
             label: t('home.metrics.muscles'),
             value: formatWeightGainKg(estimatedMuscleGain, t('common.kg')),
+            icon: 'arm-flex-outline',
+            iconFamily: 'materialCommunity',
+            accent: colors.workout,
             subtitle: t('home.metrics.estimatedLeanGain'),
           },
           {
             label: t('home.metrics.fat'),
             value: formatWeightGainKg(estimatedFatGain, t('common.kg')),
+            icon: 'water-outline',
+            accent: colors.calories,
             subtitle: t('home.metrics.estimatedFatGain'),
           },
           {
             label: t('home.metrics.body'),
             value: targetedBodyLabel,
+            icon: 'body-outline',
+            accent: colors.progress,
             subtitle: t('home.metrics.targetedMuscles'),
           },
         ]}
@@ -386,6 +436,23 @@ function getExpectedGainLabel(t: Translator, period: PeriodKey): string {
   }
 
   return t('home.metrics.expectedGainToday');
+}
+
+function sumSleepHours(entries: SleepEntry[]): number {
+  return entries.reduce((sum, entry) => sum + safeNonNegative(entry.hours), 0);
+}
+
+function sumWaterLiters(entries: WaterEntry[]): number {
+  return entries.reduce((sum, entry) => sum + safeNonNegative(entry.liters), 0);
+}
+
+function safeNonNegative(value: number): number {
+  return Number.isFinite(value) ? Math.max(value, 0) : 0;
+}
+
+function formatDecimal(value: number): string {
+  const safeValue = safeNonNegative(value);
+  return Number.isInteger(safeValue) ? String(safeValue) : safeValue.toFixed(1);
 }
 
 function getTargetedBodyLabel(workouts: Workout[], t: Translator, period: PeriodKey, rtl: boolean): string {

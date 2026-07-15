@@ -12,6 +12,8 @@ export type UserProfile = {
   targetProtein: number;
   targetCarbs: number;
   targetFats: number;
+  sleepGoalHours?: number;
+  waterGoalLiters?: number;
 };
 
 export type MealItem = {
@@ -64,6 +66,18 @@ export type ProgressEntry = {
   calories: number;
   workouts: number;
   weightKg: number;
+};
+
+export type SleepEntry = {
+  id: string;
+  date: string;
+  hours: number;
+};
+
+export type WaterEntry = {
+  id: string;
+  date: string;
+  liters: number;
 };
 
 export type TabKey = 'home' | 'meals' | 'workouts' | 'progress' | 'profile';

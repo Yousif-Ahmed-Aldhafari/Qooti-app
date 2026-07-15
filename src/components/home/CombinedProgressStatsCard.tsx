@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Circle } from 'react-native-svg';
 
 import { GlassCard } from '../GlassCard';
@@ -19,6 +20,9 @@ type DonutStat = {
 type ProgressInfoItem = {
   label: string;
   value: string;
+  icon: keyof typeof Ionicons.glyphMap | keyof typeof MaterialCommunityIcons.glyphMap;
+  iconFamily?: 'ionicons' | 'materialCommunity';
+  accent: string;
   subtitle?: string;
 };
 
@@ -26,6 +30,8 @@ type CombinedProgressStatsCardProps = {
   progressStat: DonutStat;
   caloriesStat: DonutStat;
   workoutStat: DonutStat;
+  sleepStat: DonutStat;
+  waterStat: DonutStat;
   progressInfo: ProgressInfoItem[];
   isRTL: boolean;
 };
@@ -41,6 +47,8 @@ export function CombinedProgressStatsCard({
   progressStat,
   caloriesStat,
   workoutStat,
+  sleepStat,
+  waterStat,
   progressInfo,
   isRTL,
 }: CombinedProgressStatsCardProps) {
@@ -59,9 +67,15 @@ export function CombinedProgressStatsCard({
 
       <View style={[styles.divider, { backgroundColor: colors.glassBorder }]} />
 
-      <View style={[styles.secondaryStatsRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-        <CompactDonutSection stat={caloriesStat} />
-        <CompactDonutSection stat={workoutStat} />
+      <View style={styles.metricsGrid}>
+        <View style={[styles.metricsGridRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+          <CompactDonutSection stat={caloriesStat} />
+          <CompactDonutSection stat={workoutStat} />
+        </View>
+        <View style={[styles.metricsGridRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+          <CompactDonutSection stat={sleepStat} />
+          <CompactDonutSection stat={waterStat} />
+        </View>
       </View>
     </GlassCard>
   );
@@ -121,18 +135,22 @@ function ProgressInfoRow({ item, isRTL }: { item: ProgressInfoItem; isRTL: boole
   };
 
   return (
-    <View style={[styles.infoRow, { backgroundColor: colors.cardSoft, borderColor: colors.glassBorder }]}>
-      <Text style={[styles.infoLabel, naturalText, { color: colors.textMuted }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.82}>
-        {item.label}
-      </Text>
-      <Text style={[styles.infoValue, naturalText, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.76}>
-        {item.value}
-      </Text>
-      {item.subtitle ? (
-        <Text style={[styles.infoSubtitle, naturalText, { color: colors.textMuted }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.76}>
-          {item.subtitle}
+    <View style={[styles.infoRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+      <View style={styles.infoIconWrap}>
+        {item.iconFamily === 'materialCommunity' ? (
+          <MaterialCommunityIcons name={item.icon as keyof typeof MaterialCommunityIcons.glyphMap} size={18} color={item.accent} />
+        ) : (
+          <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={18} color={item.accent} />
+        )}
+      </View>
+      <View style={styles.infoCopy}>
+        <Text style={[styles.infoLabel, naturalText, { color: colors.textMuted }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.82}>
+          {item.label}
         </Text>
-      ) : null}
+        <Text style={[styles.infoValue, naturalText, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>
+          {item.value}
+        </Text>
+      </View>
     </View>
   );
 }
@@ -204,37 +222,46 @@ const styles = StyleSheet.create({
   },
   progressInfoList: {
     flex: 1,
-    gap: spacing.xs,
+    gap: spacing.sm,
     minWidth: 0,
   },
   infoRow: {
-    borderRadius: radius.md,
-    borderWidth: 1,
-    minHeight: 48,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+    gap: spacing.xs,
+    minHeight: 34,
+  },
+  infoIconWrap: {
+    alignItems: 'center',
+    height: 22,
+    justifyContent: 'center',
+    width: 22,
+  },
+  infoCopy: {
+    flex: 1,
+    minWidth: 0,
   },
   infoLabel: {
     ...typography.tab,
     fontWeight: '800',
   },
   infoValue: {
-    ...typography.body,
+    fontSize: 12,
     fontWeight: '900',
-  },
-  infoSubtitle: {
-    fontSize: 10,
-    fontWeight: '700',
-    lineHeight: 13,
+    lineHeight: 16,
   },
   divider: {
     height: 1,
     opacity: 0.72,
     width: '100%',
   },
-  secondaryStatsRow: {
+  metricsGrid: {
+    gap: spacing.sm,
+    width: '100%',
+  },
+  metricsGridRow: {
     alignItems: 'stretch',
-    gap: spacing.md,
+    gap: spacing.sm,
     width: '100%',
   },
   compactDonutSection: {

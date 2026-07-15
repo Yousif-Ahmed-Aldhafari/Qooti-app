@@ -9,4 +9,6 @@ export type UserProfile = {
   targetProtein: number;
   targetCarbs: number;
   targetFat: number;
+  sleepGoalHours?: number;
+  waterGoalLiters?: number;
 };

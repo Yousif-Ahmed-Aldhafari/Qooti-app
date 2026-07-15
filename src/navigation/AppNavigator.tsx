@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BottomTabs } from '../components/BottomTabs';
 import { BottomNavProvider } from '../context/BottomNavContext';
-import { sampleMeals, sampleProfile, sampleProgress, sampleWorkouts } from '../data/sampleData';
+import { sampleMeals, sampleProfile, sampleProgress, sampleSleepEntries, sampleWaterEntries, sampleWorkouts } from '../data/sampleData';
 import { translate, type Translator } from '../i18n';
 import { AddMealScreen } from '../screens/AddMealScreen';
 import { AddWorkoutScreen } from '../screens/AddWorkoutScreen';
@@ -211,6 +211,8 @@ export function AppNavigator() {
             profile={sampleProfile}
             meals={meals}
             workouts={workouts}
+            sleepEntries={sampleSleepEntries}
+            waterEntries={sampleWaterEntries}
             onAddMeal={() => setActiveScreen('addMeal')}
             onAddWorkout={() => setActiveScreen('addWorkout')}
             onMealPress={openMealDetails}
