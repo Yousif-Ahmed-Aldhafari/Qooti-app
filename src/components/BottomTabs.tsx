@@ -26,6 +26,14 @@ const icons: Record<TabKey, keyof typeof Ionicons.glyphMap> = {
 };
 
 const tabs: TabKey[] = ['home', 'meals', 'workouts', 'progress', 'profile'];
+const normalNavHorizontalInset = 16;
+const compactNavHorizontalInset = 42;
+const normalNavHeight = 60;
+const compactNavHeight = 46;
+const normalIconContainerSize = 44;
+const compactIconContainerSize = 34;
+const normalIconSize = 24;
+const compactIconSize = 20;
 
 export function BottomTabs({ activeTab, labels, onChange }: BottomTabsProps) {
   const colors = themeColors();
@@ -34,11 +42,21 @@ export function BottomTabs({ activeTab, labels, onChange }: BottomTabsProps) {
   const { isBottomNavCompact } = useBottomNav();
   const navProgress = useRef(new Animated.Value(isBottomNavCompact ? 1 : 0)).current;
   const bottomOffset = Platform.OS === 'ios' ? Math.max(insets.bottom - 8, 2) : 4;
-  const navHeight = navProgress.interpolate({ inputRange: [0, 1], outputRange: [60, 48] });
+  const navHeight = navProgress.interpolate({ inputRange: [0, 1], outputRange: [normalNavHeight, compactNavHeight] });
+  const navHorizontalInset = navProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [normalNavHorizontalInset, compactNavHorizontalInset],
+  });
   const navRadius = navProgress.interpolate({ inputRange: [0, 1], outputRange: [28, 24] });
-  const navPaddingX = navProgress.interpolate({ inputRange: [0, 1], outputRange: [spacing.md, spacing.sm] });
-  const iconWrapSize = navProgress.interpolate({ inputRange: [0, 1], outputRange: [42, 36] });
-  const iconScale = navProgress.interpolate({ inputRange: [0, 1], outputRange: [1, 0.875] });
+  const navPaddingX = navProgress.interpolate({ inputRange: [0, 1], outputRange: [spacing.sm, 2] });
+  const iconWrapSize = navProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [normalIconContainerSize, compactIconContainerSize],
+  });
+  const iconScale = navProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, compactIconSize / normalIconSize],
+  });
 
   useEffect(() => {
     Animated.timing(navProgress, {
@@ -57,6 +75,8 @@ export function BottomTabs({ activeTab, labels, onChange }: BottomTabsProps) {
           bottom: bottomOffset,
           borderRadius: navRadius,
           height: navHeight,
+          left: navHorizontalInset,
+          right: navHorizontalInset,
           shadowColor: colors.shadow,
         },
       ]}
@@ -93,10 +113,12 @@ export function BottomTabs({ activeTab, labels, onChange }: BottomTabsProps) {
                 style={[
                   styles.iconWrap,
                   active ? { backgroundColor: colors.primaryMuted } : null,
-                  { height: iconWrapSize, width: iconWrapSize, transform: [{ scale: iconScale }] },
+                  { height: iconWrapSize, width: iconWrapSize },
                 ]}
               >
-                <Ionicons name={icons[tab]} size={24} color={active ? colors.primary : colors.textMuted} />
+                <Animated.View style={{ transform: [{ scale: iconScale }] }}>
+                  <Ionicons name={icons[tab]} size={normalIconSize} color={active ? colors.primary : colors.textMuted} />
+                </Animated.View>
               </Animated.View>
             </Pressable>
           );
@@ -109,8 +131,6 @@ export function BottomTabs({ activeTab, labels, onChange }: BottomTabsProps) {
 const styles = StyleSheet.create({
   wrap: {
     position: 'absolute',
-    start: spacing.lg,
-    end: spacing.lg,
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.18,
     shadowRadius: 24,
