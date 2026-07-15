@@ -1,4 +1,4 @@
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,8 +7,7 @@ import type { TabKey } from '../types';
 import { getActiveTheme, themeColors } from '../theme/colors';
 import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
-import { typography } from '../theme/typography';
-import { activeRowStyle, activeWritingDirection } from '../utils/rtl';
+import { activeRowStyle } from '../utils/rtl';
 
 type BottomTabsProps = {
   activeTab: TabKey;
@@ -62,23 +61,15 @@ export function BottomTabs({ activeTab, labels, onChange }: BottomTabsProps) {
           return (
             <Pressable
               key={tab}
+              accessibilityLabel={labels[tab]}
               accessibilityRole="tab"
               accessibilityState={{ selected: active }}
               onPress={() => onChange(tab)}
               style={({ pressed }) => [styles.tab, { opacity: pressed ? 0.76 : 1 }]}
             >
-              <View style={[styles.iconWrap, active ? { backgroundColor: colors.primary } : null]}>
-                <Ionicons name={icons[tab]} size={20} color={active ? colors.white : colors.textMuted} />
+              <View style={[styles.iconWrap, active ? { backgroundColor: colors.primaryMuted } : null]}>
+                <Ionicons name={icons[tab]} size={22} color={active ? colors.primary : colors.textMuted} />
               </View>
-              <Text
-                style={[
-                  styles.label,
-                  { color: active ? colors.accent : colors.textMuted, writingDirection: activeWritingDirection() },
-                ]}
-                numberOfLines={1}
-              >
-                {labels[tab]}
-              </Text>
             </Pressable>
           );
         })}
@@ -92,8 +83,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     start: spacing.lg,
     end: spacing.lg,
-    height: 76,
-    borderRadius: 28,
+    height: 64,
+    borderRadius: 26,
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.18,
     shadowRadius: 24,
@@ -101,7 +92,7 @@ const styles = StyleSheet.create({
   },
   glass: {
     flex: 1,
-    borderRadius: 28,
+    borderRadius: 26,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'space-around',
@@ -112,18 +103,13 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.xs,
-    minHeight: 62,
+    minHeight: 56,
   },
   iconWrap: {
-    width: 34,
-    height: 30,
+    width: 42,
+    height: 42,
     borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  label: {
-    ...typography.tab,
-    maxWidth: 74,
   },
 });
