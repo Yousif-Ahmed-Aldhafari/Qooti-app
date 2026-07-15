@@ -42,6 +42,7 @@ export type DailyNutritionSummary = {
 export type Exercise = {
   id: string;
   exerciseName: string;
+  targetMuscles?: string[];
   sets: number;
   reps: number;
   weight: number;

@@ -52,8 +52,8 @@ export const sampleWorkouts: Workout[] = [
     date: 'Today',
     time: '18:00',
     exercises: [
-      { id: 'exercise-1', exerciseName: 'Bench press', sets: 4, reps: 8, weight: 60, duration: 20, notes: 'Controlled tempo' },
-      { id: 'exercise-2', exerciseName: 'Cable row', sets: 3, reps: 12, weight: 45, duration: 15, notes: 'Pause at chest' },
+      { id: 'exercise-1', exerciseName: 'Bench press', targetMuscles: ['chest', 'arms'], sets: 4, reps: 8, weight: 60, duration: 20, notes: 'Controlled tempo' },
+      { id: 'exercise-2', exerciseName: 'Cable row', targetMuscles: ['back', 'arms'], sets: 3, reps: 12, weight: 45, duration: 15, notes: 'Pause at chest' },
     ],
   },
   {
@@ -62,7 +62,7 @@ export const sampleWorkouts: Workout[] = [
     date: 'Yesterday',
     time: '07:30',
     exercises: [
-      { id: 'exercise-3', exerciseName: 'Outdoor run', sets: 1, reps: 1, weight: 0, duration: 28, notes: 'Zone 2' },
+      { id: 'exercise-3', exerciseName: 'Outdoor run', targetMuscles: ['legs'], sets: 1, reps: 1, weight: 0, duration: 28, notes: 'Zone 2' },
     ],
   },
 ];

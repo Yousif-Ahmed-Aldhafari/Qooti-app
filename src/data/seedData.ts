@@ -155,6 +155,7 @@ export function getSeedWorkouts(): Workout[] {
           reps: 8,
           weight: 60,
           duration: 0,
+          targetMuscles: ['chest', 'arms'],
           notes: 'Controlled tempo',
         },
         {
@@ -164,6 +165,7 @@ export function getSeedWorkouts(): Workout[] {
           reps: 12,
           weight: 45,
           duration: 0,
+          targetMuscles: ['back', 'arms'],
           notes: '',
         },
       ],
@@ -182,6 +184,7 @@ export function getSeedWorkouts(): Workout[] {
           reps: 1,
           weight: 0,
           duration: 28,
+          targetMuscles: ['legs'],
           notes: 'Zone 2',
         },
       ],

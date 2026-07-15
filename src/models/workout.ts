@@ -1,6 +1,7 @@
 export type Exercise = {
   id: string;
   name: string;
+  targetMuscles?: string[];
   sets: number;
   reps: number;
   weight: number;

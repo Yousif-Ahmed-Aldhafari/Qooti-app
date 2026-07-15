@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { CombinedProgressStatsCard } from '../components/home/CombinedProgressStatsCard';
 import { DailyGoalBanner } from '../components/home/DailyGoalBanner';
 import { DateSelector, type DateOption } from '../components/home/DateSelector';
-import { DonutStatCard } from '../components/home/DonutStatCard';
 import { GoalProgressCard } from '../components/home/GoalProgressCard';
 import { HomeHeader } from '../components/home/HomeHeader';
 import { LatestActivityList, type HomeActivity } from '../components/home/LatestActivityList';
@@ -30,6 +30,15 @@ type HomeScreenProps = {
 };
 
 const dayMs = 24 * 60 * 60 * 1000;
+const muscleTranslationKeys: Record<string, string> = {
+  arms: 'arms',
+  back: 'back',
+  chest: 'chest',
+  core: 'core',
+  glutes: 'glutes',
+  legs: 'legs',
+  shoulders: 'shoulders',
+};
 
 export function HomeScreen({ t, profile, meals, workouts, onAddMeal, onAddWorkout, onMealPress, onWorkoutPress }: HomeScreenProps) {
   const colors = themeColors();
@@ -64,6 +73,10 @@ export function HomeScreen({ t, profile, meals, workouts, onAddMeal, onAddWorkou
   const maintenancePeriodDays = getMaintenancePeriodDayCount(period);
   const expectedWeightGain = estimateWeightGainKg(totals.calories - (dailyMaintenanceCalories * maintenancePeriodDays));
   const expectedWeightGainLabel = getExpectedGainLabel(t, period);
+  const muscleGainRatio = filteredWorkouts.length > 0 ? 0.6 : 0.35;
+  const estimatedMuscleGain = Math.max(expectedWeightGain, 0) * muscleGainRatio;
+  const estimatedFatGain = Math.max(expectedWeightGain - estimatedMuscleGain, 0);
+  const targetedBodyLabel = getTargetedBodyLabel(filteredWorkouts, t, period, rtl);
   const exerciseCount = filteredWorkouts.reduce((sum, workout) => sum + workout.exercises.length, 0);
   const mealCount = filteredMeals.length;
   const mealTarget = dailyMealsGoal * goalDayCount;
@@ -130,35 +143,47 @@ export function HomeScreen({ t, profile, meals, workouts, onAddMeal, onAddWorkou
 
       <PeriodSelector options={periodOptions} selected={period} onChange={setPeriod} />
 
-      <View style={styles.statsSection}>
-        <View style={styles.progressRow}>
-          <DonutStatCard
-            title={t('home.metrics.progress')}
-            value={formatWeightGainKg(expectedWeightGain, t('common.kg'))}
-            subtitle={expectedWeightGainLabel}
-            progress={overallProgress}
-            color={colors.progress}
-            fullWidth
-          />
-        </View>
-
-        <View style={[styles.secondStatsRow, { flexDirection: rtl ? 'row-reverse' : 'row' }]}>
-          <DonutStatCard
-            title={t('home.metrics.calories')}
-            value={`${Math.round(totals.calories)}/${calorieTarget}`}
-            subtitle={t('common.kcal')}
-            progress={caloriesProgress}
-            color={colors.calories}
-          />
-          <DonutStatCard
-            title={t('home.metrics.workout')}
-            value={`${filteredWorkouts.length}/${workoutTarget}`}
-            subtitle={t('home.metrics.exercises', { count: exerciseCount })}
-            progress={workoutProgress}
-            color={colors.workout}
-          />
-        </View>
-      </View>
+      <CombinedProgressStatsCard
+        isRTL={rtl}
+        progressStat={{
+          title: t('home.metrics.progress'),
+          value: formatWeightGainKg(expectedWeightGain, t('common.kg')),
+          subtitle: expectedWeightGainLabel,
+          accent: colors.progress,
+          progress: overallProgress,
+        }}
+        caloriesStat={{
+          title: t('home.metrics.calories'),
+          value: `${Math.round(totals.calories)}/${calorieTarget}`,
+          subtitle: t('common.kcal'),
+          accent: colors.calories,
+          progress: caloriesProgress,
+        }}
+        workoutStat={{
+          title: t('home.metrics.workout'),
+          value: `${filteredWorkouts.length}/${workoutTarget}`,
+          subtitle: t('home.metrics.exercises', { count: exerciseCount }),
+          accent: colors.workout,
+          progress: workoutProgress,
+        }}
+        progressInfo={[
+          {
+            label: t('home.metrics.muscles'),
+            value: formatWeightGainKg(estimatedMuscleGain, t('common.kg')),
+            subtitle: t('home.metrics.estimatedLeanGain'),
+          },
+          {
+            label: t('home.metrics.fat'),
+            value: formatWeightGainKg(estimatedFatGain, t('common.kg')),
+            subtitle: t('home.metrics.estimatedFatGain'),
+          },
+          {
+            label: t('home.metrics.body'),
+            value: targetedBodyLabel,
+            subtitle: t('home.metrics.targetedMuscles'),
+          },
+        ]}
+      />
 
       <DateSelector
         title={formatMonthYear(selectedDate, rtl)}
@@ -363,6 +388,71 @@ function getExpectedGainLabel(t: Translator, period: PeriodKey): string {
   return t('home.metrics.expectedGainToday');
 }
 
+function getTargetedBodyLabel(workouts: Workout[], t: Translator, period: PeriodKey, rtl: boolean): string {
+  const muscles = uniqueMuscles(workouts.flatMap((workout) => workout.exercises.flatMap(getExerciseMuscles)));
+
+  if (muscles.length) {
+    return muscles
+      .slice(0, period === 'today' ? 2 : 3)
+      .map((muscle) => translateMuscleName(muscle, t))
+      .join(rtl ? '، ' : ', ');
+  }
+
+  if (workouts.length === 0 && period !== 'month') {
+    return t('home.metrics.noWorkoutYet');
+  }
+
+  return t('home.metrics.fullBody');
+}
+
+function getExerciseMuscles(exercise: Workout['exercises'][number]): string[] {
+  if (exercise.targetMuscles?.length) {
+    return exercise.targetMuscles;
+  }
+
+  const name = exercise.exerciseName.toLowerCase();
+  const muscles: string[] = [];
+
+  if (/bench|chest|press|push/.test(name)) {
+    muscles.push('chest', 'arms');
+  }
+
+  if (/row|pull|lat|back/.test(name)) {
+    muscles.push('back', 'arms');
+  }
+
+  if (/run|squat|lunge|leg/.test(name)) {
+    muscles.push('legs');
+  }
+
+  if (/shoulder|overhead/.test(name)) {
+    muscles.push('shoulders');
+  }
+
+  if (/core|plank|abs/.test(name)) {
+    muscles.push('core');
+  }
+
+  return muscles;
+}
+
+function uniqueMuscles(muscles: string[]): string[] {
+  return muscles.reduce<string[]>((unique, muscle) => {
+    const normalized = muscle.trim().toLowerCase();
+
+    if (normalized && !unique.includes(normalized)) {
+      unique.push(normalized);
+    }
+
+    return unique;
+  }, []);
+}
+
+function translateMuscleName(muscle: string, t: Translator): string {
+  const muscleKey = muscleTranslationKeys[muscle.trim().toLowerCase()];
+  return muscleKey ? t(`home.muscleGroups.${muscleKey}`) : muscle;
+}
+
 function buildDateOptions(center: Date, rtl: boolean): DateOption[] {
   const dates = Array.from({ length: 7 }, (_, index) => {
     const date = shiftDate(center, index - 3);
@@ -396,17 +486,6 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     ...typography.h3,
-  },
-  statsSection: {
-    gap: spacing.md,
-  },
-  progressRow: {
-    width: '100%',
-  },
-  secondStatsRow: {
-    alignItems: 'stretch',
-    gap: spacing.md,
-    width: '100%',
   },
   quickRow: {
     flexWrap: 'wrap',
