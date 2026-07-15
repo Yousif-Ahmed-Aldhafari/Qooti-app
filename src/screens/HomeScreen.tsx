@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { CombinedDonutStatsCard } from '../components/home/CombinedDonutStatsCard';
 import { DailyGoalBanner } from '../components/home/DailyGoalBanner';
-import { DailyMetricCard } from '../components/home/DailyMetricCard';
 import { DateSelector, type DateOption } from '../components/home/DateSelector';
 import { GoalProgressCard } from '../components/home/GoalProgressCard';
 import { HomeHeader } from '../components/home/HomeHeader';
@@ -131,35 +131,32 @@ export function HomeScreen({ t, profile, meals, workouts, onAddMeal, onAddWorkou
 
       <PeriodSelector options={periodOptions} selected={period} onChange={setPeriod} />
 
-      <View style={[styles.metricRow, activeRowStyle()]}>
-        <DailyMetricCard
-          title={t('home.metrics.progress')}
-          subtitle={expectedWeightGainLabel}
-          value={formatWeightGainKg(expectedWeightGain, t('common.kg'))}
-          centerValue={`${overallProgressLabel}%`}
-          icon="trending-up-outline"
-          accent={colors.progress}
-          progress={overallProgress}
-        />
-        <DailyMetricCard
-          title={t('home.metrics.calories')}
-          value={`${Math.round(totals.calories)}/${calorieTarget}`}
-          subtitle={t('common.kcal')}
-          icon="flame"
-          accent={colors.calories}
-          progress={caloriesProgress}
-          variant="compact"
-        />
-        <DailyMetricCard
-          title={t('home.metrics.workout')}
-          value={`${filteredWorkouts.length}/${workoutTarget}`}
-          subtitle={t('home.metrics.exercises', { count: exerciseCount })}
-          icon="barbell-outline"
-          accent={colors.workout}
-          progress={workoutProgress}
-          variant="compact"
-        />
-      </View>
+      <CombinedDonutStatsCard
+        progressStat={{
+          title: t('home.metrics.progress'),
+          value: formatWeightGainKg(expectedWeightGain, t('common.kg')),
+          subtitle: expectedWeightGainLabel,
+          centerValue: `${overallProgressLabel}%`,
+          accent: colors.progress,
+          progress: overallProgress,
+        }}
+        caloriesStat={{
+          title: t('home.metrics.calories'),
+          value: `${Math.round(totals.calories)}/${calorieTarget}`,
+          subtitle: t('common.kcal'),
+          icon: 'flame',
+          accent: colors.calories,
+          progress: caloriesProgress,
+        }}
+        workoutStat={{
+          title: t('home.metrics.workout'),
+          value: `${filteredWorkouts.length}/${workoutTarget}`,
+          subtitle: t('home.metrics.exercises', { count: exerciseCount }),
+          icon: 'barbell-outline',
+          accent: colors.workout,
+          progress: workoutProgress,
+        }}
+      />
 
       <DateSelector
         title={formatMonthYear(selectedDate, rtl)}
@@ -394,10 +391,6 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     paddingBottom: 128,
     gap: spacing.xl,
-  },
-  metricRow: {
-    alignItems: 'stretch',
-    gap: spacing.sm,
   },
   sectionTitle: {
     ...typography.h3,
