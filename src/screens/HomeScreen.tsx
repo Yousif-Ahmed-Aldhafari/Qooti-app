@@ -23,8 +23,8 @@ type HomeScreenProps = {
   profile: UserProfile;
   meals: Meal[];
   workouts: Workout[];
-  sleepEntries?: SleepEntry[];
-  waterEntries?: WaterEntry[];
+  sleepEntries: SleepEntry[];
+  waterEntries: WaterEntry[];
   onAddMeal: () => void;
   onAddWorkout: () => void;
   onMealPress: (meal: Meal) => void;
@@ -47,8 +47,6 @@ export function HomeScreen({
   profile,
   meals,
   workouts,
-  sleepEntries = [],
-  waterEntries = [],
   onAddMeal,
   onAddWorkout,
   onMealPress,
@@ -74,27 +72,14 @@ export function HomeScreen({
     () => workouts.filter((workout) => isInSelectedPeriod(resolveStoredDate(workout.date), selectedDate, period)),
     [workouts, period, selectedDateKey],
   );
-  const filteredSleepEntries = useMemo(
-    () => sleepEntries.filter((entry) => isInSelectedPeriod(resolveStoredDate(entry.date), selectedDate, period)),
-    [sleepEntries, period, selectedDateKey],
-  );
-  const filteredWaterEntries = useMemo(
-    () => waterEntries.filter((entry) => isInSelectedPeriod(resolveStoredDate(entry.date), selectedDate, period)),
-    [waterEntries, period, selectedDateKey],
-  );
-
   const totals = calculateDailyNutrition(filteredMeals);
   const goalDayCount = getGoalDayCount(period);
   const dailyCaloriesGoal = profile.targetCalories || 2200;
   const dailyMaintenanceCalories = profile.targetCalories || 2200;
   const dailyMealsGoal = 3;
   const dailyWorkoutGoal = 1;
-  const dailySleepGoalHours = profile.sleepGoalHours || 8;
-  const dailyWaterGoalLiters = profile.waterGoalLiters || 3;
   const calorieTarget = dailyCaloriesGoal * goalDayCount;
   const proteinTarget = profile.targetProtein * goalDayCount;
-  const sleepTarget = dailySleepGoalHours * goalDayCount;
-  const waterTarget = dailyWaterGoalLiters * goalDayCount;
   const maintenancePeriodDays = getMaintenancePeriodDayCount(period);
   const expectedWeightGain = estimateWeightGainKg(totals.calories - (dailyMaintenanceCalories * maintenancePeriodDays));
   const expectedWeightGainLabel = getExpectedGainLabel(t, period);
@@ -103,17 +88,13 @@ export function HomeScreen({
   const estimatedFatGain = Math.max(expectedWeightGain - estimatedMuscleGain, 0);
   const targetedBodyLabel = getTargetedBodyLabel(filteredWorkouts, t, period, rtl);
   const exerciseCount = filteredWorkouts.reduce((sum, workout) => sum + workout.exercises.length, 0);
-  const sleepHours = sumSleepHours(filteredSleepEntries);
-  const waterLiters = sumWaterLiters(filteredWaterEntries);
   const mealCount = filteredMeals.length;
   const mealTarget = dailyMealsGoal * goalDayCount;
   const workoutTarget = dailyWorkoutGoal * goalDayCount;
   const caloriesProgress = progressRatio(totals.calories, calorieTarget);
   const workoutProgress = progressRatio(filteredWorkouts.length, workoutTarget);
-  const sleepProgress = progressRatio(sleepHours, sleepTarget);
-  const waterProgress = progressRatio(waterLiters, waterTarget);
   const mealsProgress = progressRatio(mealCount, mealTarget);
-  const overallProgress = (caloriesProgress + workoutProgress + mealsProgress + sleepProgress + waterProgress) / 5;
+  const overallProgress = (caloriesProgress + workoutProgress + mealsProgress) / 3;
   const latestActivities = buildActivities({
     meals: filteredMeals,
     workouts: filteredWorkouts,
@@ -194,20 +175,6 @@ export function HomeScreen({
           subtitle: t('home.metrics.exercises', { count: exerciseCount }),
           accent: colors.workout,
           progress: workoutProgress,
-        }}
-        sleepStat={{
-          title: t('home.metrics.sleep'),
-          value: `${formatDecimal(sleepHours)}${t('common.hoursShort')} / ${formatDecimal(sleepTarget)}${t('common.hoursShort')}`,
-          subtitle: t('home.metrics.sleepGoal'),
-          accent: colors.sleep,
-          progress: sleepProgress,
-        }}
-        waterStat={{
-          title: t('home.metrics.water'),
-          value: `${formatDecimal(waterLiters)}${t('common.litersShort')} / ${formatDecimal(waterTarget)}${t('common.litersShort')}`,
-          subtitle: t('home.metrics.waterGoal'),
-          accent: colors.water,
-          progress: waterProgress,
         }}
         progressInfo={[
           {
@@ -438,21 +405,8 @@ function getExpectedGainLabel(t: Translator, period: PeriodKey): string {
   return t('home.metrics.expectedGainToday');
 }
 
-function sumSleepHours(entries: SleepEntry[]): number {
-  return entries.reduce((sum, entry) => sum + safeNonNegative(entry.hours), 0);
-}
-
-function sumWaterLiters(entries: WaterEntry[]): number {
-  return entries.reduce((sum, entry) => sum + safeNonNegative(entry.liters), 0);
-}
-
 function safeNonNegative(value: number): number {
   return Number.isFinite(value) ? Math.max(value, 0) : 0;
-}
-
-function formatDecimal(value: number): string {
-  const safeValue = safeNonNegative(value);
-  return Number.isInteger(safeValue) ? String(safeValue) : safeValue.toFixed(1);
 }
 
 function getTargetedBodyLabel(workouts: Workout[], t: Translator, period: PeriodKey, rtl: boolean): string {

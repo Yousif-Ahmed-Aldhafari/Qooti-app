@@ -30,8 +30,6 @@ type CombinedProgressStatsCardProps = {
   progressStat: DonutStat;
   caloriesStat: DonutStat;
   workoutStat: DonutStat;
-  sleepStat: DonutStat;
-  waterStat: DonutStat;
   progressInfo: ProgressInfoItem[];
   isRTL: boolean;
 };
@@ -47,8 +45,6 @@ export function CombinedProgressStatsCard({
   progressStat,
   caloriesStat,
   workoutStat,
-  sleepStat,
-  waterStat,
   progressInfo,
   isRTL,
 }: CombinedProgressStatsCardProps) {
@@ -71,10 +67,6 @@ export function CombinedProgressStatsCard({
         <View style={[styles.metricsGridRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           <CompactDonutSection stat={caloriesStat} />
           <CompactDonutSection stat={workoutStat} />
-        </View>
-        <View style={[styles.metricsGridRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          <CompactDonutSection stat={sleepStat} />
-          <CompactDonutSection stat={waterStat} />
         </View>
       </View>
     </GlassCard>
