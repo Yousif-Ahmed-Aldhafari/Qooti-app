@@ -42,7 +42,7 @@ export function NutritionSummaryScreen() {
       <View style={[styles.grid, rowDirectionStyle]}>
         <MacroCard label={t('nutrition.proteinGoal')} value={totals.protein} goal={profile.targetProtein} unit={t('macros.grams')} icon="barbell-outline" />
         <MacroCard label={t('nutrition.carbGoal')} value={totals.carbs} goal={profile.targetCarbs} unit={t('macros.grams')} icon="leaf-outline" color={theme.colors.accent} />
-        <MacroCard label={t('nutrition.fatGoal')} value={totals.fat} goal={profile.targetFat} unit={t('macros.grams')} icon="water-outline" color={theme.colors.secondary} />
+        <MacroCard label={t('nutrition.fatGoal')} value={totals.fat} goal={profile.targetFat ?? profile.targetFats ?? 0} unit={t('macros.grams')} icon="water-outline" color={theme.colors.secondary} />
       </View>
 
       <AppCard>

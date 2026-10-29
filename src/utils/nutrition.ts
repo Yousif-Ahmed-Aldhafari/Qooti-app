@@ -1,35 +1,42 @@
 import type { DailyNutritionSummary, Meal, MealItem, Workout } from '../types';
 
 export function calculateMealTotals(items: MealItem[]): DailyNutritionSummary {
-  return items.reduce(
-    (totals, item) => ({
-      calories: totals.calories + safeNumber(item.calories),
-      protein: totals.protein + safeNumber(item.protein),
-      carbs: totals.carbs + safeNumber(item.carbs),
-      fats: totals.fats + safeNumber(item.fats),
-    }),
-    { calories: 0, protein: 0, carbs: 0, fats: 0 },
+  return (items || []).reduce(
+    (totals, item) => {
+      const itemFats = safeNumber(item.fats ?? item.fat);
+      const newFats = totals.fats + itemFats;
+      return {
+        calories: totals.calories + safeNumber(item.calories),
+        protein: totals.protein + safeNumber(item.protein),
+        carbs: totals.carbs + safeNumber(item.carbs),
+        fats: newFats,
+        fat: newFats,
+      };
+    },
+    { calories: 0, protein: 0, carbs: 0, fats: 0, fat: 0 },
   );
 }
 
 export function calculateDailyNutrition(meals: Meal[]): DailyNutritionSummary {
-  return meals.reduce(
+  return (meals || []).reduce(
     (totals, meal) => {
       const mealTotals = calculateMealTotals(meal.items);
+      const newFats = totals.fats + mealTotals.fats;
       return {
         calories: totals.calories + mealTotals.calories,
         protein: totals.protein + mealTotals.protein,
         carbs: totals.carbs + mealTotals.carbs,
-        fats: totals.fats + mealTotals.fats,
+        fats: newFats,
+        fat: newFats,
       };
     },
-    { calories: 0, protein: 0, carbs: 0, fats: 0 },
+    { calories: 0, protein: 0, carbs: 0, fats: 0, fat: 0 },
   );
 }
 
 export function workoutMinutes(workouts: Workout[]): number {
-  return workouts.reduce(
-    (sum, workout) => sum + workout.exercises.reduce((total, exercise) => total + safeNumber(exercise.duration), 0),
+  return (workouts || []).reduce(
+    (sum, workout) => sum + (workout.exercises || []).reduce((total, exercise) => total + safeNumber(exercise.duration), 0),
     0,
   );
 }
@@ -54,8 +61,8 @@ export function formatWeightGainKg(kg: number, unit = 'kg'): string {
   return safeKg > 0 ? `+${safeKg.toFixed(2)} ${unit}` : `0.00 ${unit}`;
 }
 
-export function safeNumber(value: number): number {
-  return Number.isFinite(value) ? value : 0;
+export function safeNumber(value: number | undefined): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
 export function parseInputNumber(value: string): number {

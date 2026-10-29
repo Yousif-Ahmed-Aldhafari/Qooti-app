@@ -1,14 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, DevSettings, I18nManager, Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BottomTabs } from '../components/BottomTabs';
 import { BottomNavProvider } from '../context/BottomNavContext';
-import { sampleMeals, sampleProfile, sampleProgress, sampleSleepEntries, sampleWaterEntries, sampleWorkouts } from '../data/sampleData';
-import { translate, type Translator } from '../i18n';
+import { sampleSleepEntries, sampleWaterEntries, sampleProgress } from '../data/sampleData';
+import { translate } from '../i18n';
 import { AddMealScreen } from '../screens/AddMealScreen';
 import { AddWorkoutScreen } from '../screens/AddWorkoutScreen';
 import { HomeScreen } from '../screens/HomeScreen';
@@ -21,8 +20,8 @@ import { SettingsScreen } from '../screens/SettingsScreen';
 import { SplashScreen } from '../screens/SplashScreen';
 import { WorkoutDetailsScreen } from '../screens/WorkoutDetailsScreen';
 import { WorkoutsScreen } from '../screens/WorkoutsScreen';
+import { useApp } from '../store/AppContext';
 import {
-  isThemePreference,
   resolveThemePreference,
   setActiveTheme,
   themeColors,
@@ -34,10 +33,6 @@ import { typography } from '../theme/typography';
 import type { Language, Meal, ScreenKey, TabKey, Workout } from '../types';
 import { applyRTL, direction, isRTL, rowStyle, textAlign, writingDirection } from '../utils/rtl';
 
-const LANGUAGE_STORAGE_KEY = '@qooti/language';
-const ONBOARDING_STORAGE_KEY = '@qooti/hasOnboarded';
-const THEME_STORAGE_KEY = '@qooti/themePreference';
-const LEGACY_THEME_STORAGE_KEY = '@qooti/themeMode';
 const mainTabs: TabKey[] = ['home', 'meals', 'workouts', 'progress', 'profile'];
 
 function isMainTab(screen: ScreenKey): screen is TabKey {
@@ -45,7 +40,7 @@ function isMainTab(screen: ScreenKey): screen is TabKey {
 }
 
 function logDirectionDebug(selectedLanguage: Language) {
-  if (!__DEV__) {
+  if (typeof __DEV__ !== 'undefined' && !__DEV__) {
     return;
   }
 
@@ -57,26 +52,38 @@ function logDirectionDebug(selectedLanguage: Language) {
 }
 
 export function AppNavigator() {
-  const [isReady, setIsReady] = useState(false);
+  const {
+    isReady: isAppReady,
+    meals,
+    workouts,
+    profile,
+    progressEntries,
+    settings,
+    setLanguage: updateLanguage,
+    updateSettings,
+    completeOnboarding: finishOnboardingInContext,
+    addMeal,
+    addWorkout,
+    t,
+  } = useApp();
+
   const [showSplash, setShowSplash] = useState(true);
-  const [hasOnboarded, setHasOnboarded] = useState(false);
-  const [language, setLanguage] = useState<Language>('en');
-  const [themePreference, setThemePreference] = useState<ThemePreference>('system');
   const [activeTab, setActiveTab] = useState<TabKey>('home');
   const [activeScreen, setActiveScreen] = useState<ScreenKey>('home');
-  const [meals, setMeals] = useState<Meal[]>(sampleMeals);
-  const [workouts, setWorkouts] = useState<Workout[]>(sampleWorkouts);
-  const [selectedMeal, setSelectedMeal] = useState<Meal | null>(sampleMeals[0] ?? null);
-  const [selectedWorkout, setSelectedWorkout] = useState<Workout | null>(sampleWorkouts[0] ?? null);
+  const [selectedMealState, setSelectedMealState] = useState<Meal | null>(null);
+  const [selectedWorkoutState, setSelectedWorkoutState] = useState<Workout | null>(null);
+
+  const language = settings.selectedLanguage;
+  const themePreference: ThemePreference = settings.themeMode;
+  const hasOnboarded = settings.hasCompletedOnboarding;
+
+  const selectedMeal = selectedMealState ?? meals[0] ?? null;
+  const selectedWorkout = selectedWorkoutState ?? workouts[0] ?? null;
+
   const systemColorScheme = useColorScheme();
   const resolvedTheme = useMemo(
     () => resolveThemePreference(themePreference, systemColorScheme),
     [systemColorScheme, themePreference],
-  );
-
-  const t = useCallback<Translator>(
-    (key, values) => translate(language, key, values),
-    [language],
   );
 
   const tabLabels = useMemo(
@@ -91,40 +98,6 @@ export function AppNavigator() {
   );
 
   useEffect(() => {
-    let mounted = true;
-
-    async function bootstrap() {
-      const [savedLanguage, savedOnboarding, savedThemePreference, legacyThemeMode] = await Promise.all([
-        AsyncStorage.getItem(LANGUAGE_STORAGE_KEY),
-        AsyncStorage.getItem(ONBOARDING_STORAGE_KEY),
-        AsyncStorage.getItem(THEME_STORAGE_KEY),
-        AsyncStorage.getItem(LEGACY_THEME_STORAGE_KEY),
-      ]);
-      const nextLanguage: Language = savedLanguage === 'ar' ? 'ar' : 'en';
-      const storedThemePreference = savedThemePreference ?? legacyThemeMode;
-      const nextThemePreference: ThemePreference = isThemePreference(storedThemePreference)
-        ? storedThemePreference
-        : 'system';
-
-      applyRTL(nextLanguage);
-      logDirectionDebug(nextLanguage);
-
-      if (mounted) {
-        setLanguage(nextLanguage);
-        setThemePreference(nextThemePreference);
-        setHasOnboarded(savedOnboarding === 'true');
-        setIsReady(true);
-      }
-    }
-
-    bootstrap();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
     const timer = setTimeout(() => setShowSplash(false), 950);
     return () => clearTimeout(timer);
   }, []);
@@ -134,18 +107,16 @@ export function AppNavigator() {
     setActiveScreen(tab);
   }
 
-  async function finishOnboarding() {
-    setHasOnboarded(true);
+  function finishOnboarding() {
+    finishOnboardingInContext();
     setActiveTab('home');
     setActiveScreen('home');
-    await AsyncStorage.setItem(ONBOARDING_STORAGE_KEY, 'true');
   }
 
   async function changeLanguage(nextLanguage: Language) {
     const restartRequired = applyRTL(nextLanguage);
     logDirectionDebug(nextLanguage);
-    setLanguage(nextLanguage);
-    await AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, nextLanguage);
+    updateLanguage(nextLanguage);
 
     if (restartRequired) {
       Alert.alert(
@@ -166,30 +137,29 @@ export function AppNavigator() {
   }
 
   async function changeTheme(nextThemePreference: ThemePreference) {
-    setThemePreference(nextThemePreference);
-    await AsyncStorage.setItem(THEME_STORAGE_KEY, nextThemePreference);
+    updateSettings({ themeMode: nextThemePreference });
   }
 
   function openMealDetails(meal: Meal) {
-    setSelectedMeal(meal);
+    setSelectedMealState(meal);
     setActiveScreen('mealDetails');
   }
 
   function saveMeal(meal: Meal) {
-    setMeals((currentMeals) => [meal, ...currentMeals]);
-    setSelectedMeal(meal);
+    addMeal(meal);
+    setSelectedMealState(meal);
     setActiveTab('meals');
     setActiveScreen('mealDetails');
   }
 
   function openWorkoutDetails(workout: Workout) {
-    setSelectedWorkout(workout);
+    setSelectedWorkoutState(workout);
     setActiveScreen('workoutDetails');
   }
 
   function saveWorkout(workout: Workout) {
-    setWorkouts((currentWorkouts) => [workout, ...currentWorkouts]);
-    setSelectedWorkout(workout);
+    addWorkout(workout);
+    setSelectedWorkoutState(workout);
     setActiveTab('workouts');
     setActiveScreen('workoutDetails');
   }
@@ -208,7 +178,7 @@ export function AppNavigator() {
         return (
           <HomeScreen
             t={t}
-            profile={sampleProfile}
+            profile={profile}
             meals={meals}
             workouts={workouts}
             sleepEntries={sampleSleepEntries}
@@ -224,7 +194,7 @@ export function AppNavigator() {
       case 'addMeal':
         return <AddMealScreen t={t} onSave={saveMeal} />;
       case 'mealDetails':
-        return selectedMeal ? <MealDetailsScreen t={t} meal={selectedMeal} profile={sampleProfile} /> : null;
+        return selectedMeal ? <MealDetailsScreen t={t} meal={selectedMeal} profile={profile} /> : null;
       case 'workouts':
         return <WorkoutsScreen t={t} workouts={workouts} onAddWorkout={() => setActiveScreen('addWorkout')} onWorkoutPress={openWorkoutDetails} />;
       case 'addWorkout':
@@ -232,9 +202,9 @@ export function AppNavigator() {
       case 'workoutDetails':
         return selectedWorkout ? <WorkoutDetailsScreen t={t} workout={selectedWorkout} /> : null;
       case 'progress':
-        return <ProgressScreen t={t} profile={sampleProfile} progress={sampleProgress} />;
+        return <ProgressScreen t={t} profile={profile} progress={progressEntries.length ? progressEntries : sampleProgress} />;
       case 'profile':
-        return <ProfileScreen t={t} profile={sampleProfile} onSettingsPress={() => setActiveScreen('settings')} />;
+        return <ProfileScreen t={t} profile={profile} onSettingsPress={() => setActiveScreen('settings')} />;
       case 'settings':
         return (
           <SettingsScreen
@@ -262,7 +232,7 @@ export function AppNavigator() {
     writingDirection: writingDirection(language),
   } as const;
 
-  if (!isReady || showSplash) {
+  if (!isAppReady || showSplash) {
     return (
       <View style={[styles.root, { direction: layoutDirection, backgroundColor: palette.background }]}>
         <SplashScreen t={t} />

@@ -42,6 +42,7 @@ export function AddExerciseScreen() {
 
     const workout: Workout = {
       id: createId('workout'),
+      title: workoutName.trim(),
       name: workoutName.trim(),
       date: todayISO(),
       time: currentTime(),
@@ -49,6 +50,7 @@ export function AddExerciseScreen() {
       exercises: [
         {
           id: createId('exercise'),
+          exerciseName: exerciseName.trim(),
           name: exerciseName.trim(),
           sets: parseNumber(sets),
           reps: parseNumber(reps),

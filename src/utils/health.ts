@@ -12,48 +12,51 @@ export type NutritionTotals = {
 };
 
 export function calculateMealTotals(items: FoodItem[]): NutritionTotals {
-  return items.reduce<NutritionTotals>(
+  return (items || []).reduce<NutritionTotals>(
     (totals, item) => ({
       calories: totals.calories + numeric(item.calories),
       protein: totals.protein + numeric(item.protein),
       carbs: totals.carbs + numeric(item.carbs),
-      fat: totals.fat + numeric(item.fat),
+      fat: totals.fat + numeric(item.fat ?? item.fats),
     }),
     { calories: 0, protein: 0, carbs: 0, fat: 0 },
   );
 }
 
 export function nutritionTotalsForMeals(meals: Meal[]): NutritionTotals {
-  return meals.reduce<NutritionTotals>(
-    (totals, meal) => ({
-      calories: totals.calories + numeric(meal.totalCalories),
-      protein: totals.protein + numeric(meal.totalProtein),
-      carbs: totals.carbs + numeric(meal.totalCarbs),
-      fat: totals.fat + numeric(meal.totalFat),
-    }),
+  return (meals || []).reduce<NutritionTotals>(
+    (totals, meal) => {
+      const itemTotals = meal.items && meal.items.length ? calculateMealTotals(meal.items) : { calories: 0, protein: 0, carbs: 0, fat: 0 };
+      return {
+        calories: totals.calories + numeric(meal.totalCalories ?? itemTotals.calories),
+        protein: totals.protein + numeric(meal.totalProtein ?? itemTotals.protein),
+        carbs: totals.carbs + numeric(meal.totalCarbs ?? itemTotals.carbs),
+        fat: totals.fat + numeric(meal.totalFat ?? meal.totalFats ?? itemTotals.fat),
+      };
+    },
     { calories: 0, protein: 0, carbs: 0, fat: 0 },
   );
 }
 
 export function mealsForToday(meals: Meal[]): Meal[] {
-  return meals.filter((meal) => isSameDate(meal.date));
+  return (meals || []).filter((meal) => isSameDate(meal.date));
 }
 
 export function workoutsForToday(workouts: Workout[]): Workout[] {
-  return workouts.filter((workout) => isSameDate(workout.date));
+  return (workouts || []).filter((workout) => isSameDate(workout.date));
 }
 
 export function mealsForCurrentWeek(meals: Meal[]): Meal[] {
-  return meals.filter((meal) => isDateInCurrentWeek(meal.date));
+  return (meals || []).filter((meal) => isDateInCurrentWeek(meal.date));
 }
 
 export function workoutsForCurrentWeek(workouts: Workout[]): Workout[] {
-  return workouts.filter((workout) => isDateInCurrentWeek(workout.date));
+  return (workouts || []).filter((workout) => isDateInCurrentWeek(workout.date));
 }
 
 export function weeklyMealSummary(meals: Meal[]) {
   return getLastSevenDays().map((date) => {
-    const dayMeals = meals.filter((meal) => meal.date === date);
+    const dayMeals = (meals || []).filter((meal) => meal.date === date);
     return {
       date,
       calories: nutritionTotalsForMeals(dayMeals).calories,
@@ -65,7 +68,7 @@ export function weeklyMealSummary(meals: Meal[]) {
 export function weeklyWorkoutSummary(workouts: Workout[]) {
   return getLastSevenDays().map((date) => ({
     date,
-    workoutCount: workouts.filter((workout) => workout.date === date).length,
+    workoutCount: (workouts || []).filter((workout) => workout.date === date).length,
   }));
 }
 
@@ -75,7 +78,7 @@ export function dailyNutritionSummary(
   date = new Date(),
 ): DailyNutritionSummary {
   const day = date.toISOString().slice(0, 10);
-  const totals = nutritionTotalsForMeals(meals.filter((meal) => meal.date === day));
+  const totals = nutritionTotalsForMeals((meals || []).filter((meal) => meal.date === day));
 
   return {
     date: day,
@@ -83,6 +86,7 @@ export function dailyNutritionSummary(
     protein: totals.protein,
     carbs: totals.carbs,
     fat: totals.fat,
+    fats: totals.fat,
     calorieGoal: profile.targetCalories,
   };
 }
@@ -96,7 +100,7 @@ export function macroProgress(value: number, goal: number): number {
 }
 
 export function workoutDuration(workout: Workout): number {
-  return workout.exercises.reduce((total, exercise) => total + numeric(exercise.duration), 0);
+  return (workout.exercises || []).reduce((total, exercise) => total + numeric(exercise.duration), 0);
 }
 
 export function weeklyWorkoutMinutes(workouts: Workout[]): number {
@@ -104,13 +108,13 @@ export function weeklyWorkoutMinutes(workouts: Workout[]): number {
 }
 
 export function totalSets(workout: Workout): number {
-  return workout.exercises.reduce((total, exercise) => total + numeric(exercise.sets), 0);
+  return (workout.exercises || []).reduce((total, exercise) => total + numeric(exercise.sets), 0);
 }
 
 export function roundNutrition(value: number): number {
   return Math.round(value * 10) / 10;
 }
 
-function numeric(value: number): number {
-  return Number.isFinite(value) ? value : 0;
+function numeric(value: number | undefined): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }

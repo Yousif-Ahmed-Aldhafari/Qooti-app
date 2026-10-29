@@ -1,58 +1,32 @@
-import { I18nManager } from 'react-native';
-import type { TextStyle, ViewStyle } from 'react-native';
-
+/**
+ * Language direction utilities — consolidated to delegate to canonical rtl.ts.
+ */
 import type { Language } from '../models/settings';
+import {
+  applyRTL,
+  direction,
+  flexEnd,
+  flexStart,
+  alignItemsEnd,
+  alignItemsStart,
+  isRTL,
+  rowDirection,
+  rowStyle,
+  textAlign,
+  writingDirection,
+} from './rtl';
 
-export function isRTLLanguage(language: Language): boolean {
-  return language === 'ar';
-}
-
-export function getDirection(language: Language): ViewStyle['direction'] {
-  return isRTLLanguage(language) ? 'rtl' : 'ltr';
-}
-
-export function getTextAlign(language: Language): TextStyle['textAlign'] {
-  return isRTLLanguage(language) ? 'right' : 'left';
-}
-
-export function getWritingDirection(language: Language): TextStyle['writingDirection'] {
-  return isRTLLanguage(language) ? 'rtl' : 'ltr';
-}
-
-export function getRowDirection(language: Language): ViewStyle['flexDirection'] {
-  return 'row';
-}
-
-export function getRowStyle(language: Language): ViewStyle {
-  return {
-    direction: getDirection(language),
-    flexDirection: getRowDirection(language),
-  };
-}
-
-export function getFlexStart(language: Language): ViewStyle['alignSelf'] {
-  return 'flex-start';
-}
-
-export function getFlexEnd(language: Language): ViewStyle['alignSelf'] {
-  return 'flex-end';
-}
-
-export function getAlignItems(language: Language): ViewStyle['alignItems'] {
-  return 'flex-start';
-}
-
-export function getOppositeAlignItems(language: Language): ViewStyle['alignItems'] {
-  return 'flex-end';
-}
+export const isRTLLanguage = isRTL;
+export const getDirection = direction;
+export const getTextAlign = textAlign;
+export const getWritingDirection = writingDirection;
+export const getRowDirection = rowDirection;
+export const getRowStyle = rowStyle;
+export const getFlexStart = flexStart;
+export const getFlexEnd = flexEnd;
+export const getAlignItems = alignItemsStart;
+export const getOppositeAlignItems = alignItemsEnd;
 
 export function applyAppDirection(language: Language): boolean {
-  const shouldUseRTL = isRTLLanguage(language);
-  const restartRequired = I18nManager.isRTL !== shouldUseRTL;
-
-  I18nManager.allowRTL(shouldUseRTL);
-  I18nManager.forceRTL(shouldUseRTL);
-  I18nManager.swapLeftAndRightInRTL(shouldUseRTL);
-
-  return restartRequired;
+  return applyRTL(language);
 }

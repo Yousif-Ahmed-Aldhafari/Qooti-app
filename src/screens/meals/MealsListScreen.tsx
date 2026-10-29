@@ -53,7 +53,7 @@ export function MealsListScreen() {
       <View style={[styles.macroGrid, rowDirectionStyle]}>
         <MacroCard label={t('macros.protein')} value={totals.protein} goal={profile.targetProtein} unit={t('macros.grams')} icon="barbell-outline" />
         <MacroCard label={t('macros.carbs')} value={totals.carbs} goal={profile.targetCarbs} unit={t('macros.grams')} icon="leaf-outline" color={theme.colors.accent} />
-        <MacroCard label={t('macros.fat')} value={totals.fat} goal={profile.targetFat} unit={t('macros.grams')} icon="water-outline" color={theme.colors.secondary} />
+        <MacroCard label={t('macros.fat')} value={totals.fat} goal={profile.targetFat ?? profile.targetFats ?? 0} unit={t('macros.grams')} icon="water-outline" color={theme.colors.secondary} />
       </View>
 
       <View style={[styles.actions, rowDirectionStyle]}>
@@ -83,14 +83,14 @@ export function MealsListScreen() {
                 </View>
                 <View style={styles.mealCopy}>
                   <Text style={[styles.mealTitle, textDirectionStyle, { color: theme.colors.text }]} numberOfLines={1}>
-                    {meal.name}
+                    {meal.title || meal.name}
                   </Text>
                   <Text style={[styles.mealMeta, textDirectionStyle, { color: theme.colors.textMuted }]}>
                     {formatDisplayDate(meal.date, language)} · {meal.time} · {t('meals.itemsCount', { count: meal.items.length })}
                   </Text>
                 </View>
                 <Text style={[styles.calories, { color: theme.colors.primary }]}>
-                  {Math.round(meal.totalCalories)}
+                  {Math.round(meal.totalCalories ?? 0)}
                 </Text>
               </View>
             </Pressable>

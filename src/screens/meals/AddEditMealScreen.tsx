@@ -47,12 +47,14 @@ export function AddEditMealScreen() {
   const previewItem = useMemo<MealItem>(
     () => ({
       id: firstItem?.id ?? createId('food'),
+      foodName,
       name: foodName,
       quantity: parseNumber(quantity),
       unit: 'serving',
       calories: parseNumber(calories),
       protein: parseNumber(protein),
       carbs: parseNumber(carbs),
+      fats: parseNumber(fat),
       fat: parseNumber(fat),
     }),
     [calories, carbs, fat, firstItem?.id, foodName, protein, quantity],
@@ -65,9 +67,10 @@ export function AddEditMealScreen() {
       return;
     }
 
-    const item = { ...previewItem, name: foodName.trim(), unit: 'serving' };
+    const item = { ...previewItem, foodName: foodName.trim(), name: foodName.trim(), unit: 'serving' };
     const meal: Meal = {
       id: existingMeal?.id ?? createId('meal'),
+      title: mealName.trim(),
       name: mealName.trim(),
       date: date.trim() || todayISO(),
       time: time.trim() || currentTime(),
@@ -76,6 +79,7 @@ export function AddEditMealScreen() {
       totalProtein: totals.protein,
       totalCarbs: totals.carbs,
       totalFat: totals.fat,
+      totalFats: totals.fat,
     };
 
     if (existingMeal) {
