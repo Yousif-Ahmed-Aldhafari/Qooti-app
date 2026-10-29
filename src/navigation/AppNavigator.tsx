@@ -70,15 +70,32 @@ export function AppNavigator() {
   const [showSplash, setShowSplash] = useState(true);
   const [activeTab, setActiveTab] = useState<TabKey>('home');
   const [activeScreen, setActiveScreen] = useState<ScreenKey>('home');
-  const [selectedMealState, setSelectedMealState] = useState<Meal | null>(null);
-  const [selectedWorkoutState, setSelectedWorkoutState] = useState<Workout | null>(null);
+  const [selectedMealId, setSelectedMealId] = useState<string | null>(null);
+  const [selectedWorkoutId, setSelectedWorkoutId] = useState<string | null>(null);
 
   const language = settings.selectedLanguage;
   const themePreference: ThemePreference = settings.themeMode;
   const hasOnboarded = settings.hasCompletedOnboarding;
 
-  const selectedMeal = selectedMealState ?? meals[0] ?? null;
-  const selectedWorkout = selectedWorkoutState ?? workouts[0] ?? null;
+  const selectedMeal = useMemo(() => {
+    if (selectedMealId) {
+      const match = meals.find((m) => m.id === selectedMealId);
+      if (match) {
+        return match;
+      }
+    }
+    return meals[0] ?? null;
+  }, [meals, selectedMealId]);
+
+  const selectedWorkout = useMemo(() => {
+    if (selectedWorkoutId) {
+      const match = workouts.find((w) => w.id === selectedWorkoutId);
+      if (match) {
+        return match;
+      }
+    }
+    return workouts[0] ?? null;
+  }, [workouts, selectedWorkoutId]);
 
   const systemColorScheme = useColorScheme();
   const resolvedTheme = useMemo(
@@ -141,25 +158,25 @@ export function AppNavigator() {
   }
 
   function openMealDetails(meal: Meal) {
-    setSelectedMealState(meal);
+    setSelectedMealId(meal.id);
     setActiveScreen('mealDetails');
   }
 
   function saveMeal(meal: Meal) {
     addMeal(meal);
-    setSelectedMealState(meal);
+    setSelectedMealId(meal.id);
     setActiveTab('meals');
     setActiveScreen('mealDetails');
   }
 
   function openWorkoutDetails(workout: Workout) {
-    setSelectedWorkoutState(workout);
+    setSelectedWorkoutId(workout.id);
     setActiveScreen('workoutDetails');
   }
 
   function saveWorkout(workout: Workout) {
     addWorkout(workout);
-    setSelectedWorkoutState(workout);
+    setSelectedWorkoutId(workout.id);
     setActiveTab('workouts');
     setActiveScreen('workoutDetails');
   }

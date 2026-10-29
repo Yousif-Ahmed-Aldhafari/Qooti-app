@@ -49,20 +49,22 @@ export function normalizeMeal(
 ): Meal {
   const title = meal.title || meal.name || '';
   const items = (meal.items || []).map(normalizeMealItem);
-  const calories = items.reduce((sum, item) => sum + (Number.isFinite(item.calories) ? item.calories : 0), 0);
-  const protein = items.reduce((sum, item) => sum + (Number.isFinite(item.protein) ? item.protein : 0), 0);
-  const carbs = items.reduce((sum, item) => sum + (Number.isFinite(item.carbs) ? item.carbs : 0), 0);
-  const fats = items.reduce((sum, item) => sum + (Number.isFinite(item.fats) ? item.fats : 0), 0);
+  const computedCalories = items.reduce((sum, item) => sum + (Number.isFinite(item.calories) ? item.calories : 0), 0);
+  const computedProtein = items.reduce((sum, item) => sum + (Number.isFinite(item.protein) ? item.protein : 0), 0);
+  const computedCarbs = items.reduce((sum, item) => sum + (Number.isFinite(item.carbs) ? item.carbs : 0), 0);
+  const computedFats = items.reduce((sum, item) => sum + (Number.isFinite(item.fats) ? item.fats : 0), 0);
+
+  const hasItems = items.length > 0;
 
   return {
     ...meal,
     title,
     name: title,
     items,
-    totalCalories: meal.totalCalories ?? calories,
-    totalProtein: meal.totalProtein ?? protein,
-    totalCarbs: meal.totalCarbs ?? carbs,
-    totalFat: meal.totalFat ?? meal.totalFats ?? fats,
-    totalFats: meal.totalFats ?? meal.totalFat ?? fats,
+    totalCalories: hasItems ? computedCalories : (meal.totalCalories ?? computedCalories),
+    totalProtein: hasItems ? computedProtein : (meal.totalProtein ?? computedProtein),
+    totalCarbs: hasItems ? computedCarbs : (meal.totalCarbs ?? computedCarbs),
+    totalFat: hasItems ? computedFats : (meal.totalFat ?? meal.totalFats ?? computedFats),
+    totalFats: hasItems ? computedFats : (meal.totalFats ?? meal.totalFat ?? computedFats),
   };
 }
