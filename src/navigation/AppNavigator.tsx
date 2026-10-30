@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, DevSettings, I18nManager, Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
+import { Alert, BackHandler, DevSettings, I18nManager, Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -54,6 +54,8 @@ function logDirectionDebug(selectedLanguage: Language) {
 export function AppNavigator() {
   const {
     isReady: isAppReady,
+    persistenceError,
+    clearPersistenceError,
     meals,
     workouts,
     profile,
@@ -84,7 +86,7 @@ export function AppNavigator() {
         return match;
       }
     }
-    return meals[0] ?? null;
+    return null;
   }, [meals, selectedMealId]);
 
   const selectedWorkout = useMemo(() => {
@@ -94,8 +96,54 @@ export function AppNavigator() {
         return match;
       }
     }
-    return workouts[0] ?? null;
+    return null;
   }, [workouts, selectedWorkoutId]);
+
+  // If viewing details of a deleted meal, safely navigate back to meals tab
+  useEffect(() => {
+    if (activeScreen === 'mealDetails' && selectedMealId) {
+      const exists = meals.some((m) => m.id === selectedMealId);
+      if (!exists) {
+        setActiveTab('meals');
+        setActiveScreen('meals');
+        setSelectedMealId(null);
+      }
+    }
+  }, [activeScreen, meals, selectedMealId]);
+
+  // If viewing details of a deleted workout, safely navigate back to workouts tab
+  useEffect(() => {
+    if (activeScreen === 'workoutDetails' && selectedWorkoutId) {
+      const exists = workouts.some((w) => w.id === selectedWorkoutId);
+      if (!exists) {
+        setActiveTab('workouts');
+        setActiveScreen('workouts');
+        setSelectedWorkoutId(null);
+      }
+    }
+  }, [activeScreen, workouts, selectedWorkoutId]);
+
+  // Android hardware back handler: prevents accidental app exits on sub-screens
+  useEffect(() => {
+    const onHardwareBack = () => {
+      // 1. If currently on a detail or form screen, back goes to the active tab
+      if (!isMainTab(activeScreen)) {
+        setActiveScreen(activeTab);
+        return true;
+      }
+      // 2. If on a main tab other than 'home', back navigates to 'home' before exit
+      if (activeTab !== 'home') {
+        setActiveTab('home');
+        setActiveScreen('home');
+        return true;
+      }
+      // 3. Already on 'home': allow OS default (exit application)
+      return false;
+    };
+
+    const backSubscription = BackHandler.addEventListener('hardwareBackPress', onHardwareBack);
+    return () => backSubscription.remove();
+  }, [activeScreen, activeTab]);
 
   const systemColorScheme = useColorScheme();
   const resolvedTheme = useMemo(
@@ -211,13 +259,19 @@ export function AppNavigator() {
       case 'addMeal':
         return <AddMealScreen t={t} onSave={saveMeal} />;
       case 'mealDetails':
-        return selectedMeal ? <MealDetailsScreen t={t} meal={selectedMeal} profile={profile} /> : null;
+        if (!selectedMeal) {
+          return <MealsScreen t={t} meals={meals} onAddMeal={() => setActiveScreen('addMeal')} onMealPress={openMealDetails} />;
+        }
+        return <MealDetailsScreen t={t} meal={selectedMeal} profile={profile} />;
       case 'workouts':
         return <WorkoutsScreen t={t} workouts={workouts} onAddWorkout={() => setActiveScreen('addWorkout')} onWorkoutPress={openWorkoutDetails} />;
       case 'addWorkout':
         return <AddWorkoutScreen t={t} onSave={saveWorkout} />;
       case 'workoutDetails':
-        return selectedWorkout ? <WorkoutDetailsScreen t={t} workout={selectedWorkout} /> : null;
+        if (!selectedWorkout) {
+          return <WorkoutsScreen t={t} workouts={workouts} onAddWorkout={() => setActiveScreen('addWorkout')} onWorkoutPress={openWorkoutDetails} />;
+        }
+        return <WorkoutDetailsScreen t={t} workout={selectedWorkout} />;
       case 'progress':
         return <ProgressScreen t={t} profile={profile} progress={progressEntries.length ? progressEntries : sampleProgress} />;
       case 'profile':
@@ -262,6 +316,24 @@ export function AppNavigator() {
     <BottomNavProvider>
       <SafeAreaView style={[styles.root, { direction: layoutDirection, backgroundColor: palette.background }]} edges={['top']}>
         <View style={[styles.screenSlot, { backgroundColor: palette.background }]}>
+          {persistenceError ? (
+            <View style={[styles.errorBanner, { backgroundColor: palette.card, borderColor: '#F59E0B' }]}>
+              <View style={[styles.errorContent, rowStyle(language)]}>
+                <Ionicons name="warning-outline" size={20} color="#F59E0B" />
+                <Text style={[styles.errorText, directionalText, { color: palette.text }]} numberOfLines={2}>
+                  {persistenceError}
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Dismiss storage error"
+                  onPress={clearPersistenceError}
+                  style={styles.errorDismiss}
+                >
+                  <Ionicons name="close-circle-outline" size={20} color={palette.textMuted} />
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
           {showBack ? (
             <Pressable
               accessibilityRole="button"
@@ -308,5 +380,24 @@ const styles = StyleSheet.create({
   },
   backText: {
     ...typography.caption,
+  },
+  errorBanner: {
+    marginHorizontal: spacing.xl,
+    marginTop: spacing.xs,
+    marginBottom: spacing.xs,
+    padding: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+  },
+  errorContent: {
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  errorText: {
+    flex: 1,
+    ...typography.caption,
+  },
+  errorDismiss: {
+    padding: spacing.xs,
   },
 });
