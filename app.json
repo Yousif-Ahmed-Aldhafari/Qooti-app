@@ -30,7 +30,8 @@
     "plugins": [
       "expo-font",
       "expo-localization",
-      "expo-sqlite"
+      "expo-sqlite",
+      "expo-status-bar"
     ]
   }
 }

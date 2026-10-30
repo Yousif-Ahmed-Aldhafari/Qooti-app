@@ -4,5 +4,9 @@
     "strict": true,
     "resolveJsonModule": true,
     "esModuleInterop": true
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "src/__tests__"
+  ]
 }
