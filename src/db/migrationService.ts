@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { IDatabase, MigrationSummary, KeyMigrationStatus } from './types';
+import { IDatabase, MigrationSummary } from './types';
 import { SQLiteMealRepository } from './repositories/mealRepository';
 import { SQLiteWorkoutRepository } from './repositories/workoutRepository';
 import { SQLiteProfileRepository } from './repositories/profileRepository';

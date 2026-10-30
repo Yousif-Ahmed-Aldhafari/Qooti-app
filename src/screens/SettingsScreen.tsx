@@ -29,11 +29,11 @@ export function SettingsScreen({ t, language, themePreference, resolvedTheme, on
     writingDirection: activeWritingDirection(),
   } as const;
 
-  const options: Array<{ value: Language; label: string }> = [
+  const options: { value: Language; label: string }[] = [
     { value: 'en', label: t('settings.english') },
     { value: 'ar', label: t('settings.arabic') },
   ];
-  const themeOptions: Array<{ value: ThemePreference; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
+  const themeOptions: { value: ThemePreference; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
     { value: 'light', label: t('settings.lightMode'), icon: 'sunny-outline' },
     { value: 'dark', label: t('settings.darkMode'), icon: 'moon-outline' },
     { value: 'system', label: t('settings.systemMode'), icon: 'phone-portrait-outline' },

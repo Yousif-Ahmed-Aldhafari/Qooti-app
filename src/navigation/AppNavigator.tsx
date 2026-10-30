@@ -99,35 +99,22 @@ export function AppNavigator() {
     return null;
   }, [workouts, selectedWorkoutId]);
 
-  // If viewing details of a deleted meal, safely navigate back to meals tab
-  useEffect(() => {
-    if (activeScreen === 'mealDetails' && selectedMealId) {
-      const exists = meals.some((m) => m.id === selectedMealId);
-      if (!exists) {
-        setActiveTab('meals');
-        setActiveScreen('meals');
-        setSelectedMealId(null);
-      }
+  // Derive effective screen: safely fall back to parent list if selected entity is missing
+  const effectiveScreen: ScreenKey = useMemo(() => {
+    if (activeScreen === 'mealDetails' && !selectedMeal) {
+      return 'meals';
     }
-  }, [activeScreen, meals, selectedMealId]);
-
-  // If viewing details of a deleted workout, safely navigate back to workouts tab
-  useEffect(() => {
-    if (activeScreen === 'workoutDetails' && selectedWorkoutId) {
-      const exists = workouts.some((w) => w.id === selectedWorkoutId);
-      if (!exists) {
-        setActiveTab('workouts');
-        setActiveScreen('workouts');
-        setSelectedWorkoutId(null);
-      }
+    if (activeScreen === 'workoutDetails' && !selectedWorkout) {
+      return 'workouts';
     }
-  }, [activeScreen, workouts, selectedWorkoutId]);
+    return activeScreen;
+  }, [activeScreen, selectedMeal, selectedWorkout]);
 
   // Android hardware back handler: prevents accidental app exits on sub-screens
   useEffect(() => {
     const onHardwareBack = () => {
       // 1. If currently on a detail or form screen, back goes to the active tab
-      if (!isMainTab(activeScreen)) {
+      if (!isMainTab(effectiveScreen)) {
         setActiveScreen(activeTab);
         return true;
       }
@@ -143,7 +130,7 @@ export function AppNavigator() {
 
     const backSubscription = BackHandler.addEventListener('hardwareBackPress', onHardwareBack);
     return () => backSubscription.remove();
-  }, [activeScreen, activeTab]);
+  }, [activeTab, effectiveScreen]);
 
   const systemColorScheme = useColorScheme();
   const resolvedTheme = useMemo(
@@ -238,7 +225,7 @@ export function AppNavigator() {
       return <OnboardingScreen t={t} onDone={finishOnboarding} />;
     }
 
-    switch (activeScreen) {
+    switch (effectiveScreen) {
       case 'home':
         return (
           <HomeScreen
@@ -292,8 +279,8 @@ export function AppNavigator() {
     }
   }
 
-  const showTabs = hasOnboarded && isMainTab(activeScreen);
-  const showBack = hasOnboarded && !isMainTab(activeScreen);
+  const showTabs = hasOnboarded && isMainTab(effectiveScreen);
+  const showBack = hasOnboarded && !isMainTab(effectiveScreen);
   const layoutDirection = direction(language);
   const rtl = isRTL(language);
   setActiveTheme(resolvedTheme);

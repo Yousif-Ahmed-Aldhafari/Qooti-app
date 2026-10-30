@@ -11,7 +11,7 @@ export const Platform = {
 };
 
 export const BackHandler = {
-  listeners: [] as Array<() => boolean>,
+  listeners: [] as (() => boolean)[],
   addEventListener: (_event: string, handler: () => boolean) => {
     BackHandler.listeners.push(handler);
     return {

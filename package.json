@@ -25,6 +25,8 @@
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
+    "eslint": "^9.39.5",
+    "eslint-config-expo": "~10.0.0",
     "tsx": "^4.23.15",
     "typescript": "~5.9.2"
   },
@@ -35,7 +37,9 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --tsconfig tsconfig.test.json --test src/__tests__/*.test.ts"
+    "lint": "eslint . --max-warnings=0",
+    "test": "tsx --tsconfig tsconfig.test.json --test src/__tests__/*.test.ts",
+    "test:coverage": "tsx --tsconfig tsconfig.test.json --test --experimental-test-coverage src/__tests__/*.test.ts"
   },
   "private": true
 }

@@ -4,7 +4,6 @@ import assert from 'node:assert/strict';
 import { defaultSettings } from '../services/settingsService';
 import { isRTL, direction } from '../utils/rtl';
 import { resolveThemePreference, setActiveTheme, themeColors } from '../theme/colors';
-import { BackHandler } from './mocks/react-native';
 
 /**
  * State simulator for AppNavigator navigation state machine.

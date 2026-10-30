@@ -56,7 +56,7 @@ export function HomeScreen({
   const handleBottomNavScroll = useBottomNavScrollHandler();
   const [period, setPeriod] = useState<PeriodKey>('today');
   const [selectedDateKey, setSelectedDateKey] = useState(toDateKey(new Date()));
-  const selectedDate = dateFromKey(selectedDateKey);
+  const selectedDate = useMemo(() => dateFromKey(selectedDateKey), [selectedDateKey]);
   const firstName = profile.name.split(' ')[0] || profile.name;
   const rtl = activeIsRTL();
   const directionalText = {
@@ -66,11 +66,11 @@ export function HomeScreen({
 
   const filteredMeals = useMemo(
     () => meals.filter((meal) => isInSelectedPeriod(resolveStoredDate(meal.date), selectedDate, period)),
-    [meals, period, selectedDateKey],
+    [meals, period, selectedDate],
   );
   const filteredWorkouts = useMemo(
     () => workouts.filter((workout) => isInSelectedPeriod(resolveStoredDate(workout.date), selectedDate, period)),
-    [workouts, period, selectedDateKey],
+    [workouts, period, selectedDate],
   );
   const totals = calculateDailyNutrition(filteredMeals);
   const goalDayCount = getGoalDayCount(period);
@@ -103,10 +103,7 @@ export function HomeScreen({
     onWorkoutPress,
   });
 
-  const dateOptions = useMemo(
-    () => buildDateOptions(selectedDate, rtl),
-    [rtl, selectedDateKey],
-  );
+  const dateOptions = buildDateOptions(selectedDate, rtl);
   const periodOptions = [
     { key: 'today' as const, label: t('home.period.today') },
     { key: 'week' as const, label: t('home.period.week') },
@@ -403,10 +400,6 @@ function getExpectedGainLabel(t: Translator, period: PeriodKey): string {
   }
 
   return t('home.metrics.expectedGainToday');
-}
-
-function safeNonNegative(value: number): number {
-  return Number.isFinite(value) ? Math.max(value, 0) : 0;
 }
 
 function getTargetedBodyLabel(workouts: Workout[], t: Translator, period: PeriodKey, rtl: boolean): string {

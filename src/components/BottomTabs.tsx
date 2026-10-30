@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { Animated, Easing, Platform, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
@@ -46,7 +46,7 @@ export function BottomTabs({ activeTab, labels, onChange }: BottomTabsProps) {
   const theme = getActiveTheme();
   const insets = useSafeAreaInsets();
   const { isBottomNavCompact } = useBottomNav();
-  const navProgress = useRef(new Animated.Value(isBottomNavCompact ? 1 : 0)).current;
+  const [navProgress] = useState(() => new Animated.Value(isBottomNavCompact ? 1 : 0));
   const bottomOffset = Platform.OS === 'ios' ? Math.max(insets.bottom - 8, 2) : 4;
   const navHeight = navProgress.interpolate({ inputRange: [0, 1], outputRange: [normalNavHeight, compactNavHeight] });
   const navHorizontalInset = navProgress.interpolate({
