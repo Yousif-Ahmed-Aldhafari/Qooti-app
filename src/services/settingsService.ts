@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { STORAGE_KEYS } from '../constants/storageKeys';
-import { getOptionalJson, setJson } from './storageService';
 import type { Settings } from '../models/settings';
+import { getDatabase } from '../db/database';
+import { SQLiteSettingsRepository } from '../db/repositories/settingsRepository';
 
 const LEGACY_KEYS = {
   language: '@qooti/language',
@@ -18,13 +18,20 @@ export const defaultSettings: Settings = {
   isAuthenticated: false,
 };
 
+export async function getSettingsRepository(): Promise<SQLiteSettingsRepository> {
+  const db = await getDatabase();
+  return new SQLiteSettingsRepository(db);
+}
+
 export async function loadSettings(): Promise<Settings | null> {
-  const settings = await getOptionalJson<Settings>(STORAGE_KEYS.settings);
-  if (settings) {
+  const repo = await getSettingsRepository();
+  const settings = await repo.getSettings();
+
+  if (settings !== null) {
     return settings;
   }
 
-  // Migrate legacy individual storage keys if they exist
+  // Migrate legacy individual storage keys if they exist in AsyncStorage
   try {
     const [savedLanguage, savedOnboarding, savedThemePreference, legacyThemeMode] = await Promise.all([
       AsyncStorage.getItem(LEGACY_KEYS.language),
@@ -45,15 +52,17 @@ export async function loadSettings(): Promise<Settings | null> {
       };
     }
   } catch {
-    // Ignore migration error
+    // Ignore migration read error
   }
 
   return null;
 }
 
 export async function saveSettings(settings: Settings): Promise<void> {
-  await setJson(STORAGE_KEYS.settings, settings);
-  // Also sync legacy keys for backwards compatibility
+  const repo = await getSettingsRepository();
+  await repo.saveSettings(settings);
+
+  // Sync native bridge keys for instant restart/RTL reload handling
   try {
     await Promise.all([
       AsyncStorage.setItem(LEGACY_KEYS.language, settings.selectedLanguage),
@@ -61,6 +70,6 @@ export async function saveSettings(settings: Settings): Promise<void> {
       AsyncStorage.setItem(LEGACY_KEYS.themePreference, settings.themeMode),
     ]);
   } catch {
-    // Ignore legacy sync error
+    // Ignore bridge sync error
   }
 }

@@ -5,6 +5,11 @@ export const I18nManager = {
   swapLeftAndRightInRTL: (_swap: boolean) => {},
 };
 
+export const Platform = {
+  OS: 'android',
+  select: (obj: any) => obj.android ?? obj.default,
+};
+
 export type TextStyle = {
   textAlign?: 'auto' | 'left' | 'right' | 'center' | 'justify';
   writingDirection?: 'auto' | 'ltr' | 'rtl';
@@ -16,4 +21,3 @@ export type ViewStyle = {
   alignSelf?: 'auto' | 'flex-start' | 'flex-end' | 'center' | 'stretch' | 'baseline';
   alignItems?: 'flex-start' | 'flex-end' | 'center' | 'stretch' | 'baseline';
 };
-

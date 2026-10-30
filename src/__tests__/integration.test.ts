@@ -346,3 +346,4 @@ test('Integration: Persistence across simulated app restart', async () => {
   assert.equal(restoredMeals[0].title, 'وجبة العشاء');
   assert.equal(restoredMeals[0].items[0].protein, 40);
 });
+

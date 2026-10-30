@@ -1,4 +1,8 @@
-const storage = new Map<string, string>();
+import { resetDatabaseState } from './expo-sqlite';
+
+const storage: Map<string, string> =
+  (globalThis as any).__mockAsyncStorageMap || new Map<string, string>();
+(globalThis as any).__mockAsyncStorageMap = storage;
 
 const AsyncStorage = {
   getItem: async (key: string) => storage.get(key) ?? null,
@@ -10,8 +14,8 @@ const AsyncStorage = {
   },
   clear: async () => {
     storage.clear();
+    await resetDatabaseState();
   },
 };
 
 export default AsyncStorage;
-

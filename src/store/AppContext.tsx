@@ -13,6 +13,7 @@ import { loadProgressEntries, saveProgressEntries } from '../services/progressSe
 import { defaultSettings, loadSettings, saveSettings } from '../services/settingsService';
 import { loadWorkouts, saveWorkouts } from '../services/workoutService';
 import { applyAppDirection } from '../utils/languageDirection';
+import { getDatabase, migrateFromAsyncStorage } from '../db';
 
 type AppState = {
   isReady: boolean;
@@ -177,6 +178,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     async function hydrate() {
       try {
+        // Initialize SQLite and perform one-time migration from legacy storage if needed
+        try {
+          const db = await getDatabase();
+          await migrateFromAsyncStorage(db);
+        } catch (dbErr) {
+          console.warn('[AppContext] SQLite initialization or migration notice:', dbErr);
+        }
+
         const [savedMeals, savedWorkouts, savedProfile, savedProgressEntries, savedSettings] =
           await Promise.all([
             loadMeals().catch((e) => {
