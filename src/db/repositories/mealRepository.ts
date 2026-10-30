@@ -114,12 +114,13 @@ export class SQLiteMealRepository implements MealRepository {
     });
   }
 
-  async insertMeal(meal: Meal): Promise<void> {
+  async insertMeal(meal: Meal, txn?: IDatabase): Promise<void> {
+    const target = txn || this.db;
     const normalized = normalizeMeal(meal);
     const now = new Date().toISOString();
 
-    await this.db.withTransactionAsync(async () => {
-      await this.db.runAsync(
+    await target.withExclusiveTransactionAsync(async (t) => {
+      await t.runAsync(
         `INSERT INTO meals (id, title, date, time, total_calories, total_protein, total_carbs, total_fat, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`,
         normalized.id,
@@ -135,7 +136,7 @@ export class SQLiteMealRepository implements MealRepository {
 
       for (let i = 0; i < normalized.items.length; i++) {
         const item = normalizeMealItem(normalized.items[i]);
-        await this.db.runAsync(
+        await t.runAsync(
           `INSERT INTO meal_items (id, meal_id, name, quantity, unit, calories, protein, carbs, fats, sort_order)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
           item.id,
@@ -153,11 +154,12 @@ export class SQLiteMealRepository implements MealRepository {
     });
   }
 
-  async updateMeal(meal: Meal): Promise<void> {
+  async updateMeal(meal: Meal, txn?: IDatabase): Promise<void> {
+    const target = txn || this.db;
     const normalized = normalizeMeal(meal);
 
-    await this.db.withTransactionAsync(async () => {
-      await this.db.runAsync(
+    await target.withExclusiveTransactionAsync(async (t) => {
+      await t.runAsync(
         `UPDATE meals SET
            title = ?,
            date = ?,
@@ -178,11 +180,11 @@ export class SQLiteMealRepository implements MealRepository {
       );
 
       // Re-synchronize child items
-      await this.db.runAsync('DELETE FROM meal_items WHERE meal_id = ?;', normalized.id);
+      await t.runAsync('DELETE FROM meal_items WHERE meal_id = ?;', normalized.id);
 
       for (let i = 0; i < normalized.items.length; i++) {
         const item = normalizeMealItem(normalized.items[i]);
-        await this.db.runAsync(
+        await t.runAsync(
           `INSERT INTO meal_items (id, meal_id, name, quantity, unit, calories, protein, carbs, fats, sort_order)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
           item.id,
@@ -200,23 +202,25 @@ export class SQLiteMealRepository implements MealRepository {
     });
   }
 
-  async deleteMeal(id: string): Promise<void> {
-    await this.db.withTransactionAsync(async () => {
-      await this.db.runAsync('DELETE FROM meal_items WHERE meal_id = ?;', id);
-      await this.db.runAsync('DELETE FROM meals WHERE id = ?;', id);
+  async deleteMeal(id: string, txn?: IDatabase): Promise<void> {
+    const target = txn || this.db;
+    await target.withExclusiveTransactionAsync(async (t) => {
+      await t.runAsync('DELETE FROM meal_items WHERE meal_id = ?;', id);
+      await t.runAsync('DELETE FROM meals WHERE id = ?;', id);
     });
   }
 
-  async saveAllMeals(meals: Meal[]): Promise<void> {
+  async saveAllMeals(meals: Meal[], txn?: IDatabase): Promise<void> {
+    const target = txn || this.db;
     const now = new Date().toISOString();
 
-    await this.db.withTransactionAsync(async () => {
-      await this.db.runAsync('DELETE FROM meal_items;');
-      await this.db.runAsync('DELETE FROM meals;');
+    await target.withExclusiveTransactionAsync(async (t) => {
+      await t.runAsync('DELETE FROM meal_items;');
+      await t.runAsync('DELETE FROM meals;');
 
       for (const meal of meals) {
         const normalized = normalizeMeal(meal);
-        await this.db.runAsync(
+        await t.runAsync(
           `INSERT INTO meals (id, title, date, time, total_calories, total_protein, total_carbs, total_fat, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`,
           normalized.id,
@@ -232,7 +236,7 @@ export class SQLiteMealRepository implements MealRepository {
 
         for (let i = 0; i < normalized.items.length; i++) {
           const item = normalizeMealItem(normalized.items[i]);
-          await this.db.runAsync(
+          await t.runAsync(
             `INSERT INTO meal_items (id, meal_id, name, quantity, unit, calories, protein, carbs, fats, sort_order)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
             item.id,

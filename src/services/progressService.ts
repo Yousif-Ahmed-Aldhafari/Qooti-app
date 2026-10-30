@@ -1,6 +1,4 @@
-import { STORAGE_KEYS } from '../constants/storageKeys';
 import type { ProgressEntry } from '../models/progress';
-import { getOptionalJson, setJson } from './storageService';
 import { getDatabase } from '../db/database';
 import { SQLiteProgressRepository } from '../db/repositories/progressRepository';
 import { isAsyncStorageMigrated } from '../db/migrationService';
@@ -11,39 +9,51 @@ export async function getProgressRepository(): Promise<SQLiteProgressRepository>
 }
 
 export async function loadProgressEntries(): Promise<ProgressEntry[] | null> {
-  try {
-    const db = await getDatabase();
-    const isMigrated = await isAsyncStorageMigrated(db);
-    const repo = new SQLiteProgressRepository(db);
-    const entries = await repo.getAllProgress();
+  const db = await getDatabase();
+  const repo = new SQLiteProgressRepository(db);
+  const entries = await repo.getAllProgress();
 
-    if (isMigrated || entries.length > 0) {
-      return entries;
-    }
-  } catch (err) {
-    console.warn('[progressService] SQLite read failed, falling back to AsyncStorage:', err);
+  const isMigrated = await isAsyncStorageMigrated(db);
+  const progressSavedRow = await db.getFirstAsync<{ value: string }>(
+    "SELECT value FROM migration_meta WHERE key = 'progress_saved';"
+  );
+  const isProgressSaved = progressSavedRow?.value === 'true';
+
+  if (isProgressSaved || isMigrated || entries.length > 0) {
+    return entries;
   }
 
-  return getOptionalJson<ProgressEntry[]>(STORAGE_KEYS.progress);
+  return null;
 }
 
 export async function saveProgressEntries(entries: ProgressEntry[]): Promise<void> {
-  try {
-    const db = await getDatabase();
-    const repo = new SQLiteProgressRepository(db);
-    await repo.saveAllProgress(entries);
-  } catch (err) {
-    console.warn('[progressService] SQLite save failed, falling back to AsyncStorage:', err);
-  }
+  const db = await getDatabase();
+  const repo = new SQLiteProgressRepository(db);
 
-  await setJson(STORAGE_KEYS.progress, entries);
+  await db.withExclusiveTransactionAsync(async (txn) => {
+    await repo.saveAllProgress(entries, txn);
+    const now = new Date().toISOString();
+    await txn.runAsync(
+      `INSERT INTO migration_meta (key, value, updated_at)
+       VALUES ('progress_saved', 'true', ?)
+       ON CONFLICT(key) DO UPDATE SET value = 'true', updated_at = excluded.updated_at;`,
+      now
+    );
+  });
 }
 
 export async function addProgressEntry(entry: ProgressEntry): Promise<void> {
-  try {
-    const repo = await getProgressRepository();
-    await repo.addProgress(entry);
-  } catch (err) {
-    console.warn('[progressService] SQLite addProgressEntry failed:', err);
-  }
+  const db = await getDatabase();
+  const repo = new SQLiteProgressRepository(db);
+
+  await db.withExclusiveTransactionAsync(async (txn) => {
+    await repo.addProgress(entry, txn);
+    const now = new Date().toISOString();
+    await txn.runAsync(
+      `INSERT INTO migration_meta (key, value, updated_at)
+       VALUES ('progress_saved', 'true', ?)
+       ON CONFLICT(key) DO UPDATE SET value = 'true', updated_at = excluded.updated_at;`,
+      now
+    );
+  });
 }

@@ -12,7 +12,9 @@ export interface IDatabase {
   runAsync(source: string, ...params: any[]): Promise<{ lastInsertRowId: number; changes: number }>;
   getFirstAsync<T = any>(source: string, ...params: any[]): Promise<T | null>;
   getAllAsync<T = any>(source: string, ...params: any[]): Promise<T[]>;
-  withTransactionAsync(task: () => Promise<void>): Promise<void>;
+  withTransactionAsync<T = void>(task: (txn: IDatabase) => Promise<T>): Promise<T>;
+  withExclusiveTransactionAsync<T = void>(task: (txn: IDatabase) => Promise<T>): Promise<T>;
+  isInTransactionAsync?(): Promise<boolean>;
   closeAsync(): Promise<void>;
 }
 
@@ -22,45 +24,65 @@ export interface SchemaMigration {
   up: (db: IDatabase) => Promise<void>;
 }
 
+export type MigrationStatus =
+  | 'completed'
+  | 'skipped_already_migrated'
+  | 'needs_recovery'
+  | 'failed_read'
+  | 'failed_write'
+  | 'failed_corrupt_data';
+
+export type KeyMigrationStatus = 'missing' | 'empty' | 'valid' | 'malformed' | 'read_error';
+
 export interface MigrationSummary {
+  status: MigrationStatus;
   alreadyMigrated: boolean;
   migratedMeals: number;
   migratedWorkouts: number;
   migratedProfile: boolean;
   migratedProgressEntries: number;
   migratedSettings: boolean;
+  skippedCorruptedRecords: number;
+  details: {
+    mealsStatus: KeyMigrationStatus;
+    workoutsStatus: KeyMigrationStatus;
+    profileStatus: KeyMigrationStatus;
+    progressStatus: KeyMigrationStatus;
+    settingsStatus: KeyMigrationStatus;
+  };
+  error?: string;
 }
 
 export interface MealRepository {
   getAllMeals(): Promise<Meal[]>;
   getMealById(id: string): Promise<Meal | null>;
-  insertMeal(meal: Meal): Promise<void>;
-  updateMeal(meal: Meal): Promise<void>;
-  deleteMeal(id: string): Promise<void>;
-  saveAllMeals(meals: Meal[]): Promise<void>;
+  insertMeal(meal: Meal, txn?: IDatabase): Promise<void>;
+  updateMeal(meal: Meal, txn?: IDatabase): Promise<void>;
+  deleteMeal(id: string, txn?: IDatabase): Promise<void>;
+  saveAllMeals(meals: Meal[], txn?: IDatabase): Promise<void>;
 }
 
 export interface WorkoutRepository {
   getAllWorkouts(): Promise<Workout[]>;
   getWorkoutById(id: string): Promise<Workout | null>;
-  insertWorkout(workout: Workout): Promise<void>;
-  updateWorkout(workout: Workout): Promise<void>;
-  deleteWorkout(id: string): Promise<void>;
-  saveAllWorkouts(workouts: Workout[]): Promise<void>;
+  insertWorkout(workout: Workout, txn?: IDatabase): Promise<void>;
+  updateWorkout(workout: Workout, txn?: IDatabase): Promise<void>;
+  deleteWorkout(id: string, txn?: IDatabase): Promise<void>;
+  saveAllWorkouts(workouts: Workout[], txn?: IDatabase): Promise<void>;
 }
 
 export interface ProfileRepository {
   getProfile(): Promise<UserProfile | null>;
-  saveProfile(profile: UserProfile): Promise<void>;
+  saveProfile(profile: UserProfile, txn?: IDatabase): Promise<void>;
 }
 
 export interface ProgressRepository {
   getAllProgress(): Promise<ProgressEntry[]>;
-  addProgress(entry: ProgressEntry): Promise<void>;
-  saveAllProgress(entries: ProgressEntry[]): Promise<void>;
+  addProgress(entry: ProgressEntry, txn?: IDatabase): Promise<void>;
+  saveAllProgress(entries: ProgressEntry[], txn?: IDatabase): Promise<void>;
 }
 
 export interface SettingsRepository {
   getSettings(): Promise<Settings | null>;
-  saveSettings(settings: Settings): Promise<void>;
+  saveSettings(settings: Settings, txn?: IDatabase): Promise<void>;
 }

@@ -125,12 +125,13 @@ export class SQLiteWorkoutRepository implements WorkoutRepository {
     });
   }
 
-  async insertWorkout(workout: Workout): Promise<void> {
+  async insertWorkout(workout: Workout, txn?: IDatabase): Promise<void> {
+    const target = txn || this.db;
     const normalized = normalizeWorkout(workout);
     const now = new Date().toISOString();
 
-    await this.db.withTransactionAsync(async () => {
-      await this.db.runAsync(
+    await target.withExclusiveTransactionAsync(async (t) => {
+      await t.runAsync(
         `INSERT INTO workouts (id, title, date, time, notes, created_at)
          VALUES (?, ?, ?, ?, ?, ?);`,
         normalized.id,
@@ -143,7 +144,7 @@ export class SQLiteWorkoutRepository implements WorkoutRepository {
 
       for (let i = 0; i < normalized.exercises.length; i++) {
         const ex = normalizeExercise(normalized.exercises[i]);
-        await this.db.runAsync(
+        await t.runAsync(
           `INSERT INTO workout_exercises (
              id, workout_id, name, target_muscles, sets, reps, weight, duration, notes, sort_order
            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
@@ -162,11 +163,12 @@ export class SQLiteWorkoutRepository implements WorkoutRepository {
     });
   }
 
-  async updateWorkout(workout: Workout): Promise<void> {
+  async updateWorkout(workout: Workout, txn?: IDatabase): Promise<void> {
+    const target = txn || this.db;
     const normalized = normalizeWorkout(workout);
 
-    await this.db.withTransactionAsync(async () => {
-      await this.db.runAsync(
+    await target.withExclusiveTransactionAsync(async (t) => {
+      await t.runAsync(
         `UPDATE workouts SET
            title = ?,
            date = ?,
@@ -180,11 +182,11 @@ export class SQLiteWorkoutRepository implements WorkoutRepository {
         normalized.id
       );
 
-      await this.db.runAsync('DELETE FROM workout_exercises WHERE workout_id = ?;', normalized.id);
+      await t.runAsync('DELETE FROM workout_exercises WHERE workout_id = ?;', normalized.id);
 
       for (let i = 0; i < normalized.exercises.length; i++) {
         const ex = normalizeExercise(normalized.exercises[i]);
-        await this.db.runAsync(
+        await t.runAsync(
           `INSERT INTO workout_exercises (
              id, workout_id, name, target_muscles, sets, reps, weight, duration, notes, sort_order
            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
@@ -203,23 +205,25 @@ export class SQLiteWorkoutRepository implements WorkoutRepository {
     });
   }
 
-  async deleteWorkout(id: string): Promise<void> {
-    await this.db.withTransactionAsync(async () => {
-      await this.db.runAsync('DELETE FROM workout_exercises WHERE workout_id = ?;', id);
-      await this.db.runAsync('DELETE FROM workouts WHERE id = ?;', id);
+  async deleteWorkout(id: string, txn?: IDatabase): Promise<void> {
+    const target = txn || this.db;
+    await target.withExclusiveTransactionAsync(async (t) => {
+      await t.runAsync('DELETE FROM workout_exercises WHERE workout_id = ?;', id);
+      await t.runAsync('DELETE FROM workouts WHERE id = ?;', id);
     });
   }
 
-  async saveAllWorkouts(workouts: Workout[]): Promise<void> {
+  async saveAllWorkouts(workouts: Workout[], txn?: IDatabase): Promise<void> {
+    const target = txn || this.db;
     const now = new Date().toISOString();
 
-    await this.db.withTransactionAsync(async () => {
-      await this.db.runAsync('DELETE FROM workout_exercises;');
-      await this.db.runAsync('DELETE FROM workouts;');
+    await target.withExclusiveTransactionAsync(async (t) => {
+      await t.runAsync('DELETE FROM workout_exercises;');
+      await t.runAsync('DELETE FROM workouts;');
 
       for (const workout of workouts) {
         const normalized = normalizeWorkout(workout);
-        await this.db.runAsync(
+        await t.runAsync(
           `INSERT INTO workouts (id, title, date, time, notes, created_at)
            VALUES (?, ?, ?, ?, ?, ?);`,
           normalized.id,
@@ -232,7 +236,7 @@ export class SQLiteWorkoutRepository implements WorkoutRepository {
 
         for (let i = 0; i < normalized.exercises.length; i++) {
           const ex = normalizeExercise(normalized.exercises[i]);
-          await this.db.runAsync(
+          await t.runAsync(
             `INSERT INTO workout_exercises (
                id, workout_id, name, target_muscles, sets, reps, weight, duration, notes, sort_order
              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,

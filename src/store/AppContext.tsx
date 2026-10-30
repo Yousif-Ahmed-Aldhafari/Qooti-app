@@ -17,6 +17,7 @@ import { getDatabase, migrateFromAsyncStorage } from '../db';
 
 type AppState = {
   isReady: boolean;
+  persistenceError: string | null;
   meals: Meal[];
   workouts: Workout[];
   profile: UserProfile;
@@ -33,6 +34,7 @@ type AppAction =
       progressEntries: ProgressEntry[];
       settings: Settings;
     }
+  | { type: 'setPersistenceError'; error: string | null }
   | { type: 'addMeal'; meal: Meal }
   | { type: 'updateMeal'; meal: Meal }
   | { type: 'deleteMeal'; mealId: string }
@@ -59,10 +61,12 @@ type AppContextValue = AppState & {
   deleteWorkout: (workoutId: string) => void;
   addProgressEntry: (entry: ProgressEntry) => void;
   updateSettings: (settings: Partial<Settings>) => void;
+  clearPersistenceError: () => void;
 };
 
 const initialState: AppState = {
   isReady: false,
+  persistenceError: null,
   meals: [],
   workouts: [],
   profile: getSeedProfile(),
@@ -76,12 +80,19 @@ function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case 'hydrate':
       return {
+        ...state,
         isReady: true,
         meals: action.meals.map(normalizeMeal),
         workouts: action.workouts.map(normalizeWorkout),
         profile: normalizeProfile(action.profile),
         progressEntries: action.progressEntries.map(normalizeProgressEntry),
         settings: action.settings,
+      };
+
+    case 'setPersistenceError':
+      return {
+        ...state,
+        persistenceError: action.error,
       };
 
     case 'addMeal': {
@@ -261,13 +272,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
+        // Never seed sample data after an unknown storage failure!
+        // Prevent background auto-persist from overwriting potentially intact database records
+        isHydratedRef.current = false;
+
         dispatch({
           type: 'hydrate',
-          meals: getSeedMeals(),
-          workouts: getSeedWorkouts(),
-          profile: getSeedProfile(),
-          progressEntries: getSeedProgressEntries(),
+          meals: [],
+          workouts: [],
+          profile: {
+            id: 'user_profile',
+            name: '',
+            email: '',
+            goal: '',
+            avatarInitials: '',
+            heightCm: 0,
+            weightKg: 0,
+            targetCalories: 0,
+            targetProtein: 0,
+            targetCarbs: 0,
+            targetFats: 0,
+            sleepGoalHours: 0,
+            waterGoalLiters: 0,
+          },
+          progressEntries: [],
           settings: defaultSettings,
+        });
+
+        dispatch({
+          type: 'setPersistenceError',
+          error: error instanceof Error ? error.message : 'Storage initialization failure',
         });
       }
     }
@@ -295,9 +329,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!isHydratedRef.current) {
       return;
     }
-    saveMeals(state.meals).catch((err) => {
-      console.error('[AppContext] Failed to persist meals:', err);
-    });
+    saveMeals(state.meals)
+      .then(() => {
+        dispatch({ type: 'setPersistenceError', error: null });
+      })
+      .catch((err) => {
+        console.error('[AppContext] Failed to persist meals:', err);
+        dispatch({
+          type: 'setPersistenceError',
+          error: err instanceof Error ? err.message : 'Failed to persist meals',
+        });
+      });
   }, [state.isReady, state.meals]);
 
   useEffect(() => {
@@ -307,9 +349,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!isHydratedRef.current) {
       return;
     }
-    saveWorkouts(state.workouts).catch((err) => {
-      console.error('[AppContext] Failed to persist workouts:', err);
-    });
+    saveWorkouts(state.workouts)
+      .then(() => {
+        dispatch({ type: 'setPersistenceError', error: null });
+      })
+      .catch((err) => {
+        console.error('[AppContext] Failed to persist workouts:', err);
+        dispatch({
+          type: 'setPersistenceError',
+          error: err instanceof Error ? err.message : 'Failed to persist workouts',
+        });
+      });
   }, [state.isReady, state.workouts]);
 
   useEffect(() => {
@@ -319,9 +369,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!isHydratedRef.current) {
       return;
     }
-    saveProfile(state.profile).catch((err) => {
-      console.error('[AppContext] Failed to persist profile:', err);
-    });
+    saveProfile(state.profile)
+      .then(() => {
+        dispatch({ type: 'setPersistenceError', error: null });
+      })
+      .catch((err) => {
+        console.error('[AppContext] Failed to persist profile:', err);
+        dispatch({
+          type: 'setPersistenceError',
+          error: err instanceof Error ? err.message : 'Failed to persist profile',
+        });
+      });
   }, [state.isReady, state.profile]);
 
   useEffect(() => {
@@ -331,9 +389,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!isHydratedRef.current) {
       return;
     }
-    saveProgressEntries(state.progressEntries).catch((err) => {
-      console.error('[AppContext] Failed to persist progress entries:', err);
-    });
+    saveProgressEntries(state.progressEntries)
+      .then(() => {
+        dispatch({ type: 'setPersistenceError', error: null });
+      })
+      .catch((err) => {
+        console.error('[AppContext] Failed to persist progress entries:', err);
+        dispatch({
+          type: 'setPersistenceError',
+          error: err instanceof Error ? err.message : 'Failed to persist progress',
+        });
+      });
   }, [state.isReady, state.progressEntries]);
 
   useEffect(() => {
@@ -345,9 +411,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       isHydratedRef.current = true;
       return;
     }
-    saveSettings(state.settings).catch((err) => {
-      console.error('[AppContext] Failed to persist settings:', err);
-    });
+    saveSettings(state.settings)
+      .then(() => {
+        dispatch({ type: 'setPersistenceError', error: null });
+      })
+      .catch((err) => {
+        console.error('[AppContext] Failed to persist settings:', err);
+        dispatch({
+          type: 'setPersistenceError',
+          error: err instanceof Error ? err.message : 'Failed to persist settings',
+        });
+      });
   }, [state.isReady, state.settings]);
 
   const t = useCallback(
@@ -391,6 +465,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       deleteWorkout: (workoutId) => dispatch({ type: 'deleteWorkout', workoutId }),
       addProgressEntry: (entry) => dispatch({ type: 'addProgressEntry', entry }),
       updateSettings: (settings) => dispatch({ type: 'updateSettings', settings }),
+      clearPersistenceError: () => dispatch({ type: 'setPersistenceError', error: null }),
     }),
     [setLanguage, state, t],
   );

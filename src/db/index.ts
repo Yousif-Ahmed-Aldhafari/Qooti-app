@@ -2,9 +2,11 @@ export * from './types';
 export * from './schema';
 export * from './migrations';
 export * from './database';
+export * from './storagePolicy';
 export * from './migrationService';
 export * from './repositories/profileRepository';
 export * from './repositories/mealRepository';
 export * from './repositories/workoutRepository';
 export * from './repositories/progressRepository';
 export * from './repositories/settingsRepository';
+

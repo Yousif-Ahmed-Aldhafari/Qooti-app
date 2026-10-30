@@ -33,11 +33,12 @@ export class SQLiteProgressRepository implements ProgressRepository {
     );
   }
 
-  async addProgress(entry: ProgressEntry): Promise<void> {
+  async addProgress(entry: ProgressEntry, txn?: IDatabase): Promise<void> {
+    const target = txn || this.db;
     const normalized = normalizeProgressEntry(entry);
     const now = new Date().toISOString();
 
-    await this.db.runAsync(
+    await target.runAsync(
       `INSERT INTO progress_entries (id, date, label, calories, workouts, weight_kg, steps, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
@@ -58,16 +59,16 @@ export class SQLiteProgressRepository implements ProgressRepository {
     );
   }
 
-  async saveAllProgress(entries: ProgressEntry[]): Promise<void> {
+  async saveAllProgress(entries: ProgressEntry[], txn?: IDatabase): Promise<void> {
+    const target = txn || this.db;
     const now = new Date().toISOString();
 
-    await this.db.withTransactionAsync(async () => {
-      // Clear and reload authoritative list or upsert
-      await this.db.runAsync('DELETE FROM progress_entries;');
+    await target.withExclusiveTransactionAsync(async (t) => {
+      await t.runAsync('DELETE FROM progress_entries;');
 
       for (const raw of entries) {
         const normalized = normalizeProgressEntry(raw);
-        await this.db.runAsync(
+        await t.runAsync(
           `INSERT INTO progress_entries (id, date, label, calories, workouts, weight_kg, steps, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
           normalized.id,

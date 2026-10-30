@@ -1,5 +1,3 @@
-import { STORAGE_KEYS } from '../constants/storageKeys';
-import { getOptionalJson, setJson } from './storageService';
 import type { Workout } from '../models/workout';
 import { getDatabase } from '../db/database';
 import { SQLiteWorkoutRepository } from '../db/repositories/workoutRepository';
@@ -11,67 +9,66 @@ export async function getWorkoutRepository(): Promise<SQLiteWorkoutRepository> {
 }
 
 export async function loadWorkouts(): Promise<Workout[] | null> {
-  try {
-    const db = await getDatabase();
-    const isMigrated = await isAsyncStorageMigrated(db);
-    const repo = new SQLiteWorkoutRepository(db);
-    const workouts = await repo.getAllWorkouts();
+  const db = await getDatabase();
+  const repo = new SQLiteWorkoutRepository(db);
+  const workouts = await repo.getAllWorkouts();
 
-    if (isMigrated || workouts.length > 0) {
-      return workouts;
-    }
-  } catch (err) {
-    console.warn('[workoutService] SQLite read failed, falling back to AsyncStorage:', err);
+  const isMigrated = await isAsyncStorageMigrated(db);
+  const workoutsSavedRow = await db.getFirstAsync<{ value: string }>(
+    "SELECT value FROM migration_meta WHERE key = 'workouts_saved';"
+  );
+  const isWorkoutsSaved = workoutsSavedRow?.value === 'true';
+
+  if (isWorkoutsSaved || isMigrated || workouts.length > 0) {
+    return workouts;
   }
 
-  return getOptionalJson<Workout[]>(STORAGE_KEYS.workouts);
+  return null;
 }
 
 export async function saveWorkouts(workouts: Workout[]): Promise<void> {
-  try {
-    const db = await getDatabase();
-    const repo = new SQLiteWorkoutRepository(db);
-    await repo.saveAllWorkouts(workouts);
-  } catch (err) {
-    console.warn('[workoutService] SQLite save failed, falling back to AsyncStorage:', err);
-  }
+  const db = await getDatabase();
+  const repo = new SQLiteWorkoutRepository(db);
 
-  await setJson(STORAGE_KEYS.workouts, workouts);
+  await db.withExclusiveTransactionAsync(async (txn) => {
+    await repo.saveAllWorkouts(workouts, txn);
+    const now = new Date().toISOString();
+    await txn.runAsync(
+      `INSERT INTO migration_meta (key, value, updated_at)
+       VALUES ('workouts_saved', 'true', ?)
+       ON CONFLICT(key) DO UPDATE SET value = 'true', updated_at = excluded.updated_at;`,
+      now
+    );
+  });
 }
 
 export async function insertWorkout(workout: Workout): Promise<void> {
-  try {
-    const repo = await getWorkoutRepository();
-    await repo.insertWorkout(workout);
-  } catch (err) {
-    console.warn('[workoutService] SQLite insertWorkout failed:', err);
-  }
+  const db = await getDatabase();
+  const repo = new SQLiteWorkoutRepository(db);
+
+  await db.withExclusiveTransactionAsync(async (txn) => {
+    await repo.insertWorkout(workout, txn);
+    const now = new Date().toISOString();
+    await txn.runAsync(
+      `INSERT INTO migration_meta (key, value, updated_at)
+       VALUES ('workouts_saved', 'true', ?)
+       ON CONFLICT(key) DO UPDATE SET value = 'true', updated_at = excluded.updated_at;`,
+      now
+    );
+  });
 }
 
 export async function updateWorkout(workout: Workout): Promise<void> {
-  try {
-    const repo = await getWorkoutRepository();
-    await repo.updateWorkout(workout);
-  } catch (err) {
-    console.warn('[workoutService] SQLite updateWorkout failed:', err);
-  }
+  const repo = await getWorkoutRepository();
+  await repo.updateWorkout(workout);
 }
 
 export async function deleteWorkout(workoutId: string): Promise<void> {
-  try {
-    const repo = await getWorkoutRepository();
-    await repo.deleteWorkout(workoutId);
-  } catch (err) {
-    console.warn('[workoutService] SQLite deleteWorkout failed:', err);
-  }
+  const repo = await getWorkoutRepository();
+  await repo.deleteWorkout(workoutId);
 }
 
 export async function getWorkoutById(workoutId: string): Promise<Workout | null> {
-  try {
-    const repo = await getWorkoutRepository();
-    return await repo.getWorkoutById(workoutId);
-  } catch (err) {
-    console.warn('[workoutService] SQLite getWorkoutById failed:', err);
-    return null;
-  }
+  const repo = await getWorkoutRepository();
+  return await repo.getWorkoutById(workoutId);
 }

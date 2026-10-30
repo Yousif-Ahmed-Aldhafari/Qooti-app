@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { openDatabaseAsync, deleteDatabaseAsync } from './mocks/expo-sqlite';
 import AsyncStorage from './mocks/async-storage';
 import { runMigrations } from '../db/migrations';
-import { isAsyncStorageMigrated, migrateFromAsyncStorage, MIGRATION_FLAG_KEY } from '../db/migrationService';
+import { isAsyncStorageMigrated, migrateFromAsyncStorage, getMigrationRecoveryStatus, MIGRATION_FLAG_KEY } from '../db/migrationService';
 import { SQLiteMealRepository } from '../db/repositories/mealRepository';
 import { SQLiteWorkoutRepository } from '../db/repositories/workoutRepository';
 import { SQLiteProfileRepository } from '../db/repositories/profileRepository';
@@ -451,11 +451,47 @@ test('SQLite: Corrupted legacy records handling', async () => {
   const db = await openDatabaseAsync(':memory:');
   await runMigrations(db);
 
-  // Should handle gracefully without crashing or halting the entire migration
+  // Should handle gracefully without crashing, report explicit failure, and not silently mark complete
   const summary = await migrateFromAsyncStorage(db);
+  assert.equal(summary.status, 'failed_corrupt_data');
   assert.equal(summary.alreadyMigrated, false);
   assert.equal(summary.migratedMeals, 0);
-  assert.equal(await isAsyncStorageMigrated(db), true);
+  assert.equal(summary.details.mealsStatus, 'malformed');
+  assert.equal(await isAsyncStorageMigrated(db), false, 'Must not mark migration complete when malformed data cannot be migrated');
+});
+
+test('SQLite: Invalid individual records inside valid array are skipped while valid records migrate', async () => {
+  await AsyncStorage.clear();
+
+  const mixedMeals = [
+    { id: 'valid-1', title: 'Valid Meal', date: '2026-10-30', time: '12:00', items: [] },
+    { notAnId: 'corrupt', badData: true }, // Invalid record (missing required id)
+    { id: 'valid-2', title: 'Second Valid Meal', date: '2026-10-30', time: '18:00', items: [] },
+  ];
+  await AsyncStorage.setItem('@qooti/meals', JSON.stringify(mixedMeals));
+
+  const db = await openDatabaseAsync(':memory:');
+  await runMigrations(db);
+
+  const summary = await migrateFromAsyncStorage(db);
+  assert.equal(summary.status, 'needs_recovery');
+  assert.equal(summary.migratedMeals, 2);
+  assert.equal(summary.skippedCorruptedRecords, 1);
+  assert.equal(await isAsyncStorageMigrated(db), false, 'Must not mark migration complete when invalid records were skipped');
+
+  const recoveryStatus = await getMigrationRecoveryStatus(db);
+  assert.equal(recoveryStatus.needsRecovery, true);
+  assert.equal(recoveryStatus.unresolvedRecordsCount, 1);
+
+  const mealRepo = new SQLiteMealRepository(db);
+  const migrated = await mealRepo.getAllMeals();
+  assert.equal(migrated.length, 2);
+
+  // Retrying migration must be safe: valid records are NOT duplicated
+  const retrySummary = await migrateFromAsyncStorage(db);
+  assert.equal(retrySummary.migratedMeals, 0, 'Already migrated valid meals should not be re-migrated or duplicated');
+  const afterRetry = await mealRepo.getAllMeals();
+  assert.equal(afterRetry.length, 2);
 });
 
 test('SQLite: Storage read and write failures', async () => {
@@ -532,4 +568,217 @@ test('SQLite: Data persistence after database reopening', async () => {
 
   await db2.closeAsync();
   await deleteDatabaseAsync(dbName);
+});
+
+test('SQLite: Migration with valid empty data preserves empty state', async () => {
+  await AsyncStorage.clear();
+  await AsyncStorage.setItem('@qooti/meals', '[]');
+  await AsyncStorage.setItem('@qooti/workouts', '[]');
+
+  const db = await openDatabaseAsync(':memory:');
+  await runMigrations(db);
+
+  const summary = await migrateFromAsyncStorage(db);
+  assert.equal(summary.status, 'completed');
+  assert.equal(summary.details.mealsStatus, 'empty');
+  assert.equal(summary.details.workoutsStatus, 'empty');
+  assert.equal(summary.migratedMeals, 0);
+  assert.equal(await isAsyncStorageMigrated(db), true);
+});
+
+test('SQLite: Concurrent database operations and migration lock protection', async () => {
+  await AsyncStorage.clear();
+  const legacyMeals = [
+    normalizeMeal({ id: 'concurrent-1', title: 'Concurrent Meal', date: '2026-10-30', time: '12:00', items: [] }),
+  ];
+  await AsyncStorage.setItem('@qooti/meals', JSON.stringify(legacyMeals));
+
+  const db = await openDatabaseAsync(':memory:');
+  await runMigrations(db);
+
+  // Run 5 concurrent migration invocations simultaneously
+  const results = await Promise.all([
+    migrateFromAsyncStorage(db),
+    migrateFromAsyncStorage(db),
+    migrateFromAsyncStorage(db),
+    migrateFromAsyncStorage(db),
+    migrateFromAsyncStorage(db),
+  ]);
+
+  // All 5 should resolve without deadlock or collision
+  assert.equal(results.length, 5);
+  const completedOrSkipped = results.filter(
+    (r) => r.status === 'completed' || r.status === 'skipped_already_migrated'
+  );
+  assert.equal(completedOrSkipped.length, 5);
+
+  const mealRepo = new SQLiteMealRepository(db);
+  const meals = await mealRepo.getAllMeals();
+  assert.equal(meals.length, 1, 'Concurrent calls must not insert duplicate records');
+});
+
+test('SQLite: Authoritative storage prevents split-brain writes to AsyncStorage', async () => {
+  await AsyncStorage.clear();
+
+  const meal = normalizeMeal({
+    id: 'auth-meal-1',
+    title: 'Pure SQLite Meal',
+    date: '2026-10-30',
+    time: '13:00',
+    items: [],
+  });
+
+  const { saveMeals, loadMeals } = await import('../services/mealService');
+  await saveMeals([meal]);
+
+  // Read back through service
+  const loaded = await loadMeals();
+  assert.ok(loaded);
+  assert.equal(loaded.length, 1);
+  assert.equal(loaded[0].title, 'Pure SQLite Meal');
+
+  // Verify that AsyncStorage was NOT written to (avoiding split-brain)
+  const rawAsyncStorageMeal = await AsyncStorage.getItem('@qooti/meals');
+  assert.equal(rawAsyncStorageMeal, null, 'Active saves must not dual-write to legacy AsyncStorage keys');
+});
+
+test('SQLite: Parent/child transaction rollback on child failure', async () => {
+  const db = await openDatabaseAsync(':memory:');
+  await db.execAsync('PRAGMA foreign_keys = ON;');
+  await runMigrations(db);
+
+  let rollbackError: Error | null = null;
+  try {
+    await db.withExclusiveTransactionAsync(async (txn) => {
+      // 1. Insert parent meal
+      await txn.runAsync(
+        `INSERT INTO meals (id, title, date, time, total_calories, total_protein, total_carbs, total_fat, created_at)
+         VALUES ('rollback-meal', 'Rollback Meal', '2026-10-30', '15:00', 0, 0, 0, 0, '2026-10-30');`
+      );
+
+      // 2. Insert valid child item
+      await txn.runAsync(
+        `INSERT INTO meal_items (id, meal_id, name, quantity, unit, calories, protein, carbs, fats, sort_order)
+         VALUES ('item-ok', 'rollback-meal', 'Food A', 100, 'g', 100, 10, 10, 2, 0);`
+      );
+
+      // 3. Deliberately trigger error in child write (violating NOT NULL constraint on name)
+      await txn.runAsync(
+        `INSERT INTO meal_items (id, meal_id, name, quantity, unit, calories, protein, carbs, fats, sort_order)
+         VALUES ('item-fail', 'rollback-meal', NULL, 100, 'g', 100, 10, 10, 2, 1);`
+      );
+    });
+  } catch (err) {
+    rollbackError = err as Error;
+  }
+
+  assert.ok(rollbackError, 'Transaction must throw on constraint violation');
+
+  // Verify full atomic rollback: parent meal and first child item must NOT exist
+  const parent = await db.getFirstAsync('SELECT * FROM meals WHERE id = ?;', 'rollback-meal');
+  assert.equal(parent, null, 'Parent meal must be rolled back');
+
+  const items = await db.getAllAsync('SELECT * FROM meal_items WHERE meal_id = ?;', 'rollback-meal');
+  assert.equal(items.length, 0, 'Child items must be rolled back');
+});
+
+test('SQLite: Existing SQLite data is preserved and not overwritten by older legacy storage', async () => {
+  await AsyncStorage.clear();
+
+  const db = await openDatabaseAsync(':memory:');
+  await db.execAsync('PRAGMA foreign_keys = ON;');
+  await runMigrations(db);
+
+  // 1. Pre-seed SQLite with newer authoritative data
+  const mealRepo = new SQLiteMealRepository(db);
+  await mealRepo.insertMeal(
+    normalizeMeal({
+      id: 'shared-meal-id',
+      title: 'Authoritative Newer SQLite Title',
+      date: '2026-10-30',
+      time: '20:00',
+      items: [],
+    })
+  );
+
+  const profileRepo = new SQLiteProfileRepository(db);
+  await profileRepo.saveProfile(
+    normalizeProfile({
+      id: 'user_profile',
+      name: 'Newer SQLite Profile',
+      email: 'sqlite@example.com',
+      goal: 'Maintain',
+    })
+  );
+
+  // 2. Put older conflicting records in AsyncStorage, along with a unique older record
+  const olderLegacyMeals = [
+    normalizeMeal({
+      id: 'shared-meal-id',
+      title: 'Older Stale AsyncStorage Title',
+      date: '2026-10-25',
+      time: '10:00',
+      items: [],
+    }),
+    normalizeMeal({
+      id: 'legacy-only-meal',
+      title: 'Legacy Only Meal',
+      date: '2026-10-26',
+      time: '11:00',
+      items: [],
+    }),
+  ];
+  const olderLegacyProfile = normalizeProfile({
+    id: 'user_profile',
+    name: 'Older Stale Profile',
+    email: 'stale@example.com',
+    goal: 'Old Goal',
+  });
+
+  await AsyncStorage.setItem('@qooti/meals', JSON.stringify(olderLegacyMeals));
+  await AsyncStorage.setItem('@qooti/profile', JSON.stringify(olderLegacyProfile));
+
+  // 3. Run migration
+  const summary = await migrateFromAsyncStorage(db);
+  assert.equal(summary.status, 'completed');
+
+  // 4. Verify SQLite preserved its authoritative version for the conflicting ID
+  const preservedMeal = await mealRepo.getMealById('shared-meal-id');
+  assert.ok(preservedMeal);
+  assert.equal(
+    preservedMeal.title,
+    'Authoritative Newer SQLite Title',
+    'SQLite existing meal title must not be overwritten by older legacy storage'
+  );
+
+  // 5. Verify the non-conflicting legacy meal was imported
+  const importedMeal = await mealRepo.getMealById('legacy-only-meal');
+  assert.ok(importedMeal);
+  assert.equal(importedMeal.title, 'Legacy Only Meal');
+
+  // 6. Verify SQLite preserved its authoritative profile
+  const preservedProfile = await profileRepo.getProfile();
+  assert.ok(preservedProfile);
+  assert.equal(
+    preservedProfile.name,
+    'Newer SQLite Profile',
+    'SQLite existing profile must not be overwritten by older legacy profile'
+  );
+});
+
+test('SQLite: Settings and onboarding state preservation from legacy storage', async () => {
+  await AsyncStorage.clear();
+
+  // Set legacy standalone keys
+  await AsyncStorage.setItem('@qooti/language', 'ar');
+  await AsyncStorage.setItem('@qooti/hasOnboarded', 'true');
+  await AsyncStorage.setItem('@qooti/themePreference', 'dark');
+
+  const { loadSettings } = await import('../services/settingsService');
+  const settings = await loadSettings();
+
+  assert.ok(settings);
+  assert.equal(settings.selectedLanguage, 'ar');
+  assert.equal(settings.themeMode, 'dark');
+  assert.equal(settings.hasCompletedOnboarding, true);
 });
