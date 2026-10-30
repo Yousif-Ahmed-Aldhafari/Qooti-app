@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BottomTabs } from '../components/BottomTabs';
 import { BottomNavProvider } from '../context/BottomNavContext';
-import { sampleSleepEntries, sampleWaterEntries, sampleProgress } from '../data/sampleData';
+import { sampleSleepEntries, sampleWaterEntries } from '../data/sampleData';
 import { translate } from '../i18n';
 import { AddMealScreen } from '../screens/AddMealScreen';
 import { AddWorkoutScreen } from '../screens/AddWorkoutScreen';
@@ -260,7 +260,7 @@ export function AppNavigator() {
         }
         return <WorkoutDetailsScreen t={t} workout={selectedWorkout} />;
       case 'progress':
-        return <ProgressScreen t={t} profile={profile} progress={progressEntries.length ? progressEntries : sampleProgress} />;
+        return <ProgressScreen t={t} profile={profile} progress={progressEntries} />;
       case 'profile':
         return <ProfileScreen t={t} profile={profile} onSettingsPress={() => setActiveScreen('settings')} />;
       case 'settings':
