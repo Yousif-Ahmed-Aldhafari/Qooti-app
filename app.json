@@ -31,7 +31,8 @@
       "expo-font",
       "expo-localization",
       "expo-sqlite",
-      "expo-status-bar"
+      "expo-status-bar",
+      "expo-asset"
     ]
   }
 }

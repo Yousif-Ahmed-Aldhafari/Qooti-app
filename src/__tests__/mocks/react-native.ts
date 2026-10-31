@@ -1,8 +1,43 @@
 export const I18nManager = {
   isRTL: false,
-  allowRTL: (_allow: boolean) => {},
-  forceRTL: (_force: boolean) => {},
-  swapLeftAndRightInRTL: (_swap: boolean) => {},
+  calls: {
+    allowRTL: [] as boolean[],
+    forceRTL: [] as boolean[],
+    swapLeftAndRightInRTL: [] as boolean[],
+  },
+  allowRTL: (allow: boolean) => {
+    I18nManager.calls.allowRTL.push(allow);
+  },
+  forceRTL: (force: boolean) => {
+    I18nManager.calls.forceRTL.push(force);
+  },
+  swapLeftAndRightInRTL: (swap: boolean) => {
+    I18nManager.calls.swapLeftAndRightInRTL.push(swap);
+  },
+  reset: () => {
+    I18nManager.isRTL = false;
+    I18nManager.calls = {
+      allowRTL: [],
+      forceRTL: [],
+      swapLeftAndRightInRTL: [],
+    };
+  },
+};
+
+export type AlertButton = {
+  text?: string;
+  onPress?: () => void;
+  style?: 'default' | 'cancel' | 'destructive';
+};
+
+export const Alert = {
+  alertCalls: [] as { title: string; message?: string; buttons?: AlertButton[] }[],
+  alert: (title: string, message?: string, buttons?: AlertButton[]) => {
+    Alert.alertCalls.push({ title, message, buttons });
+  },
+  reset: () => {
+    Alert.alertCalls = [];
+  },
 };
 
 export const Platform = {

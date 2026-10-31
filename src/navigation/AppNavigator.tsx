@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, BackHandler, DevSettings, I18nManager, Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
+import { Alert, BackHandler, I18nManager, Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -20,6 +20,7 @@ import { SettingsScreen } from '../screens/SettingsScreen';
 import { SplashScreen } from '../screens/SplashScreen';
 import { WorkoutDetailsScreen } from '../screens/WorkoutDetailsScreen';
 import { WorkoutsScreen } from '../screens/WorkoutsScreen';
+import { saveSettings } from '../services/settingsService';
 import { useApp } from '../store/AppContext';
 import {
   resolveThemePreference,
@@ -168,6 +169,14 @@ export function AppNavigator() {
   async function changeLanguage(nextLanguage: Language) {
     const restartRequired = applyRTL(nextLanguage);
     logDirectionDebug(nextLanguage);
+
+    // Persist immediately to SQLite and bridge storage to guarantee durability before alert
+    try {
+      await saveSettings({ ...settings, selectedLanguage: nextLanguage });
+    } catch (err) {
+      console.warn('[changeLanguage] Failed to persist settings immediately:', err);
+    }
+
     updateLanguage(nextLanguage);
 
     if (restartRequired) {
@@ -177,11 +186,7 @@ export function AppNavigator() {
         [
           {
             text: translate(nextLanguage, 'settings.restartAction'),
-            onPress: () => {
-              if (typeof DevSettings.reload === 'function') {
-                DevSettings.reload();
-              }
-            },
+            style: 'default',
           },
         ],
       );
