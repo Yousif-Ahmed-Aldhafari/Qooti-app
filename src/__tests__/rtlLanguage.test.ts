@@ -30,7 +30,7 @@ async function setupFreshDb() {
   return db;
 }
 
-test('Regression RTL 1: English → Arabic language change persists and flags restart safely', async () => {
+test('Regression RTL 1: English → Arabic language change persists smoothly without native restart or forceRTL', async () => {
   const db = await setupFreshDb();
   const settingsRepo = new SQLiteSettingsRepository(db);
 
@@ -46,11 +46,11 @@ test('Regression RTL 1: English → Arabic language change persists and flags re
   I18nManager.isRTL = false;
   const restartRequired = applyRTL('ar');
 
-  assert.equal(restartRequired, true, 'Switching from LTR to Arabic must require native restart');
-  assert.equal((I18nManager as any).calls.forceRTL.at(-1), true, 'forceRTL must be true');
-  assert.equal((I18nManager as any).calls.allowRTL.at(-1), true, 'allowRTL must be true');
+  assert.equal(restartRequired, false, 'In-app switching must NOT require native restart (Correction 1)');
+  assert.equal((I18nManager as any).calls.forceRTL.length, 0, 'forceRTL must not be called (Correction 1)');
+  assert.equal((I18nManager as any).calls.allowRTL.length, 0, 'allowRTL must not be called (Correction 1)');
 
-  // Persist updated settings to SQLite before requesting restart
+  // Persist updated settings to SQLite before switching authoritative language (Correction 7)
   const updatedSettings: Settings = {
     ...initialSettings,
     selectedLanguage: 'ar',
@@ -64,7 +64,7 @@ test('Regression RTL 1: English → Arabic language change persists and flags re
   assert.equal(persisted.hasCompletedOnboarding, true);
 });
 
-test('Regression RTL 2: Arabic → English language change behaves consistently', async () => {
+test('Regression RTL 2: Arabic → English language change behaves consistently without native reload', async () => {
   const db = await setupFreshDb();
   const settingsRepo = new SQLiteSettingsRepository(db);
 
@@ -79,13 +79,13 @@ test('Regression RTL 2: Arabic → English language change behaves consistently'
   // Case A: App started natively in RTL
   I18nManager.isRTL = true;
   const restartRequiredNativeRTL = applyRTL('en');
-  assert.equal(restartRequiredNativeRTL, true, 'Switching from native RTL to English requires restart');
-  assert.equal((I18nManager as any).calls.forceRTL.at(-1), false, 'forceRTL must be false for en');
+  assert.equal(restartRequiredNativeRTL, false, 'No restart required when native is RTL');
+  assert.equal((I18nManager as any).calls.forceRTL.length, 0, 'forceRTL must not be called');
 
   // Case B: App was in Arabic in JS but native is still LTR
   I18nManager.isRTL = false;
   const restartRequiredNativeLTR = applyRTL('en');
-  assert.equal(restartRequiredNativeLTR, false, 'If native is already LTR, restart is not required');
+  assert.equal(restartRequiredNativeLTR, false, 'No restart required when native is LTR');
 
   await saveSettings({ ...initialSettings, selectedLanguage: 'en' });
   const persisted = await settingsRepo.getSettings();
@@ -119,21 +119,22 @@ test('Regression RTL 3: Saved language after simulated app restart', async () =>
   assert.equal(direction('ar'), 'rtl');
   assert.equal(textAlign('ar'), 'right');
   assert.equal(writingDirection('ar'), 'rtl');
-  assert.deepEqual(rowStyle('ar'), { direction: 'rtl', flexDirection: 'row-reverse' });
+  assert.deepEqual(rowStyle('ar'), { flexDirection: 'row-reverse' });
 });
 
-test('Regression RTL 4: RTL restart required vs not required truth table', () => {
+test('Regression RTL 4: In-app language switching requires no native restart across all native RTL states', () => {
   (I18nManager as any).reset();
 
   // Native is LTR
   I18nManager.isRTL = false;
-  assert.equal(applyRTL('ar'), true, 'LTR native + Arabic target = restart required');
-  assert.equal(applyRTL('en'), false, 'LTR native + English target = restart not required');
+  assert.equal(applyRTL('ar'), false, 'LTR native + Arabic target = seamless in-app switch');
+  assert.equal(applyRTL('en'), false, 'LTR native + English target = seamless in-app switch');
 
   // Native is RTL
   I18nManager.isRTL = true;
-  assert.equal(applyRTL('ar'), false, 'RTL native + Arabic target = restart not required');
-  assert.equal(applyRTL('en'), true, 'RTL native + English target = restart required');
+  assert.equal(applyRTL('ar'), false, 'RTL native + Arabic target = seamless in-app switch');
+  assert.equal(applyRTL('en'), false, 'RTL native + English target = seamless in-app switch');
+  assert.equal((I18nManager as any).calls.forceRTL.length, 0, 'No forceRTL calls (Correction 1)');
 });
 
 test('Regression RTL 5: Repeated rapid language switching maintains transactional integrity', async () => {
@@ -172,7 +173,7 @@ test('Regression RTL 6: Hydration does not trigger reload loops or alerts', asyn
   assert.equal((Alert as any).alertCalls.length, 0, 'Initial hydration must never show a restart alert');
 });
 
-test('Regression RTL 7: Cancelled or dismissed restart dialog preserves saved settings', async () => {
+test('Regression RTL 7: SQLite settings save completes before language change commits to UI (Correction 7)', async () => {
   const db = await setupFreshDb();
   const repo = new SQLiteSettingsRepository(db);
 
@@ -180,16 +181,15 @@ test('Regression RTL 7: Cancelled or dismissed restart dialog preserves saved se
   const newLanguage: Language = 'ar';
   applyRTL(newLanguage);
 
-  // Settings are saved BEFORE alert is presented
+  // Settings are saved BEFORE state commit / splash dismissal (Correction 7)
   await saveSettings({
     ...defaultSettings,
     selectedLanguage: newLanguage,
   });
 
-  // User dismisses alert or cancels without restarting immediately
   const saved = await repo.getSettings();
   assert.ok(saved);
-  assert.equal(saved.selectedLanguage, 'ar', 'Saved language must persist even if restart is postponed');
+  assert.equal(saved.selectedLanguage, 'ar', 'Saved language must persist reliably in SQLite');
 });
 
 test('Regression RTL 8: Existing meals, workouts, and profile preserved across language switches', async () => {

@@ -1,5 +1,4 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef } from 'react';
-import { AppState } from 'react-native';
 
 import { translate } from '../i18n';
 import type { Language, Settings } from '../models/settings';
@@ -14,7 +13,7 @@ import { loadProgressEntries, saveProgressEntries } from '../services/progressSe
 import { resolveAuthoritativeLanguage } from '../services/localizationService';
 import { defaultSettings, loadSettings, saveSettings } from '../services/settingsService';
 import { loadWorkouts, saveWorkouts } from '../services/workoutService';
-import { applyAppDirection } from '../utils/languageDirection';
+import { applyAppDirection, isRTLLanguage } from '../utils/languageDirection';
 import { getDatabase, migrateFromAsyncStorage } from '../db';
 
 type AppStateData = {
@@ -328,24 +327,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     applyLanguageDirection(state.settings.selectedLanguage);
   }, [applyLanguageDirection, state.isReady, state.settings.selectedLanguage]);
 
-  // Listen for native OS locale changes when returning to foreground (e.g. from iOS Settings)
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', (nextAppState) => {
-      if (nextAppState === 'active' && isHydratedRef.current) {
-        const nextAuthoritativeLanguage = resolveAuthoritativeLanguage(state.settings.selectedLanguage);
-        if (nextAuthoritativeLanguage !== state.settings.selectedLanguage) {
-          dispatch({
-            type: 'updateSettings',
-            settings: { selectedLanguage: nextAuthoritativeLanguage },
-          });
-          applyLanguageDirection(nextAuthoritativeLanguage);
-        }
-      }
-    });
-
-    return () => subscription.remove();
-  }, [applyLanguageDirection, state.settings.selectedLanguage]);
-
   // Persist mutations after initial hydration completes
   useEffect(() => {
     if (!state.isReady) {
@@ -506,4 +487,13 @@ export function useApp() {
   }
 
   return context;
+}
+
+export function useLanguage() {
+  const { settings } = useApp();
+  const language = settings.selectedLanguage;
+  return {
+    language,
+    isRTL: isRTLLanguage(language),
+  };
 }

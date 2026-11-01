@@ -5,25 +5,27 @@ import { themeColors } from '../../theme/colors';
 import { radius } from '../../theme/radius';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
-import { activeRowStyle, activeTextAlign, activeWritingDirection } from '../../utils/rtl';
+import type { Language } from '../../types';
+import { rowStyle, textAlign, writingDirection } from '../../utils/rtl';
 
 type HomeHeaderProps = {
   avatarInitials: string;
   greeting: string;
   subtitle: string;
   onActionPress: () => void;
+  language?: Language;
 };
 
-export function HomeHeader({ avatarInitials, greeting, subtitle, onActionPress }: HomeHeaderProps) {
+export function HomeHeader({ avatarInitials, greeting, subtitle, onActionPress, language }: HomeHeaderProps) {
   const colors = themeColors();
   const directionalText = {
-    textAlign: activeTextAlign(),
-    writingDirection: activeWritingDirection(),
+    textAlign: textAlign(language),
+    writingDirection: writingDirection(language),
   } as const;
 
   return (
-    <View style={[styles.wrap, activeRowStyle()]}>
-      <View style={[styles.identity, activeRowStyle()]}>
+    <View style={[styles.wrap, rowStyle(language)]}>
+      <View style={[styles.identity, rowStyle(language)]}>
         <View style={[styles.avatar, { backgroundColor: colors.orange }]}>
           <Text style={[styles.avatarText, { color: colors.black }]}>{avatarInitials}</Text>
         </View>

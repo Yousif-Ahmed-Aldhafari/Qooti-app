@@ -69,12 +69,13 @@ This document specifies the exact, step-by-step manual validation protocol for n
 
 ---
 
-## 8. Arabic RTL Layout & Restart Behavior
-- [ ] Navigate to Settings -> Switch Language to Arabic (`العربية`).
-- [ ] Verify native alert prompts for reload.
-- [ ] Accept reload.
-- [ ] **Expectation:** Entire layout flips to right-to-left (RTL). Tab icons, chevrons, headers, and form inputs align properly to the right. Text displays in Arabic translations.
-- [ ] Switch back to English -> Verify LTR layout restores.
+## 8. In-App Language Switching & RTL Layout Behavior (Android & iOS)
+- [ ] Navigate to Settings -> Language -> Select Arabic (`العربية`).
+- [ ] Verify NO iOS Settings redirect and NO restart confirmation dialog appears.
+- [ ] Verify Qooti's splash screen displays smoothly for transition (~600ms).
+- [ ] **Expectation:** Entire React UI reinitializes automatically in Arabic right-to-left (RTL). Tab icons, chevrons, headers, and form inputs align properly to the right. Text displays in Arabic translations.
+- [ ] Navigate back to Settings -> Select English -> Verify splash transition occurs and LTR layout restores.
+- [ ] Force-close and reopen app -> Verify selected language persists from SQLite.
 
 ---
 

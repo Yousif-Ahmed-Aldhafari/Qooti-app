@@ -200,7 +200,6 @@ test('RTL and Language: direction utilities match across consolidated files', ()
   assert.equal(getWritingDirection('en'), 'ltr');
 
   const arabicRow = rowStyle('ar');
-  assert.equal(arabicRow.direction, 'rtl');
   assert.equal(arabicRow.flexDirection, 'row-reverse');
 });
 

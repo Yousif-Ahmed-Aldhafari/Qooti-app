@@ -9,6 +9,7 @@ import {
   flexStart,
   alignItemsEnd,
   alignItemsStart,
+  getTabOrder,
   isRTL,
   rowDirection,
   rowStyle,
@@ -26,6 +27,7 @@ export const getFlexStart = flexStart;
 export const getFlexEnd = flexEnd;
 export const getAlignItems = alignItemsStart;
 export const getOppositeAlignItems = alignItemsEnd;
+export const getAppTabOrder = getTabOrder;
 
 export function applyAppDirection(language: Language): boolean {
   return applyRTL(language);

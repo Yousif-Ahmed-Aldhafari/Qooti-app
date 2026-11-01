@@ -1,17 +1,16 @@
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { AppCard } from '../components/AppCard';
 import { AppHeader } from '../components/AppHeader';
 import { useBottomNavScrollHandler } from '../context/BottomNavContext';
 import type { Translator } from '../i18n';
-import { openIosAppSettings } from '../services/localizationService';
 import { themeColors, type ResolvedTheme, type ThemePreference } from '../theme/colors';
 import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import type { Language } from '../types';
-import { activeIsRTL, activeRowStyle, activeTextAlign, activeWritingDirection } from '../utils/rtl';
+import { activeRowStyle, activeTextAlign, activeWritingDirection } from '../utils/rtl';
 
 type SettingsScreenProps = {
   t: Translator;
@@ -52,81 +51,36 @@ export function SettingsScreen({ t, language, themePreference, resolvedTheme, on
 
       <AppCard>
         <Text style={[styles.sectionTitle, directionalText, { color: palette.text }]}>{t('settings.language')}</Text>
-        {Platform.OS === 'ios' ? (
-          <View style={styles.options}>
-            <Text style={[styles.about, directionalText, { color: palette.textMuted }]}>{t('settings.iosLanguageNotice')}</Text>
-            <View style={[styles.option, activeRowStyle(), { backgroundColor: palette.cardMuted, borderColor: palette.border }]}>
-              <View style={styles.optionIcon}>
-                <Ionicons name="globe-outline" size={22} color={palette.accent} />
-              </View>
-              <View style={styles.optionCopy}>
-                <Text style={[styles.optionMeta, directionalText, { color: palette.textMuted }]}>{t('settings.currentLanguage')}</Text>
-                <Text style={[styles.optionLabel, directionalText, { color: palette.text, fontWeight: '700' }]}>
-                  {language === 'ar' ? t('settings.arabic') : t('settings.english')}
-                </Text>
-              </View>
-            </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('settings.changeAppLanguage')}
-              onPress={async () => {
-                const opened = await openIosAppSettings();
-                if (!opened) {
-                  Alert.alert(
-                    t('settings.openSettingsErrorTitle'),
-                    t('settings.openSettingsErrorMessage'),
-                    [{ text: t('common.done') }],
-                  );
-                }
-              }}
-              style={({ pressed }) => [
-                styles.iosChangeButton,
-                activeRowStyle(),
-                {
-                  backgroundColor: palette.accent,
-                  opacity: pressed ? 0.78 : 1,
-                },
-              ]}
-            >
-              <Ionicons name="settings-outline" size={20} color={palette.buttonText} />
-              <Text style={[styles.iosButtonText, { color: palette.buttonText }]}>
-                {t('settings.changeAppLanguage')}
-              </Text>
-              <Ionicons name={activeIsRTL() ? 'chevron-back' : 'chevron-forward'} size={18} color={palette.buttonText} />
-            </Pressable>
-          </View>
-        ) : (
-          <View style={styles.options}>
-            {options.map((option) => {
-              const selected = option.value === language;
+        <View style={styles.options}>
+          {options.map((option) => {
+            const selected = option.value === language;
 
-              return (
-                <Pressable
-                  key={option.value}
-                  accessibilityRole="button"
-                  onPress={() => onLanguageChange(option.value)}
-                  style={({ pressed }) => [
-                    styles.option,
-                    {
-                      ...activeRowStyle(),
-                      borderColor: selected ? palette.accent : palette.border,
-                      backgroundColor: palette.cardMuted,
-                      opacity: pressed ? 0.78 : 1,
-                    },
-                  ]}
-                >
-                  <View style={styles.optionIcon}>
-                    <Ionicons name={selected ? 'checkmark-circle' : 'ellipse-outline'} size={22} color={selected ? palette.accent : palette.textMuted} />
-                  </View>
-                  <View style={styles.optionCopy}>
-                    <Text style={[styles.optionLabel, directionalText, { color: palette.text }]}>{option.label}</Text>
-                    {selected ? <Text style={[styles.optionMeta, directionalText, { color: palette.accent }]}>{t('settings.selected')}</Text> : null}
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
-        )}
+            return (
+              <Pressable
+                key={option.value}
+                accessibilityRole="button"
+                onPress={() => onLanguageChange(option.value)}
+                style={({ pressed }) => [
+                  styles.option,
+                  {
+                    ...activeRowStyle(),
+                    borderColor: selected ? palette.accent : palette.border,
+                    backgroundColor: palette.cardMuted,
+                    opacity: pressed ? 0.78 : 1,
+                  },
+                ]}
+              >
+                <View style={styles.optionIcon}>
+                  <Ionicons name={selected ? 'checkmark-circle' : 'ellipse-outline'} size={22} color={selected ? palette.accent : palette.textMuted} />
+                </View>
+                <View style={styles.optionCopy}>
+                  <Text style={[styles.optionLabel, directionalText, { color: palette.text }]}>{option.label}</Text>
+                  {selected ? <Text style={[styles.optionMeta, directionalText, { color: palette.accent }]}>{t('settings.selected')}</Text> : null}
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
       </AppCard>
 
       <AppCard>
@@ -217,18 +171,5 @@ const styles = StyleSheet.create({
   },
   about: {
     ...typography.body,
-  },
-  iosChangeButton: {
-    minHeight: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.lg,
-    marginTop: spacing.xs,
-  },
-  iosButtonText: {
-    ...typography.body,
-    fontWeight: '700',
   },
 });

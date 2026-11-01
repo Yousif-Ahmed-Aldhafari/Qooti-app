@@ -11,6 +11,7 @@ import {
 } from '../services/localizationService';
 import { translate } from '../i18n';
 import {
+  applyRTL,
   rowDirection,
   flexStart,
   flexEnd,
@@ -52,12 +53,14 @@ test('Part 8.1 & 8.2: iOS English and Arabic locale resolution from expo-localiz
   // iOS with English locale
   setMockLocales([{ languageTag: 'en-US', languageCode: 'en', textDirection: 'ltr' }]);
   assert.equal(getNativeDeviceLanguage(), 'en');
-  assert.equal(resolveAuthoritativeLanguage('ar'), 'en', 'iOS must ignore stored SQLite language in favor of iOS');
+  assert.equal(resolveAuthoritativeLanguage(null), 'en', 'Falls back to iOS system locale when SQLite setting is null');
+  assert.equal(resolveAuthoritativeLanguage('ar'), 'ar', 'Honors user SQLite choice ar');
 
   // iOS with Arabic locale
   setMockLocales([{ languageTag: 'ar-SA', languageCode: 'ar', textDirection: 'rtl' }]);
   assert.equal(getNativeDeviceLanguage(), 'ar');
-  assert.equal(resolveAuthoritativeLanguage('en'), 'ar', 'iOS must ignore stored SQLite language in favor of iOS');
+  assert.equal(resolveAuthoritativeLanguage(null), 'ar', 'Falls back to iOS system locale when SQLite setting is null');
+  assert.equal(resolveAuthoritativeLanguage('en'), 'en', 'Honors user SQLite choice en');
 });
 
 test('Part 8.3: Unsupported locale fallback defaults safely to English', () => {
@@ -166,7 +169,7 @@ test('Part 8.9: LTR restoration when English is active', () => {
   assert.equal(direction('en'), 'ltr');
 });
 
-test('Part 8.10: Legacy language preference precedence (Android respects SQLite, iOS uses native iOS)', () => {
+test('Part 8.10: Cross-platform SQLite language preference authority (both Android and iOS)', () => {
   // On Android: SQLite setting is authoritative
   (Platform as any).setOS('android');
   setMockLocales([{ languageTag: 'en-US', languageCode: 'en', textDirection: 'ltr' }]);
@@ -174,13 +177,15 @@ test('Part 8.10: Legacy language preference precedence (Android respects SQLite,
   assert.equal(resolveAuthoritativeLanguage('en'), 'en');
   assert.equal(resolveAuthoritativeLanguage(null), 'en', 'Android falls back to system when null');
 
-  // On iOS: iOS native locale is ALWAYS authoritative, ignoring SQLite
+  // On iOS: SQLite setting is ALSO authoritative (in-app language selection)
   (Platform as any).setOS('ios');
   setMockLocales([{ languageTag: 'ar-EG', languageCode: 'ar', textDirection: 'rtl' }]);
-  assert.equal(resolveAuthoritativeLanguage('en'), 'ar', 'iOS ignores stored SQLite en because iOS is ar');
+  assert.equal(resolveAuthoritativeLanguage('en'), 'en', 'iOS honors user SQLite choice en even if system is ar');
+  assert.equal(resolveAuthoritativeLanguage('ar'), 'ar', 'iOS honors user SQLite choice ar');
+  assert.equal(resolveAuthoritativeLanguage(null), 'ar', 'iOS falls back to system when SQLite setting is null');
 
   setMockLocales([{ languageTag: 'en-GB', languageCode: 'en', textDirection: 'ltr' }]);
-  assert.equal(resolveAuthoritativeLanguage('ar'), 'en', 'iOS ignores stored SQLite ar because iOS is en');
+  assert.equal(resolveAuthoritativeLanguage('ar'), 'ar', 'iOS honors user SQLite choice ar even if system is en');
 });
 
 test('Part 8.11 & 8.12: Opening iOS app Settings via Linking with success and graceful failure', async () => {
@@ -201,15 +206,20 @@ test('Part 8.11 & 8.12: Opening iOS app Settings via Linking with success and gr
   (Linking as any).reset();
 });
 
-test('Part 8.13 & 8.14: No DevSettings.reload() regression and no in-app forceRTL on iOS', () => {
-  // Confirm neither DevSettings nor I18nManager.forceRTL is invoked during iOS language resolution
+test('Part 8.13 & 8.14: No DevSettings.reload() regression and no in-app forceRTL on iOS or Android', () => {
+  // Confirm neither DevSettings nor I18nManager.forceRTL is invoked during language resolution or applyRTL
   (I18nManager as any).reset();
   (Platform as any).setOS('ios');
   setMockLocales([{ languageTag: 'ar-SA', languageCode: 'ar', textDirection: 'rtl' }]);
 
   const resolved = resolveAuthoritativeLanguage('en');
-  assert.equal(resolved, 'ar');
+  assert.equal(resolved, 'en');
   assert.equal((I18nManager as any).calls.forceRTL.length, 0, 'No forceRTL must be called during resolution');
+
+  // Verify applyRTL does NOT call forceRTL or allowRTL per Correction 1
+  applyRTL('ar');
+  assert.equal((I18nManager as any).calls.forceRTL.length, 0, 'applyRTL must not call forceRTL');
+  assert.equal((I18nManager as any).calls.allowRTL.length, 0, 'applyRTL must not call allowRTL');
 });
 
 test('Part 8.15: Data and theme persistence across language resolution', async () => {
@@ -250,11 +260,18 @@ test('Part 8.15: Data and theme persistence across language resolution', async (
     hasCompletedOnboarding: true,
   });
 
-  // Switch iOS locale to Arabic
+  // Switch stored language setting to Arabic
   (Platform as any).setOS('ios');
   setMockLocales([{ languageTag: 'ar-SA', languageCode: 'ar', textDirection: 'rtl' }]);
 
-  const currentLang = resolveAuthoritativeLanguage(defaultSettings.selectedLanguage);
+  await settingsRepo.saveSettings({
+    ...defaultSettings,
+    selectedLanguage: 'ar',
+    themeMode: 'dark',
+    hasCompletedOnboarding: true,
+  });
+
+  const currentLang = resolveAuthoritativeLanguage('ar');
   assert.equal(currentLang, 'ar');
 
   // Verify database data was untouched
@@ -318,4 +335,83 @@ test('Part 8.18: Localization diagnostics returns platform and language without 
   assert.equal(diag.isRTL, true);
   assert.equal(diag.localesCount, 1);
   assert.equal((diag as any).meals, undefined, 'Must never include user data in diagnostics');
+});
+
+test('Part 8.19: In-app language switching completes SQLite save and updates direction without native restart or reload (Correction 1, 2, 7)', async () => {
+  const db = await setupFreshDb();
+  const settingsRepo = new SQLiteSettingsRepository(db);
+
+  // 1. Initial settings in SQLite
+  await settingsRepo.saveSettings({
+    ...defaultSettings,
+    selectedLanguage: 'en',
+    hasCompletedOnboarding: true,
+  });
+
+  // 2. Perform in-app language switch to Arabic
+  // Must complete SQLite write FIRST before switching authoritative language (Correction 7)
+  const targetLanguage: Language = 'ar';
+  await settingsRepo.saveSettings({
+    ...defaultSettings,
+    selectedLanguage: targetLanguage,
+    hasCompletedOnboarding: true,
+  });
+
+  const verified = await settingsRepo.getSettings();
+  assert.ok(verified);
+  assert.equal(verified.selectedLanguage, 'ar');
+
+  // Must update direction without calling forceRTL or allowRTL (Correction 1, 2)
+  applyRTL(targetLanguage);
+  assert.equal((I18nManager as any).calls.forceRTL.length, 0, 'No forceRTL calls');
+  assert.equal((I18nManager as any).calls.allowRTL.length, 0, 'No allowRTL calls');
+
+  // React layout direction reflects Arabic (Correction 3)
+  assert.equal(direction('ar'), 'rtl');
+  assert.equal(textAlign('ar'), 'right');
+  assert.equal(writingDirection('ar'), 'rtl');
+});
+
+test('Part 8.20: AppContext remains non-destructively mounted during language transition preserving user state and preventing sample data reseeding (Correction 8, 9)', async () => {
+  const db = await setupFreshDb();
+  const mealRepo = new SQLiteMealRepository(db);
+  const settingsRepo = new SQLiteSettingsRepository(db);
+
+  // User has existing customized meals and onboarding complete
+  const customMeal = normalizeMeal({
+    id: 'user_custom_meal_101',
+    title: 'Custom Pre-Workout Oatmeal',
+    calories: 450,
+    protein: 30,
+    carbs: 65,
+    fat: 8,
+    mealType: 'breakfast',
+    date: '2026-11-01',
+    time: '08:30',
+    items: [normalizeMealItem({ id: 'item_1', foodName: 'Oats', quantity: 100, unit: 'g', calories: 350, protein: 20, carbs: 55, fats: 6 })],
+  });
+  await mealRepo.insertMeal(customMeal);
+  await settingsRepo.saveSettings({
+    ...defaultSettings,
+    selectedLanguage: 'en',
+    hasCompletedOnboarding: true,
+  });
+
+  // Language switch to Arabic occurs
+  await settingsRepo.saveSettings({
+    ...defaultSettings,
+    selectedLanguage: 'ar',
+    hasCompletedOnboarding: true,
+  });
+
+  // Verify custom meal is intact and sample data was NOT re-seeded
+  const mealsAfter = await mealRepo.getAllMeals();
+  assert.equal(mealsAfter.length, 1);
+  assert.equal(mealsAfter[0].id, 'user_custom_meal_101');
+  assert.equal(mealsAfter[0].title, 'Custom Pre-Workout Oatmeal');
+
+  const settingsAfter = await settingsRepo.getSettings();
+  assert.ok(settingsAfter);
+  assert.equal(settingsAfter.hasCompletedOnboarding, true, 'Onboarding state must be preserved');
+  assert.equal(settingsAfter.selectedLanguage, 'ar', 'Language switch must be saved in SQLite');
 });

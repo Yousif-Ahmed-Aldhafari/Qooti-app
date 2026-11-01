@@ -55,18 +55,13 @@ export function getNativeDeviceLanguage(): Language {
 }
 
 /**
- * Authoritative language resolution across platforms:
- * - iOS: Apple native per-app language is the SOLE authority.
- *   Stored SQLite selectedLanguage NEVER overrides the iOS native setting.
- * - Android: Preserves existing user preference stored in SQLite if present;
- *   otherwise falls back to native device locale or 'en'.
- * - Web: Preserves stored setting if present; falls back to native device locale or 'en'.
+ * Authoritative language resolution across all platforms:
+ * - SQLite stored user preference is the authoritative source of truth.
+ * - On initial clean installation (storedLanguage is null/undefined),
+ *   detects system language as default via getNativeDeviceLanguage().
+ * - Once explicitly selected, user preference persists and takes precedence.
  */
 export function resolveAuthoritativeLanguage(storedLanguage?: Language | null): Language {
-  if (Platform.OS === 'ios') {
-    return getNativeDeviceLanguage();
-  }
-
   if (storedLanguage && SUPPORTED_LANGUAGES.includes(storedLanguage)) {
     return storedLanguage;
   }
