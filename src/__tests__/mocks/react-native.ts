@@ -41,8 +41,50 @@ export const Alert = {
 };
 
 export const Platform = {
-  OS: 'android',
-  select: (obj: any) => obj.android ?? obj.default,
+  OS: 'android' as 'ios' | 'android' | 'web',
+  select: (obj: any) => obj[Platform.OS] ?? obj.default,
+  setOS: (os: 'ios' | 'android' | 'web') => {
+    Platform.OS = os;
+  },
+  reset: () => {
+    Platform.OS = 'android';
+  },
+};
+
+export const Linking = {
+  openedSettingsCount: 0,
+  shouldFailOpenSettings: false,
+  openSettings: async (): Promise<void> => {
+    Linking.openedSettingsCount++;
+    if (Linking.shouldFailOpenSettings) {
+      throw new Error('Failed to open settings');
+    }
+  },
+  reset: () => {
+    Linking.openedSettingsCount = 0;
+    Linking.shouldFailOpenSettings = false;
+  },
+};
+
+export const AppState = {
+  currentState: 'active',
+  listeners: [] as ((state: string) => void)[],
+  addEventListener: (_type: string, listener: (state: string) => void) => {
+    AppState.listeners.push(listener);
+    return {
+      remove: () => {
+        AppState.listeners = AppState.listeners.filter((l) => l !== listener);
+      },
+    };
+  },
+  simulateAppStateChange: (nextState: string) => {
+    AppState.currentState = nextState;
+    AppState.listeners.forEach((l) => l(nextState));
+  },
+  reset: () => {
+    AppState.currentState = 'active';
+    AppState.listeners = [];
+  },
 };
 
 export const BackHandler = {

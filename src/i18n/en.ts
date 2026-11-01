@@ -275,7 +275,12 @@ export const en = {
     "english": "English",
     "arabic": "Arabic",
     "selected": "Selected",
-    "aboutTitle": "About Qooti"
+    "aboutTitle": "About Qooti",
+    "changeAppLanguage": "Change App Language",
+    "iosLanguageNotice": "App language is managed natively in iOS Settings. English and Arabic are supported.",
+    "currentLanguage": "Current Language",
+    "openSettingsErrorTitle": "Cannot Open Settings",
+    "openSettingsErrorMessage": "Please open your iPhone Settings > Qooti > Preferred Language to select your language."
   },
   "macros": {
     "calories": "Calories",

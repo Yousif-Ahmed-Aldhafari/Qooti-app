@@ -24,12 +24,19 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "extra": {
-      "supportsRTL": true
-    },
     "plugins": [
       "expo-font",
-      "expo-localization",
+      [
+        "expo-localization",
+        {
+          "supportedLocales": {
+            "ios": ["en", "ar"],
+            "android": ["en", "ar"]
+          },
+          "supportsRTL": true,
+          "forcesRTL": false
+        }
+      ],
       "expo-sqlite",
       "expo-status-bar",
       "expo-asset"

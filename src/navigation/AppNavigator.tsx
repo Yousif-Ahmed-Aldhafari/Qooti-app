@@ -20,6 +20,7 @@ import { SettingsScreen } from '../screens/SettingsScreen';
 import { SplashScreen } from '../screens/SplashScreen';
 import { WorkoutDetailsScreen } from '../screens/WorkoutDetailsScreen';
 import { WorkoutsScreen } from '../screens/WorkoutsScreen';
+import { getLocalizationDiagnostics } from '../services/localizationService';
 import { saveSettings } from '../services/settingsService';
 import { useApp } from '../store/AppContext';
 import {
@@ -45,12 +46,12 @@ function logDirectionDebug(selectedLanguage: Language) {
     return;
   }
 
-  const shouldBeRTL = isRTL(selectedLanguage);
-  console.log('[i18n-debug] selectedLanguage:', selectedLanguage);
-  console.log('[i18n-debug] translationLanguage:', selectedLanguage);
-  console.log('[i18n-debug] isRTL:', shouldBeRTL);
+  const diag = getLocalizationDiagnostics(selectedLanguage);
+  console.log('[i18n-debug] platform:', diag.platform);
+  console.log('[i18n-debug] authoritativeLanguage:', diag.resolvedLanguage);
+  console.log('[i18n-debug] primaryTag:', diag.primaryTag);
+  console.log('[i18n-debug] isRTL:', diag.isRTL);
   console.log('[i18n-debug] I18nManager.isRTL:', I18nManager.isRTL);
-  console.log('[i18n-debug] resolved direction:', shouldBeRTL ? 'rtl' : 'ltr');
 }
 
 export function AppNavigator() {

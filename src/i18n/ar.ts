@@ -275,7 +275,12 @@ export const ar = {
     "english": "English",
     "arabic": "العربية",
     "selected": "محدد",
-    "aboutTitle": "عن قوتي"
+    "aboutTitle": "عن قوتي",
+    "changeAppLanguage": "تغيير لغة التطبيق",
+    "iosLanguageNotice": "تتم إدارة لغة التطبيق عبر إعدادات iOS. التطبيق يدعم العربية والإنجليزية.",
+    "currentLanguage": "اللغة الحالية",
+    "openSettingsErrorTitle": "تعذر فتح الإعدادات",
+    "openSettingsErrorMessage": "يرجى فتح تطبيق الإعدادات في آيفون > قوتي > اللغة المفضلة لتغيير اللغة."
   },
   "macros": {
     "calories": "السعرات",
