@@ -36,7 +36,7 @@ export function GoalProgressCard({ title, target, percentLabel, remaining, progr
         </View>
       </View>
       <Text style={[styles.percent, directionalText]}>{percentLabel}</Text>
-      <View style={styles.track}>
+      <View style={[styles.track, activeRowStyle()]}>
         <View style={[styles.fill, { width: `${safeProgress * 100}%` }]} />
       </View>
       <View style={[styles.remainingPill, { alignSelf: activeFlexStart() }]}>

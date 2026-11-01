@@ -7,7 +7,7 @@ import { radius } from '../../theme/radius';
 import { spacing } from '../../theme/spacing';
 import { themeColors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
-import { activeWritingDirection } from '../../utils/rtl';
+import { activeWritingDirection, rowDirection } from '../../utils/rtl';
 
 type DonutStat = {
   title: string;
@@ -52,7 +52,7 @@ export function CombinedProgressStatsCard({
 
   return (
     <GlassCard style={styles.card} contentStyle={styles.content} blur>
-      <View style={[styles.progressContentRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+      <View style={[styles.progressContentRow, { flexDirection: rowDirection(isRTL ? 'ar' : 'en') }]}>
         <ProgressDonutSection stat={progressStat} />
         <View style={styles.progressInfoList}>
           {progressInfo.map((item) => (
@@ -64,7 +64,7 @@ export function CombinedProgressStatsCard({
       <View style={[styles.divider, { backgroundColor: colors.glassBorder }]} />
 
       <View style={styles.metricsGrid}>
-        <View style={[styles.metricsGridRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+        <View style={[styles.metricsGridRow, { flexDirection: rowDirection(isRTL ? 'ar' : 'en') }]}>
           <CompactDonutSection stat={caloriesStat} />
           <CompactDonutSection stat={workoutStat} />
         </View>
@@ -127,7 +127,7 @@ function ProgressInfoRow({ item, isRTL }: { item: ProgressInfoItem; isRTL: boole
   };
 
   return (
-    <View style={[styles.infoRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+    <View style={[styles.infoRow, { flexDirection: rowDirection(isRTL ? 'ar' : 'en') }]}>
       <View style={styles.infoIconWrap}>
         {item.iconFamily === 'materialCommunity' ? (
           <MaterialCommunityIcons name={item.icon as keyof typeof MaterialCommunityIcons.glyphMap} size={18} color={item.accent} />

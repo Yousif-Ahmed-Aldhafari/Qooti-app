@@ -5,7 +5,7 @@ import { getActiveTheme, themeColors } from '../../theme/colors';
 import { radius } from '../../theme/radius';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
-import { activeFlexStart, activeRowStyle, activeTextAlign, activeWritingDirection } from '../../utils/rtl';
+import { activeFlexStart, activeIsRTL, activeRowStyle, activeTextAlign, activeWritingDirection } from '../../utils/rtl';
 
 type DailyGoalBannerProps = {
   title: string;
@@ -18,6 +18,7 @@ type DailyGoalBannerProps = {
 export function DailyGoalBanner({ title, calorieValue, proteinValue, mealsValue, workoutValue }: DailyGoalBannerProps) {
   const colors = themeColors();
   const theme = getActiveTheme();
+  const rtl = activeIsRTL();
   const directionalText = {
     textAlign: activeTextAlign(),
     writingDirection: activeWritingDirection(),
@@ -25,8 +26,8 @@ export function DailyGoalBanner({ title, calorieValue, proteinValue, mealsValue,
 
   return (
     <View style={[styles.card, { backgroundColor: theme.isDark ? colors.black : colors.accentDark }]}>
-      <View style={styles.accentPanel} />
-      <View style={styles.accentStripe} />
+      <View style={[styles.accentPanel, rtl ? styles.accentPanelRTL : styles.accentPanelLTR]} />
+      <View style={[styles.accentStripe, rtl ? styles.accentStripeRTL : styles.accentStripeLTR]} />
       <View style={[styles.content, { alignSelf: activeFlexStart() }]}>
         <Text style={[styles.title, directionalText]}>{title}</Text>
         <View style={[styles.metrics, activeRowStyle()]}>
@@ -38,7 +39,7 @@ export function DailyGoalBanner({ title, calorieValue, proteinValue, mealsValue,
           <BannerMetric icon="barbell-outline" value={workoutValue} color={colors.blue} />
         </View>
       </View>
-      <View style={styles.visual}>
+      <View style={[styles.visual, rtl ? styles.visualRTL : styles.visualLTR]}>
         <Ionicons name="fitness-outline" size={92} color={colors.limeSoft} />
       </View>
     </View>
@@ -66,19 +67,29 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 170,
     height: 220,
-    end: -40,
     top: -12,
     transform: [{ rotate: '12deg' }],
     backgroundColor: 'rgba(92, 107, 216, 0.3)',
+  },
+  accentPanelLTR: {
+    right: -40,
+  },
+  accentPanelRTL: {
+    left: -40,
   },
   accentStripe: {
     position: 'absolute',
     width: 148,
     height: 18,
-    end: 18,
     bottom: 28,
     borderRadius: radius.pill,
     backgroundColor: 'rgba(208, 255, 99, 0.2)',
+  },
+  accentStripeLTR: {
+    right: 18,
+  },
+  accentStripeRTL: {
+    left: 18,
   },
   content: {
     width: '66%',
@@ -104,7 +115,6 @@ const styles = StyleSheet.create({
   },
   visual: {
     position: 'absolute',
-    end: spacing.lg,
     bottom: spacing.lg,
     width: 112,
     height: 112,
@@ -112,5 +122,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  visualLTR: {
+    right: spacing.lg,
+  },
+  visualRTL: {
+    left: spacing.lg,
   },
 });

@@ -30,8 +30,18 @@ export function translate(
   key: string,
   values?: Record<string, string | number>,
 ): string {
-  const fallback = readPath(dictionaries.en, key) ?? key;
-  const template = readPath(dictionaries[language], key) ?? fallback;
+  const fallback = readPath(dictionaries.en, key);
+  const localized = readPath(dictionaries[language], key);
+
+  if (typeof __DEV__ !== 'undefined' && __DEV__) {
+    if (!localized && !fallback) {
+      console.warn(`[i18n] Missing translation key: "${key}" (requested lang: "${language}")`);
+    } else if (!localized && language !== 'en') {
+      console.info(`[i18n] Fallback to English for key: "${key}" (requested lang: "${language}")`);
+    }
+  }
+
+  const template = localized ?? fallback ?? key;
 
   if (!values) {
     return template;

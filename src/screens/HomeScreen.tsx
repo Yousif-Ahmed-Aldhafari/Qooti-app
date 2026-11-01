@@ -470,7 +470,7 @@ function translateMuscleName(muscle: string, t: Translator): string {
 function buildDateOptions(center: Date, rtl: boolean): DateOption[] {
   const dates = Array.from({ length: 7 }, (_, index) => {
     const date = shiftDate(center, index - 3);
-    const locale = rtl ? 'ar-EG' : 'en-US';
+    const locale = rtl ? 'ar-SA-u-nu-latn' : 'en-US';
 
     return {
       key: toDateKey(date),
@@ -483,7 +483,7 @@ function buildDateOptions(center: Date, rtl: boolean): DateOption[] {
 }
 
 function formatMonthYear(date: Date, rtl: boolean): string {
-  return new Intl.DateTimeFormat(rtl ? 'ar-EG' : 'en-US', {
+  return new Intl.DateTimeFormat(rtl ? 'ar-SA-u-nu-latn' : 'en-US', {
     month: 'long',
     year: 'numeric',
   }).format(date);

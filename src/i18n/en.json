@@ -2,7 +2,7 @@
   "app": {
     "name": "Qooti",
     "arabicName": "قوتي",
-    "tagline": "Meals, macros, workouts, and progress in one daily coach."
+    "tagline": "Meals, macros, workouts, and progress in one dark fitness dashboard."
   },
   "navigation": {
     "home": "Home",
@@ -63,11 +63,25 @@
     "dailyGoal": "Daily goal",
     "remaining": "Remaining",
     "completed": "Completed",
-    "cm": "cm"
+    "cm": "cm",
+    "settings": "Settings",
+    "calories": "Calories",
+    "protein": "Protein",
+    "carbs": "Carbs",
+    "fats": "Fats",
+    "kcal": "kcal",
+    "grams": "g",
+    "kg": "kg",
+    "minutes": "min",
+    "hoursShort": "h",
+    "litersShort": "L",
+    "total": "Total"
   },
   "splash": {
     "headline": "Train smart. Eat clearly.",
-    "subline": "Your bilingual fitness companion"
+    "subline": "Your bilingual fitness companion",
+    "title": "Train hard. Fuel smart.",
+    "subtitle": "Qooti keeps your meals, workouts, and progress in rhythm."
   },
   "auth": {
     "loginTitle": "Welcome back",
@@ -94,7 +108,9 @@
     "mealPoint": "Meal and macro tracking",
     "macroPoint": "Daily calorie summary",
     "workoutPoint": "Workout logs and history",
-    "privacyPoint": "Local-first data for the MVP"
+    "privacyPoint": "Local-first data for the MVP",
+    "title": "Your bilingual fitness command center",
+    "body": "Track calories, macros, workouts, and progress with a clean dark mobile experience."
   },
   "language": {
     "title": "Choose app language",
@@ -136,13 +152,13 @@
   },
   "meals": {
     "title": "Meals",
-    "subtitle": "Today’s food log and nutrition totals.",
+    "subtitle": "Manual meal tracking with calories and macros.",
     "emptyTitle": "No meals yet",
-    "emptyMessage": "Add your first meal with food items and macro totals.",
+    "emptyMessage": "Add your first meal to see nutrition totals.",
     "addTitle": "Add meal",
     "editTitle": "Edit meal",
     "mealName": "Meal name",
-    "mealNamePlaceholder": "Breakfast, lunch, dinner...",
+    "mealNamePlaceholder": "Lunch, breakfast, snack...",
     "foodItems": "Food items",
     "addFoodItem": "Add food item",
     "foodName": "Food name",
@@ -162,14 +178,18 @@
     "searchPlaceholder": "Search chicken, rice, oats...",
     "popularFoods": "Popular foods",
     "useFood": "Use food",
-    "perServing": "Per serving"
+    "perServing": "Per serving",
+    "detailsTitle": "Meal details",
+    "fats": "Fats",
+    "foodPlaceholder": "Chicken breast",
+    "itemLabel": "items"
   },
   "workouts": {
-    "title": "Workout log",
-    "subtitle": "Strength, cardio, and mobility sessions.",
+    "title": "Workouts",
+    "subtitle": "Log exercises, sets, reps, weights, duration, and notes.",
     "emptyTitle": "No workouts yet",
-    "emptyMessage": "Add your first workout session and exercises.",
-    "addTitle": "Add exercise",
+    "emptyMessage": "Add a workout to build your training history.",
+    "addTitle": "Add workout",
     "editTitle": "Edit workout",
     "workoutName": "Workout name",
     "workoutNamePlaceholder": "Upper body, run, yoga...",
@@ -194,11 +214,16 @@
     "deleteWorkoutMessage": "This workout session and its exercises will be removed.",
     "noExercises": "No exercises were added to this workout.",
     "weeklySummary": "Weekly workout summary",
-    "recent": "Recent workouts"
+    "recent": "Recent workouts",
+    "detailsTitle": "Workout details",
+    "workoutPlaceholder": "Upper body, run, yoga...",
+    "exercisePlaceholder": "Bench press",
+    "notes": "Notes",
+    "exerciseLabel": "exercises"
   },
   "progress": {
     "title": "Progress",
-    "subtitle": "Simple stats from your nutrition and workout history.",
+    "subtitle": "Weekly nutrition and training statistics.",
     "weight": "Weight",
     "steps": "Steps",
     "calories": "Calories",
@@ -206,9 +231,12 @@
     "weeklyTrend": "Weekly trend",
     "nutritionConsistency": "Nutrition consistency",
     "trainingConsistency": "Training consistency",
-    "latestWeight": "Latest weight",
+    "latestWeight": "Latest check-in",
     "averageCalories": "Average calories",
-    "sessions": "Sessions"
+    "sessions": "Sessions",
+    "workoutDays": "Workout days",
+    "daysTracked": "{{count}} days tracked",
+    "goalHelper": "Goal trend"
   },
   "profile": {
     "title": "Profile",
@@ -220,11 +248,12 @@
     "settings": "Settings",
     "editProfile": "Edit profile",
     "logout": "Log out",
-    "localAccount": "Local account"
+    "localAccount": "Local account",
+    "account": "Account"
   },
   "settings": {
     "title": "Settings",
-    "subtitle": "Language, appearance, and app preferences.",
+    "subtitle": "Language and app preferences.",
     "language": "Language",
     "appearance": "Appearance",
     "theme": "Theme",
@@ -240,9 +269,13 @@
     "units": "Measurement units",
     "metric": "Metric",
     "imperial": "Imperial",
-    "about": "About Qooti",
+    "about": "Qooti is a local-first MVP prepared for barcode scanning, AI meal estimation, backend sync, and cloud features later.",
     "aboutBody": "Qooti is a local-first MVP for tracking meals, macros, workouts, and progress. Backend sync, barcode scanning, AI meal estimation, and cloud features can be added later.",
-    "changeLanguage": "Switch language"
+    "changeLanguage": "Switch language",
+    "english": "English",
+    "arabic": "Arabic",
+    "selected": "Selected",
+    "aboutTitle": "About Qooti"
   },
   "macros": {
     "calories": "Calories",
@@ -251,5 +284,85 @@
     "fat": "Fat",
     "kcal": "kcal",
     "grams": "g"
+  },
+  "tabs": {
+    "home": "Home",
+    "meals": "Meals",
+    "workouts": "Workouts",
+    "progress": "Progress",
+    "profile": "Profile"
+  },
+  "home": {
+    "greeting": "Hi {{name}}",
+    "subtitle": "Today's fitness dashboard",
+    "headerGreeting": "Hello, {{name}}",
+    "headerSubtitle": "Track your nutrition and workout today",
+    "period": {
+      "today": "Today",
+      "week": "This Week",
+      "month": "This Month"
+    },
+    "dailyCalories": "Daily calories",
+    "macroBalance": "Macro balance",
+    "quickActions": "Quick actions",
+    "addMeal": "Add meal",
+    "addMealSubtitle": "Record your next meal",
+    "addWorkout": "Add workout",
+    "addWorkoutSubtitle": "Record your training session",
+    "recentMeals": "Recent meals",
+    "nextWorkout": "Next workout",
+    "todayPlan": "Today's Plan",
+    "latestActivity": "Latest Activity",
+    "metrics": {
+      "calories": "Calories",
+      "macros": "Macros",
+      "workout": "Workout",
+      "sleep": "Sleep",
+      "water": "Water",
+      "progress": "Progress",
+      "dailyProgress": "Daily progress",
+      "expectedGainToday": "Expected gain today",
+      "expectedGainThisWeek": "Expected gain this week",
+      "expectedGainThisMonth": "Expected gain this month",
+      "exercises": "{{count}} exercises",
+      "muscles": "Muscles",
+      "fat": "Fat",
+      "body": "Body",
+      "noWorkoutYet": "No workout yet",
+      "fullBody": "Full body",
+      "estimatedLeanGain": "Estimated lean gain",
+      "estimatedFatGain": "Estimated fat gain",
+      "targetedMuscles": "Targeted muscles",
+      "sleepGoal": "Sleep goal",
+      "waterGoal": "Water goal"
+    },
+    "muscleGroups": {
+      "arms": "Arms",
+      "back": "Back",
+      "chest": "Chest",
+      "core": "Core",
+      "glutes": "Glutes",
+      "legs": "Legs",
+      "shoulders": "Shoulders"
+    },
+    "dailyGoal": {
+      "title": "Daily Nutrition Goal",
+      "meals": "{{count}} meals completed",
+      "workouts": "{{count}} workouts"
+    },
+    "activity": {
+      "empty": "No activity for this date yet.",
+      "mealAdded": "{{name}} added",
+      "workoutCompleted": "{{name}} completed"
+    },
+    "goals": {
+      "calories": "Daily calorie goal",
+      "protein": "Daily protein goal",
+      "dailyTarget": "Daily target",
+      "percentComplete": "{{amount}}% completed",
+      "caloriesRemaining": "{{amount}} kcal remaining",
+      "proteinRemaining": "{{amount}}g protein remaining",
+      "empty": "Create a goal to track progress here."
+    }
   }
 }

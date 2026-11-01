@@ -26,7 +26,7 @@ export function QuickActionCard({ title, subtitle, actionLabel, icon, accent, on
 
   return (
     <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.card, { backgroundColor: accent, opacity: pressed ? 0.82 : 1 }]}>
-      <Ionicons name={icon} size={28} color={colors.black} />
+      <Ionicons name={icon} size={28} color={colors.black} style={{ alignSelf: activeFlexStart() }} />
       <View style={styles.copy}>
         <Text style={[styles.title, directionalText]} numberOfLines={2}>
           {title}

@@ -32,7 +32,7 @@ import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import type { Language, Meal, ScreenKey, TabKey, Workout } from '../types';
-import { applyRTL, direction, isRTL, rowStyle, textAlign, writingDirection } from '../utils/rtl';
+import { applyRTL, direction, flexStart, isRTL, rowStyle, textAlign, writingDirection } from '../utils/rtl';
 
 const mainTabs: TabKey[] = ['home', 'meals', 'workouts', 'progress', 'profile'];
 
@@ -46,10 +46,11 @@ function logDirectionDebug(selectedLanguage: Language) {
   }
 
   const shouldBeRTL = isRTL(selectedLanguage);
-  console.log('selectedLanguage:', selectedLanguage);
-  console.log('isRTL:', shouldBeRTL);
-  console.log('I18nManager.isRTL:', I18nManager.isRTL);
-  console.log('resolved direction:', shouldBeRTL ? 'rtl' : 'ltr');
+  console.log('[i18n-debug] selectedLanguage:', selectedLanguage);
+  console.log('[i18n-debug] translationLanguage:', selectedLanguage);
+  console.log('[i18n-debug] isRTL:', shouldBeRTL);
+  console.log('[i18n-debug] I18nManager.isRTL:', I18nManager.isRTL);
+  console.log('[i18n-debug] resolved direction:', shouldBeRTL ? 'rtl' : 'ltr');
 }
 
 export function AppNavigator() {
@@ -155,6 +156,12 @@ export function AppNavigator() {
     return () => clearTimeout(timer);
   }, []);
 
+  useEffect(() => {
+    if (isAppReady) {
+      logDirectionDebug(language);
+    }
+  }, [isAppReady, language]);
+
   function selectTab(tab: TabKey) {
     setActiveTab(tab);
     setActiveScreen(tab);
@@ -234,6 +241,7 @@ export function AppNavigator() {
       case 'home':
         return (
           <HomeScreen
+            key={language}
             t={t}
             profile={profile}
             meals={meals}
@@ -333,7 +341,7 @@ export function AppNavigator() {
               style={({ pressed }) => [
                 styles.backButton,
                 {
-                  alignSelf: 'flex-start',
+                  alignSelf: flexStart(language),
                   ...rowStyle(language),
                   backgroundColor: palette.cardMuted,
                   opacity: pressed ? 0.72 : 1,
@@ -347,7 +355,7 @@ export function AppNavigator() {
           {renderActiveScreen()}
         </View>
 
-        {showTabs ? <BottomTabs activeTab={activeTab} labels={tabLabels} onChange={selectTab} /> : null}
+        {showTabs ? <BottomTabs key={language} activeTab={activeTab} labels={tabLabels} onChange={selectTab} /> : null}
         <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
       </SafeAreaView>
     </BottomNavProvider>

@@ -8,6 +8,10 @@ export function isRTL(language: Language): boolean {
   return language === 'ar';
 }
 
+export function shouldReverseLayout(language: Language): boolean {
+  return isRTL(language) !== I18nManager.isRTL;
+}
+
 export function applyRTL(language: Language): boolean {
   activeLanguage = language;
   const shouldUseRTL = isRTL(language);
@@ -25,7 +29,7 @@ export function direction(language: Language): ViewStyle['direction'] {
 }
 
 export function textAlign(language: Language): TextStyle['textAlign'] {
-  return isRTL(language) ? 'right' as const : 'left' as const;
+  return isRTL(language) ? ('right' as const) : ('left' as const);
 }
 
 export function writingDirection(language: Language): TextStyle['writingDirection'] {
@@ -33,7 +37,7 @@ export function writingDirection(language: Language): TextStyle['writingDirectio
 }
 
 export function rowDirection(language: Language): ViewStyle['flexDirection'] {
-  return 'row';
+  return shouldReverseLayout(language) ? 'row-reverse' : 'row';
 }
 
 export function rowStyle(language: Language): ViewStyle {
@@ -44,19 +48,19 @@ export function rowStyle(language: Language): ViewStyle {
 }
 
 export function flexStart(language: Language): ViewStyle['alignSelf'] {
-  return 'flex-start';
+  return shouldReverseLayout(language) ? 'flex-end' : 'flex-start';
 }
 
 export function flexEnd(language: Language): ViewStyle['alignSelf'] {
-  return 'flex-end';
+  return shouldReverseLayout(language) ? 'flex-start' : 'flex-end';
 }
 
 export function alignItemsStart(language: Language): ViewStyle['alignItems'] {
-  return 'flex-start';
+  return shouldReverseLayout(language) ? 'flex-end' : 'flex-start';
 }
 
 export function alignItemsEnd(language: Language): ViewStyle['alignItems'] {
-  return 'flex-end';
+  return shouldReverseLayout(language) ? 'flex-start' : 'flex-end';
 }
 
 export const getDirection = direction;
@@ -68,6 +72,14 @@ export const getFlexStart = flexStart;
 export const getFlexEnd = flexEnd;
 export const getAlignItems = alignItemsStart;
 export const getOppositeAlignItems = alignItemsEnd;
+
+export function setActiveLanguage(language: Language) {
+  activeLanguage = language;
+}
+
+export function getActiveLanguage(): Language {
+  return activeLanguage;
+}
 
 export function activeIsRTL(): boolean {
   return isRTL(activeLanguage);

@@ -201,7 +201,7 @@ test('RTL and Language: direction utilities match across consolidated files', ()
 
   const arabicRow = rowStyle('ar');
   assert.equal(arabicRow.direction, 'rtl');
-  assert.equal(arabicRow.flexDirection, 'row');
+  assert.equal(arabicRow.flexDirection, 'row-reverse');
 });
 
 test('Settings Service: defaultSettings and legacy storage migration', async () => {
