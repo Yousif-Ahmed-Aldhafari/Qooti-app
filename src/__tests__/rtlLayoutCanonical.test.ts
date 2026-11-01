@@ -32,6 +32,7 @@ import {
   getOppositeAlignItems,
 } from '../utils/languageDirection';
 import { defaultSettings } from '../services/settingsService';
+import { bottomTabStyles } from '../components/bottomTabStyles';
 import { SQLiteSettingsRepository } from '../db/repositories/settingsRepository';
 import { SQLiteMealRepository } from '../db/repositories/mealRepository';
 import { SQLiteWorkoutRepository } from '../db/repositories/workoutRepository';
@@ -92,6 +93,30 @@ test('Task 10C - Part E.3: Arabic bottom navigation order', () => {
   assert.equal(getFlexEnd('ar'), flexEnd('ar'));
   assert.equal(getAlignItems('ar'), alignItemsStart('ar'));
   assert.equal(getOppositeAlignItems('ar'), alignItemsEnd('ar'));
+});
+
+test('Task 10C.1: Bottom navigation horizontal row layout integrity and touch areas', () => {
+  // 1. Container must strictly be a horizontal row (never default to column)
+  assert.equal(bottomTabStyles.glass.flexDirection, 'row', 'BottomTabs glass container must be flexDirection: row');
+  assert.equal(bottomTabStyles.glass.direction, 'ltr', 'BottomTabs glass must have direction: ltr for deterministic mapping');
+
+  // 2. Each tab pressable must occupy flex: 1 and 100% height for equal horizontal touch area
+  assert.equal(bottomTabStyles.tabPressable.flex, 1, 'Each tab pressable must have flex: 1');
+  assert.equal(bottomTabStyles.tabPressable.height, '100%', 'Each tab pressable must fill height');
+
+  // 3. Inner tab item fills width and height without altering sibling flow
+  assert.equal(bottomTabStyles.tabItem.flex, 1);
+  assert.equal(bottomTabStyles.tabItem.width, '100%');
+  assert.equal(bottomTabStyles.tabItem.height, '100%');
+
+  // 4. Exact visual order verification
+  // English (left to right): Home, Meals, Workouts, Progress, Profile
+  const englishOrder = getTabOrder('en');
+  assert.deepEqual(englishOrder, ['home', 'meals', 'workouts', 'progress', 'profile']);
+
+  // Arabic (left to right): Profile, Progress, Workouts, Meals, Home
+  const arabicOrder = getTabOrder('ar');
+  assert.deepEqual(arabicOrder, ['profile', 'progress', 'workouts', 'meals', 'home']);
 });
 
 test('Task 10C - Part E.4: RTL back button position and arrow direction', () => {

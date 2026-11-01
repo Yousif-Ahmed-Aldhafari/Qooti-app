@@ -107,6 +107,17 @@ export const BackHandler = {
   },
 };
 
+export const StyleSheet = {
+  create: <T extends Record<string, any>>(styles: T): T => styles,
+  absoluteFill: {
+    position: 'absolute' as const,
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+  },
+};
+
 export type TextStyle = {
   textAlign?: 'auto' | 'left' | 'right' | 'center' | 'justify';
   writingDirection?: 'auto' | 'ltr' | 'rtl';

@@ -6,9 +6,26 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useBottomNav } from '../context/BottomNavContext';
 import { getActiveTheme, themeColors } from '../theme/colors';
-import { radius } from '../theme/radius';
 import type { Language, TabKey } from '../types';
 import { getTabOrder } from '../utils/rtl';
+
+import {
+  bottomTabStyles,
+  compactActiveButtonRadius,
+  compactIconContainerSize,
+  compactIconSize,
+  compactNavHeight,
+  compactNavHorizontalInset,
+  compactNavPaddingX,
+  compactNavRadius,
+  normalActiveButtonRadius,
+  normalIconContainerSize,
+  normalIconSize,
+  normalNavHeight,
+  normalNavHorizontalInset,
+  normalNavPaddingX,
+  normalNavRadius,
+} from './bottomTabStyles';
 
 type BottomTabsProps = {
   activeTab: TabKey;
@@ -24,21 +41,6 @@ const icons: Record<TabKey, keyof typeof Ionicons.glyphMap> = {
   progress: 'analytics-outline',
   profile: 'person-outline',
 };
-const normalNavHorizontalInset = 16;
-const compactNavHorizontalInset = 42;
-const normalNavHeight = 64;
-const compactNavHeight = 52;
-const normalNavRadius = normalNavHeight / 2;
-const compactNavRadius = compactNavHeight / 2;
-const normalNavPaddingX = 4;
-const compactNavPaddingX = 2;
-const tabVerticalPadding = 2;
-const normalActiveButtonRadius = (normalNavHeight - (tabVerticalPadding * 2)) / 2;
-const compactActiveButtonRadius = (compactNavHeight - (tabVerticalPadding * 2)) / 2;
-const normalIconContainerSize = 44;
-const compactIconContainerSize = 34;
-const normalIconSize = 24;
-const compactIconSize = 20;
 
 export function BottomTabs({ activeTab, labels, onChange, language }: BottomTabsProps) {
   const colors = themeColors();
@@ -136,37 +138,4 @@ export function BottomTabs({ activeTab, labels, onChange, language }: BottomTabs
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: {
-    position: 'absolute',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.18,
-    shadowRadius: 24,
-    elevation: 12,
-  },
-  glass: {
-    flex: 1,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    overflow: 'hidden',
-  },
-  tabPressable: {
-    flex: 1,
-    height: '100%',
-    paddingHorizontal: 0,
-    paddingVertical: tabVerticalPadding,
-  },
-  tabItem: {
-    flex: 1,
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-  },
-  iconWrap: {
-    borderRadius: radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+const styles = bottomTabStyles;
