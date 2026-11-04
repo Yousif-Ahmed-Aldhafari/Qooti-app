@@ -1,26 +1,27 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import type { Workout } from '../types';
+import type { Language, Workout } from '../types';
 import { themeColors } from '../theme/colors';
 import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
-import { activeRowStyle, activeTextAlign, activeWritingDirection } from '../utils/rtl';
+import { rowStyle, textAlign, writingDirection } from '../utils/rtl';
 
 type WorkoutCardProps = {
   workout: Workout;
   minutesLabel: string;
   exerciseLabel: string;
   onPress: () => void;
+  language?: Language;
 };
 
-export function WorkoutCard({ workout, minutesLabel, exerciseLabel, onPress }: WorkoutCardProps) {
+export function WorkoutCard({ workout, minutesLabel, exerciseLabel, onPress, language }: WorkoutCardProps) {
   const colors = themeColors();
   const minutes = workout.exercises.reduce((sum, exercise) => sum + exercise.duration, 0);
   const directionalText = {
-    textAlign: activeTextAlign(),
-    writingDirection: activeWritingDirection(),
+    textAlign: textAlign(language),
+    writingDirection: writingDirection(language),
   } as const;
 
   return (
@@ -29,7 +30,7 @@ export function WorkoutCard({ workout, minutesLabel, exerciseLabel, onPress }: W
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
-        activeRowStyle(),
+        rowStyle(language),
         { backgroundColor: colors.card, opacity: pressed ? 0.78 : 1 },
       ]}
     >

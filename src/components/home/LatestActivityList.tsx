@@ -5,7 +5,8 @@ import { themeColors } from '../../theme/colors';
 import { radius } from '../../theme/radius';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
-import { activeIsRTL, activeRowStyle, activeTextAlign, activeWritingDirection } from '../../utils/rtl';
+import type { Language } from '../../types';
+import { isRTL, rowStyle, textAlign, writingDirection } from '../../utils/rtl';
 
 export type HomeActivity = {
   id: string;
@@ -21,19 +22,20 @@ type LatestActivityListProps = {
   title: string;
   emptyTitle: string;
   activities: HomeActivity[];
+  language?: Language;
 };
 
-export function LatestActivityList({ title, emptyTitle, activities }: LatestActivityListProps) {
+export function LatestActivityList({ title, emptyTitle, activities, language }: LatestActivityListProps) {
   const colors = themeColors();
-  const rtl = activeIsRTL();
+  const rtl = isRTL(language);
   const directionalText = {
-    textAlign: activeTextAlign(),
-    writingDirection: activeWritingDirection(),
+    textAlign: textAlign(language),
+    writingDirection: writingDirection(language),
   } as const;
 
   return (
     <View style={styles.wrap}>
-      <View style={[styles.headingRow, activeRowStyle()]}>
+      <View style={[styles.headingRow, rowStyle(language)]}>
         <Text style={[styles.heading, directionalText, { color: colors.text }]}>{title}</Text>
         <View style={[styles.headingAction, { borderColor: colors.text }]}>
           <Ionicons name={rtl ? 'arrow-back' : 'arrow-forward'} size={20} color={colors.orange} />
@@ -48,7 +50,7 @@ export function LatestActivityList({ title, emptyTitle, activities }: LatestActi
             onPress={activity.onPress}
             style={({ pressed }) => [
               styles.activity,
-              activeRowStyle(),
+              rowStyle(language),
               { backgroundColor: colors.card, opacity: pressed ? 0.76 : 1 },
             ]}
           >

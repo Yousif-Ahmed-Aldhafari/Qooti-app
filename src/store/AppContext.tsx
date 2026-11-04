@@ -10,12 +10,13 @@ import { getSeedMeals, getSeedProfile, getSeedProgressEntries, getSeedWorkouts }
 import { loadMeals, saveMeals } from '../services/mealService';
 import { loadProfile, saveProfile } from '../services/profileService';
 import { loadProgressEntries, saveProgressEntries } from '../services/progressService';
+import { resolveAuthoritativeLanguage } from '../services/localizationService';
 import { defaultSettings, loadSettings, saveSettings } from '../services/settingsService';
 import { loadWorkouts, saveWorkouts } from '../services/workoutService';
-import { applyAppDirection } from '../utils/languageDirection';
+import { applyAppDirection, isRTLLanguage } from '../utils/languageDirection';
 import { getDatabase, migrateFromAsyncStorage } from '../db';
 
-type AppState = {
+type AppStateData = {
   isReady: boolean;
   persistenceError: string | null;
   meals: Meal[];
@@ -45,7 +46,7 @@ type AppAction =
   | { type: 'addProgressEntry'; entry: ProgressEntry }
   | { type: 'updateSettings'; settings: Partial<Settings> };
 
-type AppContextValue = AppState & {
+type AppContextValue = AppStateData & {
   t: (key: string, values?: Record<string, string | number>) => string;
   setLanguage: (language: Language) => void;
   completeOnboarding: () => void;
@@ -64,7 +65,7 @@ type AppContextValue = AppState & {
   clearPersistenceError: () => void;
 };
 
-const initialState: AppState = {
+const initialState: AppStateData = {
   isReady: false,
   persistenceError: null,
   meals: [],
@@ -76,7 +77,7 @@ const initialState: AppState = {
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
 
-function appReducer(state: AppState, action: AppAction): AppState {
+function appReducer(state: AppStateData, action: AppAction): AppStateData {
   switch (action.type) {
     case 'hydrate':
       return {
@@ -225,7 +226,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        const hydratedSettings = { ...defaultSettings, ...(savedSettings || {}) };
+        const authoritativeLanguage = resolveAuthoritativeLanguage(savedSettings?.selectedLanguage);
+        const hydratedSettings = {
+          ...defaultSettings,
+          ...(savedSettings || {}),
+          selectedLanguage: authoritativeLanguage,
+        };
 
         // Determine if this is a fresh first launch (no settings AND no stored data records)
         const isFirstLaunch =
@@ -243,7 +249,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const initialProgress =
           savedProgressEntries !== null ? savedProgressEntries : (isFirstLaunch ? getSeedProgressEntries() : []);
 
-        applyAppDirection(hydratedSettings.selectedLanguage);
+        applyAppDirection(authoritativeLanguage);
 
         dispatch({
           type: 'hydrate',
@@ -481,4 +487,13 @@ export function useApp() {
   }
 
   return context;
+}
+
+export function useLanguage() {
+  const { settings } = useApp();
+  const language = settings.selectedLanguage;
+  return {
+    language,
+    isRTL: isRTLLanguage(language),
+  };
 }

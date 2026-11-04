@@ -9,7 +9,14 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.qooti.app"
+      "bundleIdentifier": "com.qooti.app",
+      "infoPlist": {
+        "CFBundleLocalizations": [
+          "en",
+          "ar"
+        ],
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.qooti.app",
@@ -24,12 +31,36 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "extra": {
-      "supportsRTL": true
-    },
     "plugins": [
       "expo-font",
-      "expo-localization"
-    ]
+      [
+        "expo-localization",
+        {
+          "supportedLocales": {
+            "ios": [
+              "en",
+              "ar"
+            ],
+            "android": [
+              "en",
+              "ar"
+            ]
+          },
+          "supportsRTL": true,
+          "forcesRTL": false
+        }
+      ],
+      "expo-sqlite",
+      "expo-status-bar",
+      "expo-asset"
+    ],
+    "extra": {
+      "supportsRTL": true,
+      "forcesRTL": false,
+      "eas": {
+        "projectId": "b83bfe46-56ae-4f55-bb66-301b076e16f9"
+      }
+    },
+    "owner": "yousifgo"
   }
 }

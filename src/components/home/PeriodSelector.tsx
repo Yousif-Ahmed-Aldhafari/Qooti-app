@@ -4,7 +4,8 @@ import { themeColors } from '../../theme/colors';
 import { radius } from '../../theme/radius';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
-import { activeRowStyle, activeWritingDirection } from '../../utils/rtl';
+import type { Language } from '../../types';
+import { rowStyle, writingDirection } from '../../utils/rtl';
 
 export type PeriodKey = 'today' | 'week' | 'month';
 
@@ -17,6 +18,7 @@ type PeriodSelectorProps = {
   options: PeriodOption[];
   selected: PeriodKey;
   onChange: (period: PeriodKey) => void;
+  language?: Language;
 };
 
 type PeriodFilterButtonProps = {
@@ -24,9 +26,10 @@ type PeriodFilterButtonProps = {
   value: PeriodKey;
   selected: boolean;
   onPress: () => void;
+  language?: Language;
 };
 
-export function PeriodFilterButton({ label, value, selected, onPress }: PeriodFilterButtonProps) {
+export function PeriodFilterButton({ label, value, selected, onPress, language }: PeriodFilterButtonProps) {
   const colors = themeColors();
 
   return (
@@ -49,7 +52,7 @@ export function PeriodFilterButton({ label, value, selected, onPress }: PeriodFi
           styles.label,
           {
             color: selected ? colors.white : colors.primary,
-            writingDirection: activeWritingDirection(),
+            writingDirection: writingDirection(language),
           },
         ]}
         numberOfLines={1}
@@ -60,9 +63,9 @@ export function PeriodFilterButton({ label, value, selected, onPress }: PeriodFi
   );
 }
 
-export function PeriodSelector({ options, selected, onChange }: PeriodSelectorProps) {
+export function PeriodSelector({ options, selected, onChange, language }: PeriodSelectorProps) {
   return (
-    <View style={[styles.wrap, activeRowStyle()]}>
+    <View style={[styles.wrap, rowStyle(language)]}>
       {options.map((option) => (
         <PeriodFilterButton
           key={option.key}
@@ -70,6 +73,7 @@ export function PeriodSelector({ options, selected, onChange }: PeriodSelectorPr
           value={option.key}
           selected={option.key === selected}
           onPress={() => onChange(option.key)}
+          language={language}
         />
       ))}
     </View>

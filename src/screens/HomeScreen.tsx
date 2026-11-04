@@ -14,7 +14,7 @@ import type { Translator } from '../i18n';
 import { themeColors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
-import type { Meal, SleepEntry, UserProfile, WaterEntry, Workout } from '../types';
+import type { Language, Meal, SleepEntry, UserProfile, WaterEntry, Workout } from '../types';
 import { calculateDailyNutrition, estimateWeightGainKg, formatWeightGainKg, progressRatio, workoutMinutes } from '../utils/nutrition';
 import { activeIsRTL, activeRowStyle, activeTextAlign, activeWritingDirection } from '../utils/rtl';
 
@@ -59,6 +59,7 @@ export function HomeScreen({
   const selectedDate = useMemo(() => dateFromKey(selectedDateKey), [selectedDateKey]);
   const firstName = profile.name.split(' ')[0] || profile.name;
   const rtl = activeIsRTL();
+  const language: Language = rtl ? 'ar' : 'en';
   const directionalText = {
     textAlign: activeTextAlign(),
     writingDirection: activeWritingDirection(),
@@ -146,9 +147,10 @@ export function HomeScreen({
         greeting={t('home.headerGreeting', { name: firstName })}
         subtitle={t('home.headerSubtitle')}
         onActionPress={() => undefined}
+        language={language}
       />
 
-      <PeriodSelector options={periodOptions} selected={period} onChange={setPeriod} />
+      <PeriodSelector options={periodOptions} selected={period} onChange={setPeriod} language={language} />
 
       <CombinedProgressStatsCard
         isRTL={rtl}
@@ -204,6 +206,7 @@ export function HomeScreen({
         dates={dateOptions}
         selectedDate={selectedDateKey}
         onSelect={handleDateSelect}
+        language={language}
       />
 
       <Text style={[styles.sectionTitle, directionalText, { color: colors.text }]}>{t('home.todayPlan')}</Text>
@@ -215,6 +218,7 @@ export function HomeScreen({
           icon="restaurant-outline"
           accent={colors.lavender}
           onPress={onAddMeal}
+          language={language}
         />
         <QuickActionCard
           title={t('home.addWorkout')}
@@ -223,6 +227,7 @@ export function HomeScreen({
           icon="barbell-outline"
           accent={colors.purple}
           onPress={onAddWorkout}
+          language={language}
         />
       </View>
 
@@ -232,9 +237,10 @@ export function HomeScreen({
         proteinValue={`${Math.round(totals.protein)} / ${proteinTarget} ${t('common.grams')}`}
         mealsValue={t('home.dailyGoal.meals', { count: mealCount })}
         workoutValue={t('home.dailyGoal.workouts', { count: filteredWorkouts.length })}
+        language={language}
       />
 
-      <LatestActivityList title={t('home.latestActivity')} emptyTitle={t('home.activity.empty')} activities={latestActivities} />
+      <LatestActivityList title={t('home.latestActivity')} emptyTitle={t('home.activity.empty')} activities={latestActivities} language={language} />
 
       <View style={styles.goals}>
         {goals.length ? (
@@ -470,7 +476,7 @@ function translateMuscleName(muscle: string, t: Translator): string {
 function buildDateOptions(center: Date, rtl: boolean): DateOption[] {
   const dates = Array.from({ length: 7 }, (_, index) => {
     const date = shiftDate(center, index - 3);
-    const locale = rtl ? 'ar-EG' : 'en-US';
+    const locale = rtl ? 'ar-SA-u-nu-latn' : 'en-US';
 
     return {
       key: toDateKey(date),
@@ -483,7 +489,7 @@ function buildDateOptions(center: Date, rtl: boolean): DateOption[] {
 }
 
 function formatMonthYear(date: Date, rtl: boolean): string {
-  return new Intl.DateTimeFormat(rtl ? 'ar-EG' : 'en-US', {
+  return new Intl.DateTimeFormat(rtl ? 'ar-SA-u-nu-latn' : 'en-US', {
     month: 'long',
     year: 'numeric',
   }).format(date);

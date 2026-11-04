@@ -2,7 +2,7 @@
   "app": {
     "name": "قوتي",
     "arabicName": "قوتي",
-    "tagline": "وجباتك ومغذياتك وتمارينك وتقدمك في مدرب يومي واحد."
+    "tagline": "وجباتك ومغذياتك وتمارينك وتقدمك في لوحة رياضية داكنة واحدة."
   },
   "navigation": {
     "home": "الرئيسية",
@@ -63,11 +63,25 @@
     "dailyGoal": "الهدف اليومي",
     "remaining": "المتبقي",
     "completed": "مكتمل",
-    "cm": "سم"
+    "cm": "سم",
+    "settings": "الإعدادات",
+    "calories": "السعرات",
+    "protein": "البروتين",
+    "carbs": "الكربوهيدرات",
+    "fats": "الدهون",
+    "kcal": "سعرة",
+    "grams": "جم",
+    "kg": "كجم",
+    "minutes": "د",
+    "hoursShort": "س",
+    "litersShort": "ل",
+    "total": "المجموع"
   },
   "splash": {
     "headline": "تمرن بذكاء. وكل بوضوح.",
-    "subline": "رفيقك الصحي بالعربية والإنجليزية"
+    "subline": "رفيقك الصحي بالعربية والإنجليزية",
+    "title": "تمرن بقوة. وتغذ بذكاء.",
+    "subtitle": "قوتي ينظم وجباتك وتمارينك وتقدمك اليومي."
   },
   "auth": {
     "loginTitle": "أهلا بعودتك",
@@ -94,7 +108,9 @@
     "mealPoint": "تتبع الوجبات والمغذيات",
     "macroPoint": "ملخص السعرات اليومي",
     "workoutPoint": "سجل التمارين والتاريخ",
-    "privacyPoint": "بيانات محلية لنسخة MVP"
+    "privacyPoint": "بيانات محلية لنسخة MVP",
+    "title": "مركزك الرياضي بالعربية والإنجليزية",
+    "body": "تتبع السعرات والمغذيات والتمارين والتقدم بتجربة جوال داكنة وواضحة."
   },
   "language": {
     "title": "اختر لغة التطبيق",
@@ -136,13 +152,13 @@
   },
   "meals": {
     "title": "الوجبات",
-    "subtitle": "سجل طعام اليوم ومجموع المغذيات.",
+    "subtitle": "تسجيل يدوي للوجبات والسعرات والمغذيات.",
     "emptyTitle": "لا توجد وجبات بعد",
-    "emptyMessage": "أضف أول وجبة مع عناصر الطعام ومجموع المغذيات.",
+    "emptyMessage": "أضف أول وجبة لعرض مجموع التغذية.",
     "addTitle": "إضافة وجبة",
     "editTitle": "تعديل وجبة",
     "mealName": "اسم الوجبة",
-    "mealNamePlaceholder": "فطور، غداء، عشاء...",
+    "mealNamePlaceholder": "غداء، فطور، وجبة خفيفة...",
     "foodItems": "عناصر الطعام",
     "addFoodItem": "إضافة عنصر طعام",
     "foodName": "اسم الطعام",
@@ -162,13 +178,17 @@
     "searchPlaceholder": "ابحث عن دجاج، رز، شوفان...",
     "popularFoods": "أطعمة شائعة",
     "useFood": "استخدام الطعام",
-    "perServing": "لكل حصة"
+    "perServing": "لكل حصة",
+    "detailsTitle": "تفاصيل الوجبة",
+    "fats": "الدهون",
+    "foodPlaceholder": "صدر دجاج",
+    "itemLabel": "عناصر"
   },
   "workouts": {
-    "title": "سجل التمارين",
-    "subtitle": "تمارين القوة والكارديو والحركة.",
+    "title": "التمارين",
+    "subtitle": "سجل الحركات والمجموعات والتكرارات والوزن والمدة والملاحظات.",
     "emptyTitle": "لا توجد تمارين بعد",
-    "emptyMessage": "أضف أول جلسة تمرين وحركاتها.",
+    "emptyMessage": "أضف تمرينا لبناء سجل التدريب.",
     "addTitle": "إضافة تمرين",
     "editTitle": "تعديل تمرين",
     "workoutName": "اسم التمرين",
@@ -194,11 +214,16 @@
     "deleteWorkoutMessage": "سيتم حذف جلسة التمرين وكل الحركات داخلها.",
     "noExercises": "لم تتم إضافة تمارين لهذه الجلسة.",
     "weeklySummary": "ملخص تمارين الأسبوع",
-    "recent": "آخر التمارين"
+    "recent": "آخر التمارين",
+    "detailsTitle": "تفاصيل التمرين",
+    "workoutPlaceholder": "جزء علوي، جري، يوغا...",
+    "exercisePlaceholder": "بنش برس",
+    "notes": "ملاحظات",
+    "exerciseLabel": "تمارين"
   },
   "progress": {
     "title": "التقدم",
-    "subtitle": "إحصاءات بسيطة من التغذية والتمارين.",
+    "subtitle": "إحصاءات التغذية والتمارين الأسبوعية.",
     "weight": "الوزن",
     "steps": "الخطوات",
     "calories": "السعرات",
@@ -206,9 +231,12 @@
     "weeklyTrend": "اتجاه الأسبوع",
     "nutritionConsistency": "ثبات التغذية",
     "trainingConsistency": "ثبات التمرين",
-    "latestWeight": "آخر وزن",
+    "latestWeight": "آخر قياس",
     "averageCalories": "متوسط السعرات",
-    "sessions": "الجلسات"
+    "sessions": "الجلسات",
+    "workoutDays": "أيام التمرين",
+    "daysTracked": "{{count}} أيام مسجلة",
+    "goalHelper": "اتجاه الهدف"
   },
   "profile": {
     "title": "الملف",
@@ -220,14 +248,15 @@
     "settings": "الإعدادات",
     "editProfile": "تعديل الملف",
     "logout": "تسجيل الخروج",
-    "localAccount": "حساب محلي"
+    "localAccount": "حساب محلي",
+    "account": "الحساب"
   },
   "settings": {
     "title": "الإعدادات",
-    "subtitle": "اللغة والمظهر وتفضيلات التطبيق.",
+    "subtitle": "اللغة وتفضيلات التطبيق.",
     "language": "اللغة",
     "appearance": "المظهر",
-    "theme": "المظهر",
+    "theme": "السمة",
     "themeSystem": "حسب النظام",
     "themeLight": "فاتح",
     "themeDark": "داكن",
@@ -235,14 +264,23 @@
     "darkMode": "الوضع الداكن",
     "systemMode": "النظام",
     "restartTitle": "يلزم إعادة التشغيل",
-    "restartMessage": "يحتاج قوتي إلى إعادة التحميل لتطبيق اتجاه التخطيط بالكامل.",
-    "restartAction": "إعادة التحميل",
+    "restartMessage": "تم حفظ اللغة. يرجى إغلاق التطبيق وإعادة فتحه لتطبيق اتجاه التخطيط بالكامل.",
+    "restartAction": "حسناً",
     "units": "وحدات القياس",
     "metric": "متري",
     "imperial": "إنجليزي",
-    "about": "عن قوتي",
+    "about": "قوتي نسخة أولية محلية جاهزة لاحقا لمسح الباركود وتقدير الوجبات بالذكاء الاصطناعي والمزامنة الخلفية وميزات السحابة.",
     "aboutBody": "قوتي نسخة MVP محلية لتتبع الوجبات والمغذيات والتمارين والتقدم. يمكن لاحقا إضافة المزامنة الخلفية، مسح الباركود، تقدير الوجبات بالذكاء الاصطناعي، وميزات السحابة.",
-    "changeLanguage": "تغيير اللغة"
+    "changeLanguage": "تغيير اللغة",
+    "english": "English",
+    "arabic": "العربية",
+    "selected": "محدد",
+    "aboutTitle": "عن قوتي",
+    "changeAppLanguage": "تغيير لغة التطبيق",
+    "iosLanguageNotice": "تتم إدارة لغة التطبيق عبر إعدادات iOS. التطبيق يدعم العربية والإنجليزية.",
+    "currentLanguage": "اللغة الحالية",
+    "openSettingsErrorTitle": "تعذر فتح الإعدادات",
+    "openSettingsErrorMessage": "يرجى فتح تطبيق الإعدادات في آيفون > قوتي > اللغة المفضلة لتغيير اللغة."
   },
   "macros": {
     "calories": "السعرات",
@@ -251,5 +289,85 @@
     "fat": "دهون",
     "kcal": "سعرة",
     "grams": "جم"
+  },
+  "tabs": {
+    "home": "الرئيسية",
+    "meals": "الوجبات",
+    "workouts": "التمارين",
+    "progress": "التقدم",
+    "profile": "الملف الشخصي"
+  },
+  "home": {
+    "greeting": "مرحبا {{name}}",
+    "subtitle": "لوحة يومك الرياضية",
+    "headerGreeting": "مرحباً، {{name}}",
+    "headerSubtitle": "تابع تغذيتك وتمرينك اليوم",
+    "period": {
+      "today": "اليوم",
+      "week": "هذا الأسبوع",
+      "month": "هذا الشهر"
+    },
+    "dailyCalories": "سعرات اليوم",
+    "macroBalance": "توازن المغذيات",
+    "quickActions": "إجراءات سريعة",
+    "addMeal": "إضافة وجبة",
+    "addMealSubtitle": "سجل وجبتك التالية",
+    "addWorkout": "إضافة تمرين",
+    "addWorkoutSubtitle": "سجل جلستك التدريبية",
+    "recentMeals": "آخر الوجبات",
+    "nextWorkout": "التمرين التالي",
+    "todayPlan": "خطة اليوم",
+    "latestActivity": "آخر النشاطات",
+    "metrics": {
+      "calories": "السعرات",
+      "macros": "المغذيات",
+      "workout": "التمرين",
+      "sleep": "النوم",
+      "water": "الماء",
+      "progress": "التقدم",
+      "dailyProgress": "تقدم اليوم",
+      "expectedGainToday": "الزيادة المتوقعة اليوم",
+      "expectedGainThisWeek": "الزيادة المتوقعة هذا الأسبوع",
+      "expectedGainThisMonth": "الزيادة المتوقعة هذا الشهر",
+      "exercises": "{{count}} تمارين",
+      "muscles": "العضلات",
+      "fat": "الدهون",
+      "body": "الجسم",
+      "noWorkoutYet": "لا يوجد تمرين بعد",
+      "fullBody": "الجسم بالكامل",
+      "estimatedLeanGain": "تقدير زيادة العضلات",
+      "estimatedFatGain": "تقدير زيادة الدهون",
+      "targetedMuscles": "العضلات المستهدفة",
+      "sleepGoal": "هدف النوم",
+      "waterGoal": "هدف الماء"
+    },
+    "muscleGroups": {
+      "arms": "الذراعين",
+      "back": "الظهر",
+      "chest": "الصدر",
+      "core": "الجذع",
+      "glutes": "الأرداف",
+      "legs": "الأرجل",
+      "shoulders": "الأكتاف"
+    },
+    "dailyGoal": {
+      "title": "هدف التغذية اليومي",
+      "meals": "{{count}} وجبات مكتملة",
+      "workouts": "{{count}} تمارين"
+    },
+    "activity": {
+      "empty": "لا توجد نشاطات لهذا التاريخ بعد.",
+      "mealAdded": "تمت إضافة {{name}}",
+      "workoutCompleted": "اكتمل تمرين {{name}}"
+    },
+    "goals": {
+      "calories": "هدف السعرات اليومي",
+      "protein": "هدف البروتين اليومي",
+      "dailyTarget": "الهدف اليومي",
+      "percentComplete": "{{amount}}% مكتمل",
+      "caloriesRemaining": "متبقي {{amount}} سعرة",
+      "proteinRemaining": "متبقي {{amount}}جم بروتين",
+      "empty": "أنشئ هدفاً لتتبع التقدم هنا."
+    }
   }
 }

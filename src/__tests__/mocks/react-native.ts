@@ -1,13 +1,90 @@
 export const I18nManager = {
   isRTL: false,
-  allowRTL: (_allow: boolean) => {},
-  forceRTL: (_force: boolean) => {},
-  swapLeftAndRightInRTL: (_swap: boolean) => {},
+  calls: {
+    allowRTL: [] as boolean[],
+    forceRTL: [] as boolean[],
+    swapLeftAndRightInRTL: [] as boolean[],
+  },
+  allowRTL: (allow: boolean) => {
+    I18nManager.calls.allowRTL.push(allow);
+  },
+  forceRTL: (force: boolean) => {
+    I18nManager.calls.forceRTL.push(force);
+  },
+  swapLeftAndRightInRTL: (swap: boolean) => {
+    I18nManager.calls.swapLeftAndRightInRTL.push(swap);
+  },
+  reset: () => {
+    I18nManager.isRTL = false;
+    I18nManager.calls = {
+      allowRTL: [],
+      forceRTL: [],
+      swapLeftAndRightInRTL: [],
+    };
+  },
+};
+
+export type AlertButton = {
+  text?: string;
+  onPress?: () => void;
+  style?: 'default' | 'cancel' | 'destructive';
+};
+
+export const Alert = {
+  alertCalls: [] as { title: string; message?: string; buttons?: AlertButton[] }[],
+  alert: (title: string, message?: string, buttons?: AlertButton[]) => {
+    Alert.alertCalls.push({ title, message, buttons });
+  },
+  reset: () => {
+    Alert.alertCalls = [];
+  },
 };
 
 export const Platform = {
-  OS: 'android',
-  select: (obj: any) => obj.android ?? obj.default,
+  OS: 'android' as 'ios' | 'android' | 'web',
+  select: (obj: any) => obj[Platform.OS] ?? obj.default,
+  setOS: (os: 'ios' | 'android' | 'web') => {
+    Platform.OS = os;
+  },
+  reset: () => {
+    Platform.OS = 'android';
+  },
+};
+
+export const Linking = {
+  openedSettingsCount: 0,
+  shouldFailOpenSettings: false,
+  openSettings: async (): Promise<void> => {
+    Linking.openedSettingsCount++;
+    if (Linking.shouldFailOpenSettings) {
+      throw new Error('Failed to open settings');
+    }
+  },
+  reset: () => {
+    Linking.openedSettingsCount = 0;
+    Linking.shouldFailOpenSettings = false;
+  },
+};
+
+export const AppState = {
+  currentState: 'active',
+  listeners: [] as ((state: string) => void)[],
+  addEventListener: (_type: string, listener: (state: string) => void) => {
+    AppState.listeners.push(listener);
+    return {
+      remove: () => {
+        AppState.listeners = AppState.listeners.filter((l) => l !== listener);
+      },
+    };
+  },
+  simulateAppStateChange: (nextState: string) => {
+    AppState.currentState = nextState;
+    AppState.listeners.forEach((l) => l(nextState));
+  },
+  reset: () => {
+    AppState.currentState = 'active';
+    AppState.listeners = [];
+  },
 };
 
 export const BackHandler = {
@@ -27,6 +104,17 @@ export const BackHandler = {
       }
     }
     return false;
+  },
+};
+
+export const StyleSheet = {
+  create: <T extends Record<string, any>>(styles: T): T => styles,
+  absoluteFill: {
+    position: 'absolute' as const,
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
   },
 };
 

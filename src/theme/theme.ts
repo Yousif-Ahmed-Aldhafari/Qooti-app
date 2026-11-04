@@ -1,7 +1,7 @@
 export type ResolvedTheme = 'light' | 'dark';
 export type ThemePreference = ResolvedTheme | 'system';
 export type ThemeMode = ResolvedTheme;
-export type SystemColorScheme = ResolvedTheme | null | undefined;
+export type SystemColorScheme = ResolvedTheme | 'unspecified' | null | undefined;
 
 export const brandColors = {
   primaryGreen: '#2F9E67',
