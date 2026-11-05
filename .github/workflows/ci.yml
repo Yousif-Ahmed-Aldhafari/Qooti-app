@@ -46,14 +46,11 @@ jobs:
 
       - name: Run automated test suite with coverage
         run: |
-          set -o pipefail
-          npm run test:coverage 2>&1 | tee /tmp/coverage-output.txt || {
-            exit_code=$?
-            echo "### Test Coverage Failure (Exit Code: $exit_code)" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            tail -n 150 /tmp/coverage-output.txt >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            exit $exit_code
+          npm run test:coverage > /tmp/out.txt 2>&1 || {
+            while IFS= read -r line; do
+              echo "::error::$line"
+            done < /tmp/out.txt
+            exit 1
           }
 
       - name: Expo Doctor project diagnostic
