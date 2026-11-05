@@ -45,13 +45,7 @@ jobs:
         run: npm run lint
 
       - name: Run automated test suite with coverage
-        run: |
-          npm run test:coverage > /tmp/out.txt 2>&1 || {
-            tail -n 25 /tmp/out.txt | while IFS= read -r line; do
-              echo "::error::$line"
-            done
-            exit 1
-          }
+        run: npm run test:coverage
 
       - name: Expo Doctor project diagnostic
         run: npx expo-doctor

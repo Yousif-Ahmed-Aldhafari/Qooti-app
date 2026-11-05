@@ -17,6 +17,11 @@ export class MockSQLiteDatabase implements IDatabase {
   constructor(dbPath: string) {
     this.dbPath = dbPath;
     this.db = new DatabaseSync(dbPath);
+    try {
+      this.db.exec('PRAGMA busy_timeout = 5000;');
+    } catch {
+      // Ignore
+    }
   }
 
   async execAsync(source: string): Promise<void> {
@@ -140,6 +145,13 @@ export class MockSQLiteDatabase implements IDatabase {
   }
 }
 
+function getDatabaseFilePath(databaseName: string): string {
+  const sanitized = databaseName.replace(/[^a-zA-Z0-9_-]/g, '_');
+  return path.join(os.tmpdir(), `test-qooti-${process.pid}-${sanitized}`);
+}
+
+const testDbPrefix = `test-qooti-${process.pid}-`;
+
 export async function openDatabaseAsync(
   databaseName: string,
   _options?: any,
@@ -149,7 +161,7 @@ export async function openDatabaseAsync(
     return new MockSQLiteDatabase(':memory:');
   }
 
-  const filePath = path.join(os.tmpdir(), `test-qooti-${databaseName.replace(/[^a-zA-Z0-9_-]/g, '_')}`);
+  const filePath = getDatabaseFilePath(databaseName);
   let existing = openDatabases.get(filePath);
   if (!existing || (existing as any).isClosed) {
     existing = new MockSQLiteDatabase(filePath);
@@ -160,7 +172,7 @@ export async function openDatabaseAsync(
 }
 
 export async function deleteDatabaseAsync(databaseName: string): Promise<void> {
-  const filePath = path.join(os.tmpdir(), `test-qooti-${databaseName.replace(/[^a-zA-Z0-9_-]/g, '_')}`);
+  const filePath = getDatabaseFilePath(databaseName);
   const existing = openDatabases.get(filePath);
   if (existing) {
     await existing.closeAsync();
@@ -189,7 +201,7 @@ export async function resetDatabaseState(): Promise<void> {
   try {
     const files = fs.readdirSync(tmpDir);
     for (const file of files) {
-      if (file.startsWith('test-qooti-')) {
+      if (file.startsWith(testDbPrefix)) {
         const fullPath = path.join(tmpDir, file);
         if (!openDatabases.has(fullPath)) {
           try {
@@ -219,7 +231,7 @@ export function cleanupAllTestDatabases(): void {
   try {
     const files = fs.readdirSync(tmpDir);
     for (const file of files) {
-      if (file.startsWith('test-qooti-')) {
+      if (file.startsWith(testDbPrefix)) {
         try {
           fs.unlinkSync(path.join(tmpDir, file));
         } catch {
