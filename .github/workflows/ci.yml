@@ -45,7 +45,16 @@ jobs:
         run: npm run lint
 
       - name: Run automated test suite with coverage
-        run: npm run test:coverage
+        run: |
+          set -o pipefail
+          npm run test:coverage 2>&1 | tee /tmp/coverage-output.txt || {
+            exit_code=$?
+            echo "### Test Coverage Failure (Exit Code: $exit_code)" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            tail -n 150 /tmp/coverage-output.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            exit $exit_code
+          }
 
       - name: Expo Doctor project diagnostic
         run: npx expo-doctor
