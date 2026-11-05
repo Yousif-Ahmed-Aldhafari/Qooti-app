@@ -47,9 +47,9 @@ jobs:
       - name: Run automated test suite with coverage
         run: |
           npm run test:coverage > /tmp/out.txt 2>&1 || {
-            while IFS= read -r line; do
+            tail -n 25 /tmp/out.txt | while IFS= read -r line; do
               echo "::error::$line"
-            done < /tmp/out.txt
+            done
             exit 1
           }
 
