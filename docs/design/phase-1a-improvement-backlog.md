@@ -143,17 +143,20 @@
 
 To ensure safety, stability, and zero regressions, the implementation must proceed in focused batches:
 
-- **Batch 1 (Immediate Priority — Navigation & Forms):**
-  - Item 1.1: Android 3-Button Navigation Bar Clearance in `BottomTabs.tsx`
-  - Item 2.1: Keyboard Avoidance & Dismissal in `AddMealScreen.tsx` & `AddWorkoutScreen.tsx`
-  - Item 2.2: Compact Screen Layout Grid for Numeric Inputs
-  - Item 4.1: `OnboardingScreen.tsx` RTL Text Alignment
+- **Batch 1 (Immediate Priority — Navigation & Forms — Completed in Task 1A.2):**
+  - Item 1.1: [RESOLVED] Android 3-Button Navigation Bar Clearance in `BottomTabs.tsx`
+  - Item 2.1: [RESOLVED] Keyboard Avoidance & Dismissal in `AddMealScreen.tsx` & `AddWorkoutScreen.tsx`
+  - Item 2.2: [RESOLVED] Compact Screen Layout Grid for Numeric Inputs
+  - Item 4.1: [RESOLVED] `OnboardingScreen.tsx` RTL Text Alignment
 
-- **Batch 2 (Tactile & Visual Polish):**
-  - Item 3.1: Accessible Touch Targets for Header Actions and Filters
-  - Item 3.2: Native Material Ink Ripple on Android
-  - Item 2.3: Input Focus States & Inline Validation
+- **Batch 2 (Tactile & Visual Polish — Completed in Task 1A.3):**
+  - Item 3.1: [RESOLVED] Accessible Touch Targets for Header Actions and Filters (`HomeHeader`, `PeriodSelector`, `LatestActivityList`)
+  - Item 3.2: [RESOLVED] Native Material Ink Ripple on Android (`AppButton`, `MealCard`, `WorkoutCard`, `PeriodSelector`, `LatestActivityList`)
+  - Item 2.3: [RESOLVED] Input Focus States & Inline Validation Presentation (`AppInput` focus border, error text, helper text, accessible states)
+  - Item 3.3: [RESOLVED] Screen Reader Accessibility Audit & Semantics (`accessibilityRole`, `accessibilityLabel`, `accessibilityState`)
+  - Item 4.2: [RESOLVED] Rich Empty States for Meals and Workouts (`EmptyState.tsx`, `MealsScreen.tsx`, `WorkoutsScreen.tsx`)
 
-- **Batch 3 (Accessibility & Empty States):**
-  - Item 3.3: Screen Reader Accessibility Audit & Semantics
-  - Item 4.2: Rich Empty States for Meals and Workouts
+- **Batch 3 (Remaining Scope for Task 1A.4):**
+  - Item 1.2: iOS Interactive Edge-Swipe Back Navigation in `AppNavigator.tsx`
+  - Settings Screen Native Toggles and Feedback Polish
+  - Prototype Screen Audit & Deprecation
