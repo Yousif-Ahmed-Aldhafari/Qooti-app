@@ -27,7 +27,11 @@ export function GoalProgressCard({ title, target, percentLabel, remaining, progr
   const safeProgress = Math.min(1, Math.max(0, progress));
 
   return (
-    <View style={[styles.card, { backgroundColor: accent }]}>
+    <View
+      accessible={true}
+      accessibilityLabel={`${title}: ${percentLabel}, ${remaining}`}
+      style={[styles.card, { backgroundColor: accent }]}
+    >
       <View style={[styles.header, activeRowStyle()]}>
         <Text style={[styles.title, directionalText]}>{title}</Text>
         <View style={[styles.targetRow, activeRowStyle()]}>

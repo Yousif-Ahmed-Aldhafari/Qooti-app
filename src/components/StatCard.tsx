@@ -21,7 +21,11 @@ export function StatCard({ label, value, accent }: StatCardProps) {
   } as const;
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.glassBackground, borderColor: colors.glassBorder, shadowColor: colors.shadow }]}>
+    <View
+      accessible={true}
+      accessibilityLabel={`${label}: ${value}`}
+      style={[styles.card, { backgroundColor: colors.glassBackground, borderColor: colors.glassBorder, shadowColor: colors.shadow }]}
+    >
       <Text style={[styles.value, directionalText, { color: tone }]}>{value}</Text>
       <Text style={[styles.label, directionalText, { color: colors.textMuted }]}>{label}</Text>
     </View>

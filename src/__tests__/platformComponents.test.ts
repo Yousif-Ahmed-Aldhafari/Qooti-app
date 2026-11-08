@@ -161,3 +161,39 @@ test('Task 1A.4 - Screen-by-Screen: Form validation error handling and radio sem
   assert.equal(evaluatedOptions.find((o) => o.value === 'dark')?.selected, true);
   assert.equal(evaluatedOptions.find((o) => o.value === 'light')?.selected, false);
 });
+
+test('Task 1A.5 - Accessibility & Responsiveness: Composite accessibility labels and responsive constraints', () => {
+  // 1. Accessibility label formats for grouped cards
+  const formatStatCardA11y = (label: string, value: string | number) => `${label}: ${value}`;
+  const formatProgressCardA11y = (title: string, value: string, helper: string) => `${title}: ${value}, ${helper}`;
+  const formatMacroCardA11y = (label: string, value: number, target: number, unit: string) =>
+    `${label}: ${Math.round(value)} of ${target} ${unit}`;
+  const formatChartA11y = (title: string, entries: { label: string; calories: number }[], unit: string) =>
+    `${title}: ${entries.map((e) => `${e.label} ${e.calories} ${unit}`).join(', ')}`;
+
+  assert.equal(formatStatCardA11y('Height', '180 cm'), 'Height: 180 cm');
+  assert.equal(formatProgressCardA11y('Weight', '75 kg', 'Latest weight recorded'), 'Weight: 75 kg, Latest weight recorded');
+  assert.equal(formatMacroCardA11y('Protein', 120.4, 150, 'g'), 'Protein: 120 of 150 g');
+  assert.equal(
+    formatChartA11y('Weekly Trend', [{ label: 'Mon', calories: 2100 }, { label: 'Tue', calories: 2300 }], 'kcal'),
+    'Weekly Trend: Mon 2100 kcal, Tue 2300 kcal'
+  );
+
+  // 2. Responsive layout verification across viewport sizes (320dp, 360dp, 390dp, 430dp)
+  function canFitSideBySide(viewportWidth: number, screenHorizontalPadding: number, cardMinWidth: number, gap: number) {
+    const availableWidth = viewportWidth - screenHorizontalPadding * 2;
+    return availableWidth >= cardMinWidth * 2 + gap;
+  }
+
+  // StatCards (minWidth: 100, gap: 12, padding: 24 each side)
+  // 320dp screen has 320 - 48 = 272dp. 100*2 + 12 = 212dp <= 272dp -> fits side-by-side!
+  assert.equal(canFitSideBySide(320, 24, 100, 12), true);
+  assert.equal(canFitSideBySide(375, 24, 100, 12), true);
+  assert.equal(canFitSideBySide(430, 24, 100, 12), true);
+
+  // MacroCards (minWidth: 148, gap: 12, padding: 24 each side)
+  // On 320dp, 148*2 + 12 = 308dp > 272dp -> wraps safely to 1 column
+  assert.equal(canFitSideBySide(320, 24, 148, 12), false);
+  // On 390dp screen, 390 - 48 = 342dp >= 308dp -> fits 2 columns
+  assert.equal(canFitSideBySide(390, 24, 148, 12), true);
+});

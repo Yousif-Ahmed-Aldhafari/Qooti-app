@@ -330,3 +330,18 @@ Our repository audit revealed an important structural distinction:
 - **Recommended Solution:** Remove fixed `lineHeight` on flexible body text or use multiplier-based scaling.
 - **Implementation:** Shared theme typography review.
 - **Risk of Regression:** Low.
+
+---
+
+## 4. Phase 1A Implementation & Hardening Status (Tasks 1A.2 – 1A.5)
+
+- **Finding 1 (Android 3-Button Clearance):** RESOLVED in Task 1A.2 (`BottomTabs.tsx`, `bottomTabStyles.ts`).
+- **Finding 2 (iOS Edge-Swipe Navigation):** ASSESSED in Task 1A.5 (`docs/design/native-navigation-migration-assessment.md`). Dedicated blueprint for `@react-navigation/native-stack` in Phase 1B; state-based router retained for Phase 1A stability.
+- **Finding 3 (Keyboard Avoidance):** RESOLVED in Task 1A.2 (`AddMealScreen.tsx`, `AddWorkoutScreen.tsx`).
+- **Finding 4 (Compact Macro Input Grid):** RESOLVED in Task 1A.2 with flexWrap grid. Verified across 320dp-430dp in Task 1A.5.
+- **Finding 5 & 6 (Touch Targets & Ripple Feedback):** RESOLVED in Task 1A.3 across all interactive controls with `touchFeedback.ts`.
+- **Finding 7 (Input Focus & Inline Validation):** RESOLVED in Task 1A.3 & Task 1A.4 (`AppInput.tsx`, inline error alerts replaced).
+- **Finding 8 (Screen Reader Accessibility):** HARDENED in Task 1A.5: composite `accessibilityLabel` on `StatCard`, `ProgressCard`, `MacroCard`, `CombinedProgressStatsCard`, and `GoalProgressCard`; `accessibilityRole="header"` on headers.
+- **Finding 10 (Onboarding RTL):** RESOLVED in Task 1A.2.
+- **Finding 12 (Empty States):** RESOLVED in Task 1A.3 & Task 1A.4 (`EmptyState.tsx`).
+

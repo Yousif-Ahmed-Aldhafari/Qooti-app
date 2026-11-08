@@ -50,7 +50,11 @@ export function DailyGoalBanner({ title, calorieValue, proteinValue, mealsValue,
 
 function BannerMetric({ icon, value, color, language }: { icon: keyof typeof Ionicons.glyphMap; value: string; color: string; language?: Language }) {
   return (
-    <View style={[styles.bannerMetric, rowStyle(language)]}>
+    <View
+      accessible={true}
+      accessibilityLabel={value}
+      style={[styles.bannerMetric, rowStyle(language)]}
+    >
       <Ionicons name={icon} size={16} color={color} />
       <Text style={styles.metricText} numberOfLines={1}>
         {value}

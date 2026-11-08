@@ -48,7 +48,7 @@ export function EmptyState({
       <View style={[styles.iconCircle, { backgroundColor: colors.cardMuted }]}>
         <Ionicons name={icon} size={36} color={colors.accent} />
       </View>
-      <View style={styles.copy}>
+      <View style={styles.copy} accessible={true} accessibilityLabel={`${title}. ${description}`}>
         <Text style={[styles.title, directionalText, { color: colors.text }]}>{title}</Text>
         <Text style={[styles.description, directionalText, { color: colors.textMuted }]}>
           {description}

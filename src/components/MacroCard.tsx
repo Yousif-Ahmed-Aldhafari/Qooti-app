@@ -24,7 +24,11 @@ export function MacroCard({ label, value, target, unit, accent }: MacroCardProps
   } as const;
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.glassBackground, borderColor: colors.glassBorder, shadowColor: colors.shadow }]}>
+    <View
+      accessible={true}
+      accessibilityLabel={`${label}: ${Math.round(value)} of ${target} ${unit}`}
+      style={[styles.card, { backgroundColor: colors.glassBackground, borderColor: colors.glassBorder, shadowColor: colors.shadow }]}
+    >
       <Text style={[styles.label, directionalText, { color: colors.textMuted }]}>{label}</Text>
       <Text style={[styles.value, directionalText, { color: colors.text }]}>
         {Math.round(value)} <Text style={[styles.unit, { color: colors.textMuted }]}>{unit}</Text>

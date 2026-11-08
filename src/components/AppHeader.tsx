@@ -24,7 +24,7 @@ export function AppHeader({ title, subtitle, action, language }: AppHeaderProps)
   return (
     <View style={[styles.header, rowStyle(language)]}>
       <View style={styles.copy}>
-        <Text style={[styles.title, directionalText, { color: colors.text }]}>{title}</Text>
+        <Text accessibilityRole="header" style={[styles.title, directionalText, { color: colors.text }]}>{title}</Text>
         {subtitle ? <Text style={[styles.subtitle, directionalText, { color: colors.textMuted }]}>{subtitle}</Text> : null}
       </View>
       {action}

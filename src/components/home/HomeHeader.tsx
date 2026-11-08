@@ -33,11 +33,11 @@ export function HomeHeader({ avatarInitials, greeting, subtitle, onActionPress, 
   return (
     <View style={[styles.wrap, rowStyle(language)]}>
       <View style={[styles.identity, rowStyle(language)]}>
-        <View style={[styles.avatar, { backgroundColor: colors.orange }]}>
+        <View style={[styles.avatar, { backgroundColor: colors.orange }]} accessible={false} importantForAccessibility="no">
           <Text style={[styles.avatarText, { color: colors.black }]}>{avatarInitials}</Text>
         </View>
         <View style={styles.copy}>
-          <Text style={[styles.greeting, directionalText, { color: colors.text }]} numberOfLines={1}>
+          <Text accessibilityRole="header" style={[styles.greeting, directionalText, { color: colors.text }]} numberOfLines={1}>
             {greeting}
           </Text>
           <Text style={[styles.subtitle, directionalText, { color: colors.textMuted }]} numberOfLines={2}>
