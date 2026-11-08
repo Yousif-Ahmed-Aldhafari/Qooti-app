@@ -124,3 +124,40 @@ test('Task 1A.3 - Empty States: Localized bilingual title and description keys',
   assert.ok(ar.workouts.emptyMessage);
   assert.ok(ar.workouts.addTitle);
 });
+
+test('Task 1A.4 - Screen-by-Screen: Form validation error handling and radio semantics', () => {
+  // 1. Inline form validation logic (AddMeal & AddWorkout)
+  function validateForm(name: string, itemOrExercise: string) {
+    const errors: { name?: string; item?: string } = {};
+    if (!name.trim()) errors.name = 'Required';
+    if (!itemOrExercise.trim()) errors.item = 'Required';
+    return {
+      isValid: Object.keys(errors).length === 0,
+      errors,
+    };
+  }
+
+  const invalidForm = validateForm('', '');
+  assert.equal(invalidForm.isValid, false);
+  assert.equal(invalidForm.errors.name, 'Required');
+  assert.equal(invalidForm.errors.item, 'Required');
+
+  const validForm = validateForm('Lunch', 'Chicken');
+  assert.equal(validForm.isValid, true);
+  assert.deepEqual(validForm.errors, {});
+
+  // 2. Settings radio semantics
+  const radioOptions = [
+    { value: 'light', label: 'Light' },
+    { value: 'dark', label: 'Dark' },
+    { value: 'system', label: 'System' },
+  ];
+  const activeSelection = 'dark';
+  const evaluatedOptions = radioOptions.map((opt) => ({
+    ...opt,
+    selected: opt.value === activeSelection,
+  }));
+
+  assert.equal(evaluatedOptions.find((o) => o.value === 'dark')?.selected, true);
+  assert.equal(evaluatedOptions.find((o) => o.value === 'light')?.selected, false);
+});

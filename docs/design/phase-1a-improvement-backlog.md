@@ -149,14 +149,13 @@ To ensure safety, stability, and zero regressions, the implementation must proce
   - Item 2.2: [RESOLVED] Compact Screen Layout Grid for Numeric Inputs
   - Item 4.1: [RESOLVED] `OnboardingScreen.tsx` RTL Text Alignment
 
-- **Batch 2 (Tactile & Visual Polish — Completed in Task 1A.3):**
-  - Item 3.1: [RESOLVED] Accessible Touch Targets for Header Actions and Filters (`HomeHeader`, `PeriodSelector`, `LatestActivityList`)
-  - Item 3.2: [RESOLVED] Native Material Ink Ripple on Android (`AppButton`, `MealCard`, `WorkoutCard`, `PeriodSelector`, `LatestActivityList`)
-  - Item 2.3: [RESOLVED] Input Focus States & Inline Validation Presentation (`AppInput` focus border, error text, helper text, accessible states)
-  - Item 3.3: [RESOLVED] Screen Reader Accessibility Audit & Semantics (`accessibilityRole`, `accessibilityLabel`, `accessibilityState`)
+- **Batch 2 (Tactile & Visual Polish — Completed in Task 1A.3 & Task 1A.4):**
+  - Item 3.1: [RESOLVED] Accessible Touch Targets for Header Actions and Filters (`HomeHeader`, `PeriodSelector`, `LatestActivityList`, `DateSelector`, `QuickActionCard`)
+  - Item 3.2: [RESOLVED] Native Material Ink Ripple on Android (`AppButton`, `MealCard`, `WorkoutCard`, `PeriodSelector`, `LatestActivityList`, `SettingsScreen`)
+  - Item 2.3: [RESOLVED] Input Focus States & Inline Validation Presentation (`AppInput` focus border, error text, helper text, accessible states, `AddMealScreen`, `AddWorkoutScreen`)
+  - Item 3.3: [RESOLVED] Screen Reader Accessibility Audit & Semantics (`accessibilityRole`, `accessibilityLabel`, `accessibilityState`, `radiogroup`, chart accessible summaries)
   - Item 4.2: [RESOLVED] Rich Empty States for Meals and Workouts (`EmptyState.tsx`, `MealsScreen.tsx`, `WorkoutsScreen.tsx`)
 
-- **Batch 3 (Remaining Scope for Task 1A.4):**
-  - Item 1.2: iOS Interactive Edge-Swipe Back Navigation in `AppNavigator.tsx`
-  - Settings Screen Native Toggles and Feedback Polish
+- **Batch 3 (Remaining Architectural Scope for Task 1A.5):**
+  - Item 1.2: iOS Interactive Edge-Swipe Back Navigation in `AppNavigator.tsx` (Evaluated in Task 1A.4: requires stack navigation gesture recognizer bridge)
   - Prototype Screen Audit & Deprecation
