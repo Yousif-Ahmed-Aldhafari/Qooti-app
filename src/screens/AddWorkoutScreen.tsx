@@ -1,5 +1,14 @@
 import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  Alert,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TouchableWithoutFeedback,
+  View,
+} from 'react-native';
 
 import { AppButton } from '../components/AppButton';
 import { AppCard } from '../components/AppCard';
@@ -53,33 +62,55 @@ export function AddWorkoutScreen({ t, onSave }: AddWorkoutScreenProps) {
   }
 
   return (
-    <ScrollView style={[styles.screen, { backgroundColor: colors.background }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <AppHeader title={t('workouts.addTitle')} subtitle={t('workouts.subtitle')} />
-      <AppCard>
-        <AppInput label={t('workouts.workoutName')} placeholder={t('workouts.workoutPlaceholder')} value={workoutName} onChangeText={setWorkoutName} />
-        <AppInput label={t('workouts.exerciseName')} placeholder={t('workouts.exercisePlaceholder')} value={exerciseName} onChangeText={setExerciseName} />
-        <View style={[styles.row, activeRowStyle()]}>
-          <AppInput label={t('workouts.sets')} keyboardType="number-pad" value={sets} onChangeText={setSets} style={styles.input} />
-          <AppInput label={t('workouts.reps')} keyboardType="number-pad" value={reps} onChangeText={setReps} style={styles.input} />
-        </View>
-        <View style={[styles.row, activeRowStyle()]}>
-          <AppInput label={t('workouts.weight')} keyboardType="decimal-pad" value={weight} onChangeText={setWeight} style={styles.input} />
-          <AppInput label={t('workouts.duration')} keyboardType="decimal-pad" value={duration} onChangeText={setDuration} style={styles.input} />
-        </View>
-        <AppInput label={t('workouts.notes')} multiline value={notes} onChangeText={setNotes} />
-      </AppCard>
-      <AppButton title={t('common.save')} icon="save-outline" onPress={handleSave} />
-    </ScrollView>
+    <KeyboardAvoidingView
+      style={styles.keyboardRoot}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
+    >
+      <ScrollView
+        style={[styles.screen, { backgroundColor: colors.background }]}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+          <View style={styles.innerForm}>
+            <AppHeader title={t('workouts.addTitle')} subtitle={t('workouts.subtitle')} />
+            <AppCard>
+              <AppInput label={t('workouts.workoutName')} placeholder={t('workouts.workoutPlaceholder')} value={workoutName} onChangeText={setWorkoutName} />
+              <AppInput label={t('workouts.exerciseName')} placeholder={t('workouts.exercisePlaceholder')} value={exerciseName} onChangeText={setExerciseName} />
+              <View style={[styles.row, activeRowStyle()]}>
+                <AppInput label={t('workouts.sets')} keyboardType="number-pad" value={sets} onChangeText={setSets} style={styles.input} />
+                <AppInput label={t('workouts.reps')} keyboardType="number-pad" value={reps} onChangeText={setReps} style={styles.input} />
+              </View>
+              <View style={[styles.row, activeRowStyle()]}>
+                <AppInput label={t('workouts.weight')} keyboardType="decimal-pad" value={weight} onChangeText={setWeight} style={styles.input} />
+                <AppInput label={t('workouts.duration')} keyboardType="decimal-pad" value={duration} onChangeText={setDuration} style={styles.input} />
+              </View>
+              <AppInput label={t('workouts.notes')} multiline value={notes} onChangeText={setNotes} />
+            </AppCard>
+            <AppButton title={t('common.save')} icon="save-outline" onPress={handleSave} />
+          </View>
+        </TouchableWithoutFeedback>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
+  keyboardRoot: {
+    flex: 1,
+  },
   screen: {
     flex: 1,
   },
   content: {
+    flexGrow: 1,
     padding: spacing.xl,
-    paddingBottom: 120,
+    paddingBottom: 140,
+  },
+  innerForm: {
     gap: spacing.lg,
   },
   row: {
