@@ -50,7 +50,11 @@ export function ProgressScreen({ t, profile, progress }: ProgressScreenProps) {
 
       <AppCard>
         <Text style={[styles.sectionTitle, directionalText, { color: colors.text }]}>{t('progress.weeklyTrend')}</Text>
-        <View style={[styles.chart, activeRowStyle()]}>
+        <View
+          style={[styles.chart, activeRowStyle()]}
+          accessible={true}
+          accessibilityLabel={`${t('progress.weeklyTrend')}: ${progress.map((p) => `${p.label} ${p.calories} ${t('common.kcal')}`).join(', ')}`}
+        >
           {progress.map((entry) => (
             <View key={entry.id} style={styles.barColumn}>
               <View style={[styles.barTrack, { backgroundColor: colors.cardMuted }]}>
