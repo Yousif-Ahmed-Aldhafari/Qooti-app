@@ -7,6 +7,7 @@ import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import type { Language } from '../../types';
 import { flexStart, isRTL, rowStyle, textAlign, writingDirection } from '../../utils/rtl';
+import { getPressFeedback } from '../../utils/touchFeedback';
 
 type QuickActionCardProps = {
   title: string;
@@ -26,8 +27,23 @@ export function QuickActionCard({ title, subtitle, actionLabel, icon, accent, on
     writingDirection: writingDirection(language),
   } as const;
 
+  const { android_ripple, styleModifier } = getPressFeedback({
+    rippleColor: 'rgba(0, 0, 0, 0.15)',
+    activeOpacity: 0.82,
+  });
+
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.card, { backgroundColor: accent, opacity: pressed ? 0.82 : 1 }]}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${title}, ${subtitle}, ${actionLabel}`}
+      android_ripple={android_ripple}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.card,
+        { backgroundColor: accent },
+        styleModifier({ pressed }),
+      ]}
+    >
       <Ionicons name={icon} size={28} color={colors.black} style={{ alignSelf: flexStart(language) }} />
       <View style={styles.copy}>
         <Text style={[styles.title, directionalText]} numberOfLines={2}>
@@ -55,6 +71,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     padding: spacing.lg,
     justifyContent: 'space-between',
+    overflow: 'hidden',
   },
   copy: {
     gap: spacing.xs,
