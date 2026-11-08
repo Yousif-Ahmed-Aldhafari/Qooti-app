@@ -18,6 +18,8 @@ import {
   getTabOrder,
   setActiveLanguage,
   getActiveLanguage,
+  activeTextAlign,
+  activeWritingDirection,
 } from '../utils/rtl';
 import {
   getAppTabOrder,
@@ -358,4 +360,16 @@ test('Task 10C - Part E.10: SQLite and theme preservation across language change
   const restoredWorkouts = await reopenedWorkoutRepo.getAllWorkouts();
   assert.ok(restoredWorkouts.some((w) => w.id === 'workout-task10c-test'));
   assert.equal(restoredWorkouts.find((w) => w.id === 'workout-task10c-test')?.title, 'Morning Cardio');
+});
+
+test('Task 1A.2 - Part E: Onboarding canonical RTL text alignment and writing direction', () => {
+  // Arabic onboarding text alignment must be right-aligned with rtl writing direction
+  applyRTL('ar');
+  assert.equal(activeTextAlign(), 'right');
+  assert.equal(activeWritingDirection(), 'rtl');
+
+  // English onboarding text alignment must be left-aligned with ltr writing direction
+  applyRTL('en');
+  assert.equal(activeTextAlign(), 'left');
+  assert.equal(activeWritingDirection(), 'ltr');
 });

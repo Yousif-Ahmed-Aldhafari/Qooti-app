@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { AppButton } from '../components/AppButton';
@@ -7,6 +7,7 @@ import type { Translator } from '../i18n';
 import { themeColors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
+import { activeTextAlign, activeWritingDirection } from '../utils/rtl';
 
 type OnboardingScreenProps = {
   t: Translator;
@@ -15,25 +16,38 @@ type OnboardingScreenProps = {
 
 export function OnboardingScreen({ t, onDone }: OnboardingScreenProps) {
   const colors = themeColors();
+  const directionalText = {
+    textAlign: activeTextAlign(),
+    writingDirection: activeWritingDirection(),
+  } as const;
+
   return (
-    <View style={[styles.screen, { backgroundColor: colors.background }]}>
+    <ScrollView
+      style={[styles.screen, { backgroundColor: colors.background }]}
+      contentContainerStyle={styles.contentContainer}
+      showsVerticalScrollIndicator={false}
+      bounces={false}
+    >
       <View style={styles.hero}>
         <View style={[styles.circle, { backgroundColor: colors.accent }]}>
           <Ionicons name="barbell-outline" size={82} color={colors.buttonText} />
         </View>
       </View>
       <AppCard style={styles.card}>
-        <Text style={[styles.title, { color: colors.text }]}>{t('onboarding.title')}</Text>
-        <Text style={[styles.body, { color: colors.textMuted }]}>{t('onboarding.body')}</Text>
+        <Text style={[styles.title, directionalText, { color: colors.text }]}>{t('onboarding.title')}</Text>
+        <Text style={[styles.body, directionalText, { color: colors.textMuted }]}>{t('onboarding.body')}</Text>
       </AppCard>
       <AppButton title={t('common.start')} icon="arrow-forward" onPress={onDone} />
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
+  },
+  contentContainer: {
+    flexGrow: 1,
     justifyContent: 'center',
     gap: spacing.xxl,
     padding: spacing.xl,
