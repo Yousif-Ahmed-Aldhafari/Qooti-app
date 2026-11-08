@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   TouchableWithoutFeedback,
+  useWindowDimensions,
   View,
 } from 'react-native';
 
@@ -27,6 +28,8 @@ type AddMealScreenProps = {
 };
 
 export function AddMealScreen({ t, onSave }: AddMealScreenProps) {
+  const { width } = useWindowDimensions();
+  const isCompact = width < 340;
   const colors = themeColors();
   const [mealName, setMealName] = useState('');
   const [foodName, setFoodName] = useState('');
@@ -80,15 +83,78 @@ export function AddMealScreen({ t, onSave }: AddMealScreenProps) {
             <AppCard>
               <AppInput label={t('meals.mealName')} placeholder={t('meals.mealNamePlaceholder')} value={mealName} onChangeText={setMealName} />
               <AppInput label={t('meals.foodName')} placeholder={t('meals.foodPlaceholder')} value={foodName} onChangeText={setFoodName} />
-              <View style={[styles.row, activeRowStyle()]}>
-                <AppInput label={t('meals.quantity')} keyboardType="decimal-pad" value={quantity} onChangeText={setQuantity} style={styles.input} />
-                <AppInput label={t('meals.calories')} keyboardType="decimal-pad" value={calories} onChangeText={setCalories} style={styles.input} />
+              <View style={[styles.inputRow, activeRowStyle()]}>
+                <AppInput
+                  label={t('meals.quantity')}
+                  keyboardType="decimal-pad"
+                  value={quantity}
+                  onChangeText={setQuantity}
+                  containerStyle={styles.halfInput}
+                />
+                <AppInput
+                  label={t('meals.calories')}
+                  keyboardType="decimal-pad"
+                  value={calories}
+                  onChangeText={setCalories}
+                  containerStyle={styles.halfInput}
+                />
               </View>
-              <View style={[styles.row, activeRowStyle()]}>
-                <AppInput label={t('meals.protein')} keyboardType="decimal-pad" value={protein} onChangeText={setProtein} style={styles.input} />
-                <AppInput label={t('meals.carbs')} keyboardType="decimal-pad" value={carbs} onChangeText={setCarbs} style={styles.input} />
-                <AppInput label={t('meals.fats')} keyboardType="decimal-pad" value={fats} onChangeText={setFats} style={styles.input} />
-              </View>
+              {isCompact ? (
+                <>
+                  <View style={[styles.inputRow, activeRowStyle()]}>
+                    <AppInput
+                      label={t('meals.protein')}
+                      keyboardType="decimal-pad"
+                      value={protein}
+                      onChangeText={setProtein}
+                      containerStyle={styles.halfInput}
+                    />
+                    <AppInput
+                      label={t('meals.carbs')}
+                      keyboardType="decimal-pad"
+                      value={carbs}
+                      onChangeText={setCarbs}
+                      containerStyle={styles.halfInput}
+                    />
+                  </View>
+                  <View style={[styles.inputRow, activeRowStyle()]}>
+                    <AppInput
+                      label={t('meals.fats')}
+                      keyboardType="decimal-pad"
+                      value={fats}
+                      onChangeText={setFats}
+                      containerStyle={styles.halfInput}
+                    />
+                  </View>
+                </>
+              ) : (
+                <View style={[styles.macroRow, activeRowStyle()]}>
+                  <AppInput
+                    label={t('meals.protein')}
+                    keyboardType="decimal-pad"
+                    value={protein}
+                    onChangeText={setProtein}
+                    containerStyle={styles.macroColumn}
+                    style={styles.macroInputField}
+                  />
+                  <AppInput
+                    label={t('meals.carbs')}
+                    keyboardType="decimal-pad"
+                    value={carbs}
+                    onChangeText={setCarbs}
+                    containerStyle={styles.macroColumn}
+                    style={styles.macroInputField}
+                  />
+                  <AppInput
+                    label={t('meals.fats')}
+                    keyboardType="decimal-pad"
+                    value={fats}
+                    onChangeText={setFats}
+                    containerStyle={styles.macroColumn}
+                    style={styles.macroInputField}
+                  />
+                </View>
+              )}
             </AppCard>
             <AppButton title={t('common.save')} icon="save-outline" onPress={handleSave} />
           </View>
@@ -113,12 +179,23 @@ const styles = StyleSheet.create({
   innerForm: {
     gap: spacing.lg,
   },
-  row: {
-    flexWrap: 'wrap',
+  inputRow: {
+    flexDirection: 'row',
     gap: spacing.md,
   },
-  input: {
-    minWidth: 100,
+  halfInput: {
     flex: 1,
+    minWidth: 0,
+  },
+  macroRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  macroColumn: {
+    flex: 1,
+    minWidth: 0,
+  },
+  macroInputField: {
+    paddingHorizontal: spacing.sm,
   },
 });

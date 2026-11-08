@@ -1,4 +1,4 @@
-import type { TextInputProps } from 'react-native';
+import type { StyleProp, TextInputProps, ViewStyle } from 'react-native';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { themeColors } from '../theme/colors';
@@ -9,9 +9,10 @@ import { activeTextAlign, activeWritingDirection } from '../utils/rtl';
 
 type AppInputProps = TextInputProps & {
   label: string;
+  containerStyle?: StyleProp<ViewStyle>;
 };
 
-export function AppInput({ label, style, ...props }: AppInputProps) {
+export function AppInput({ label, style, containerStyle, ...props }: AppInputProps) {
   const colors = themeColors();
   const directionalText = {
     textAlign: activeTextAlign(),
@@ -19,10 +20,11 @@ export function AppInput({ label, style, ...props }: AppInputProps) {
   } as const;
 
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, containerStyle]}>
       <Text style={[styles.label, directionalText, { color: colors.textSecondary }]}>{label}</Text>
       <TextInput
         placeholderTextColor={colors.textMuted}
+        accessibilityLabel={props.accessibilityLabel ?? label}
         {...props}
         style={[
           styles.input,

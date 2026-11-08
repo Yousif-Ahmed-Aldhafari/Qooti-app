@@ -136,6 +136,26 @@ test('Task 1A.2 - Part B: Bottom navigation platform-adaptive safe-area clearanc
   assert.equal(calculateBottomNavOffset(0, 'android'), 12);
 });
 
+test('Task 1A.2 - Part D: Compact macro input responsive layout rules', () => {
+  // Test viewport threshold behavior for compact form layouts
+  function getMacroLayoutMode(screenWidth: number): 'compact' | 'expanded' {
+    return screenWidth < 340 ? 'compact' : 'expanded';
+  }
+
+  // 320dp small devices (e.g. iPhone SE 1st gen, small Android) use 2+1 grid
+  assert.equal(getMacroLayoutMode(320), 'compact');
+
+  // 360dp standard Android viewport fits 3 columns comfortably without orphan wrapping
+  assert.equal(getMacroLayoutMode(360), 'expanded');
+
+  // 375dp (iPhone 8 / SE 2nd / 3rd gen) fits 3 columns
+  assert.equal(getMacroLayoutMode(375), 'expanded');
+
+  // 390dp+ (iPhone 12/13/14/15/16, modern Android) fits 3 columns
+  assert.equal(getMacroLayoutMode(393), 'expanded');
+  assert.equal(getMacroLayoutMode(412), 'expanded');
+});
+
 test('Task 10C - Part E.4: RTL back button position and arrow direction', () => {
   (I18nManager as any).reset();
   I18nManager.isRTL = false;
