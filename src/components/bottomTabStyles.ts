@@ -17,6 +17,17 @@ export const compactIconContainerSize = 34;
 export const normalIconSize = 24;
 export const compactIconSize = 20;
 
+export function calculateBottomNavOffset(bottomInset: number, platform: string = 'android'): number {
+  if (platform === 'ios') {
+    return Math.max(bottomInset - 8, 2);
+  }
+  // Android & others:
+  // If system navigation bar exists (insets.bottom > 0, whether gesture bar ~16-24dp or 3-button ~48dp),
+  // lift the floating bar above the system navigation bar with an aesthetic gap (+8dp).
+  // If insets.bottom is 0, provide a comfortable default bottom margin (12dp).
+  return bottomInset > 0 ? bottomInset + 8 : 12;
+}
+
 export const bottomTabStyles = StyleSheet.create({
   wrap: {
     position: 'absolute',

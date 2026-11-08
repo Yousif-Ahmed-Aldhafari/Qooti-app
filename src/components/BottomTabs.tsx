@@ -11,6 +11,7 @@ import { getTabOrder } from '../utils/rtl';
 
 import {
   bottomTabStyles,
+  calculateBottomNavOffset,
   compactActiveButtonRadius,
   compactIconContainerSize,
   compactIconSize,
@@ -49,7 +50,7 @@ export function BottomTabs({ activeTab, labels, onChange, language }: BottomTabs
   const { isBottomNavCompact } = useBottomNav();
   const [navProgress] = useState(() => new Animated.Value(isBottomNavCompact ? 1 : 0));
   const tabs = getTabOrder(language);
-  const bottomOffset = Platform.OS === 'ios' ? Math.max(insets.bottom - 8, 2) : 4;
+  const bottomOffset = calculateBottomNavOffset(insets.bottom, Platform.OS);
   const navHeight = navProgress.interpolate({ inputRange: [0, 1], outputRange: [normalNavHeight, compactNavHeight] });
   const navHorizontalInset = navProgress.interpolate({
     inputRange: [0, 1],

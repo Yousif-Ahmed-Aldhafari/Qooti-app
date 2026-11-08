@@ -32,7 +32,7 @@ import {
   getOppositeAlignItems,
 } from '../utils/languageDirection';
 import { defaultSettings } from '../services/settingsService';
-import { bottomTabStyles } from '../components/bottomTabStyles';
+import { bottomTabStyles, calculateBottomNavOffset } from '../components/bottomTabStyles';
 import { SQLiteSettingsRepository } from '../db/repositories/settingsRepository';
 import { SQLiteMealRepository } from '../db/repositories/mealRepository';
 import { SQLiteWorkoutRepository } from '../db/repositories/workoutRepository';
@@ -117,6 +117,23 @@ test('Task 10C.1: Bottom navigation horizontal row layout integrity and touch ar
   // Arabic (left to right): Profile, Progress, Workouts, Meals, Home
   const arabicOrder = getTabOrder('ar');
   assert.deepEqual(arabicOrder, ['profile', 'progress', 'workouts', 'meals', 'home']);
+});
+
+test('Task 1A.2 - Part B: Bottom navigation platform-adaptive safe-area clearance', () => {
+  // 1. iOS with Home Indicator (34pt inset) -> 26pt bottom offset
+  assert.equal(calculateBottomNavOffset(34, 'ios'), 26);
+
+  // 2. iOS without Home Indicator (0pt inset) -> 2pt bottom offset minimum
+  assert.equal(calculateBottomNavOffset(0, 'ios'), 2);
+
+  // 3. Android with 3-button system navigation (48dp inset) -> 56dp offset (clears buttons with 8dp margin)
+  assert.equal(calculateBottomNavOffset(48, 'android'), 56);
+
+  // 4. Android with gesture navigation (16dp inset) -> 24dp offset (clears gesture bar with 8dp margin)
+  assert.equal(calculateBottomNavOffset(16, 'android'), 24);
+
+  // 5. Android with 0 insets (edge-to-edge hidden or legacy) -> 12dp offset (comfortable margin)
+  assert.equal(calculateBottomNavOffset(0, 'android'), 12);
 });
 
 test('Task 10C - Part E.4: RTL back button position and arrow direction', () => {
