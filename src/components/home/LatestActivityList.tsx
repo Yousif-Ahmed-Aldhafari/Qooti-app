@@ -7,6 +7,7 @@ import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import type { Language } from '../../types';
 import { isRTL, rowStyle, textAlign, writingDirection } from '../../utils/rtl';
+import { getPressFeedback } from '../../utils/touchFeedback';
 
 export type HomeActivity = {
   id: string;
@@ -33,6 +34,11 @@ export function LatestActivityList({ title, emptyTitle, activities, language }: 
     writingDirection: writingDirection(language),
   } as const;
 
+  const { android_ripple, styleModifier } = getPressFeedback({
+    rippleColor: `${colors.border}4D`,
+    activeOpacity: 0.76,
+  });
+
   return (
     <View style={styles.wrap}>
       <View style={[styles.headingRow, rowStyle(language)]}>
@@ -47,11 +53,14 @@ export function LatestActivityList({ title, emptyTitle, activities, language }: 
           <Pressable
             key={activity.id}
             accessibilityRole="button"
+            accessibilityLabel={`${activity.title}, ${activity.time}, ${activity.meta}`}
+            android_ripple={android_ripple}
             onPress={activity.onPress}
             style={({ pressed }) => [
               styles.activity,
               rowStyle(language),
-              { backgroundColor: colors.card, opacity: pressed ? 0.76 : 1 },
+              { backgroundColor: colors.card },
+              styleModifier({ pressed }),
             ]}
           >
             <View style={[styles.icon, { backgroundColor: activity.accent }]}>
@@ -102,6 +111,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     borderRadius: radius.lg,
     padding: spacing.md,
+    overflow: 'hidden',
   },
   icon: {
     width: 44,

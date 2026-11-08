@@ -8,6 +8,7 @@ import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import { calculateMealTotals } from '../utils/nutrition';
 import { rowStyle, textAlign, writingDirection } from '../utils/rtl';
+import { getPressFeedback } from '../utils/touchFeedback';
 
 type MealCardProps = {
   meal: Meal;
@@ -25,14 +26,22 @@ export function MealCard({ meal, caloriesLabel, itemLabel, onPress, language }: 
     writingDirection: writingDirection(language),
   } as const;
 
+  const { android_ripple, styleModifier } = getPressFeedback({
+    rippleColor: `${colors.border}4D`,
+    activeOpacity: 0.78,
+  });
+
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={`${meal.title}, ${meal.time}, ${Math.round(totals.calories)} ${caloriesLabel}`}
+      android_ripple={android_ripple}
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
         rowStyle(language),
-        { backgroundColor: colors.card, opacity: pressed ? 0.78 : 1 },
+        { backgroundColor: colors.card },
+        styleModifier({ pressed }),
       ]}
     >
       <View style={[styles.icon, { backgroundColor: colors.accent }]}>
@@ -60,6 +69,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     alignItems: 'center',
     gap: spacing.md,
+    overflow: 'hidden',
   },
   icon: {
     width: 48,

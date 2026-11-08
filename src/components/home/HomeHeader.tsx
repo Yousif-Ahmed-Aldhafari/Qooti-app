@@ -7,6 +7,7 @@ import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import type { Language } from '../../types';
 import { rowStyle, textAlign, writingDirection } from '../../utils/rtl';
+import { calculateHitSlop, getPressFeedback } from '../../utils/touchFeedback';
 
 type HomeHeaderProps = {
   avatarInitials: string;
@@ -22,6 +23,12 @@ export function HomeHeader({ avatarInitials, greeting, subtitle, onActionPress, 
     textAlign: textAlign(language),
     writingDirection: writingDirection(language),
   } as const;
+
+  const { android_ripple, styleModifier } = getPressFeedback({
+    rippleColor: `${colors.text}26`,
+    borderless: true,
+    activeOpacity: 0.72,
+  });
 
   return (
     <View style={[styles.wrap, rowStyle(language)]}>
@@ -41,8 +48,15 @@ export function HomeHeader({ avatarInitials, greeting, subtitle, onActionPress, 
 
       <Pressable
         accessibilityRole="button"
+        accessibilityLabel="Notifications and messages"
+        hitSlop={calculateHitSlop(40, 40)}
+        android_ripple={android_ripple}
         onPress={onActionPress}
-        style={({ pressed }) => [styles.action, { borderColor: colors.text, backgroundColor: colors.background, opacity: pressed ? 0.72 : 1 }]}
+        style={({ pressed }) => [
+          styles.action,
+          { borderColor: colors.text, backgroundColor: colors.background },
+          styleModifier({ pressed }),
+        ]}
       >
         <Ionicons name="chatbubble-ellipses-outline" size={25} color={colors.text} />
       </Pressable>
@@ -88,5 +102,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
+    overflow: 'hidden',
   },
 });

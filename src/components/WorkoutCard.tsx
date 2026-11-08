@@ -7,6 +7,7 @@ import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import { rowStyle, textAlign, writingDirection } from '../utils/rtl';
+import { getPressFeedback } from '../utils/touchFeedback';
 
 type WorkoutCardProps = {
   workout: Workout;
@@ -24,14 +25,22 @@ export function WorkoutCard({ workout, minutesLabel, exerciseLabel, onPress, lan
     writingDirection: writingDirection(language),
   } as const;
 
+  const { android_ripple, styleModifier } = getPressFeedback({
+    rippleColor: `${colors.border}4D`,
+    activeOpacity: 0.78,
+  });
+
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={`${workout.title}, ${workout.time}, ${minutes || 45} ${minutesLabel}`}
+      android_ripple={android_ripple}
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
         rowStyle(language),
-        { backgroundColor: colors.card, opacity: pressed ? 0.78 : 1 },
+        { backgroundColor: colors.card },
+        styleModifier({ pressed }),
       ]}
     >
       <View style={[styles.icon, { backgroundColor: colors.purple }]}>
@@ -61,6 +70,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     alignItems: 'center',
     gap: spacing.md,
+    overflow: 'hidden',
   },
   icon: {
     width: 48,

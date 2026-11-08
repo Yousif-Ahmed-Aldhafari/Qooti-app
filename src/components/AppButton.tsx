@@ -8,12 +8,14 @@ import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import { activeIsRTL, activeRowStyle, activeWritingDirection } from '../utils/rtl';
+import { getPressFeedback } from '../utils/touchFeedback';
 
 type AppButtonProps = {
   title: string;
   onPress: () => void;
   icon?: keyof typeof Ionicons.glyphMap;
   variant?: 'primary' | 'secondary' | 'ghost';
+  disabled?: boolean;
   style?: StyleProp<ViewStyle>;
   children?: ReactNode;
 };
@@ -33,23 +35,49 @@ function mirrorDirectionalIcon(icon: keyof typeof Ionicons.glyphMap, rtl: boolea
   return mirroredIcons[icon] ?? icon;
 }
 
-export function AppButton({ title, onPress, icon, variant = 'primary', style }: AppButtonProps) {
+export function AppButton({ title, onPress, icon, variant = 'primary', disabled = false, style }: AppButtonProps) {
   const colors = themeColors();
   const rtl = activeIsRTL();
   const mirroredIcon = icon ? mirrorDirectionalIcon(icon, rtl) : undefined;
   const palette = {
-    primary: { background: colors.accent, text: colors.buttonText, border: colors.accent },
-    secondary: { background: colors.card, text: colors.text, border: colors.border },
-    ghost: { background: colors.cardMuted, text: colors.textSecondary, border: colors.cardMuted },
+    primary: {
+      background: colors.accent,
+      text: colors.buttonText,
+      border: colors.accent,
+      ripple: colors.accentDark ? `${colors.accentDark}40` : 'rgba(0, 0, 0, 0.15)',
+    },
+    secondary: {
+      background: colors.card,
+      text: colors.text,
+      border: colors.border,
+      ripple: `${colors.border}4D`,
+    },
+    ghost: {
+      background: colors.cardMuted,
+      text: colors.textSecondary,
+      border: colors.cardMuted,
+      ripple: `${colors.border}33`,
+    },
   }[variant];
+
+  const { android_ripple, styleModifier } = getPressFeedback({
+    rippleColor: palette.ripple,
+    disabled,
+    activeOpacity: 0.76,
+  });
 
   return (
     <Pressable
       accessibilityRole="button"
-      onPress={onPress}
+      accessibilityLabel={title}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      android_ripple={android_ripple}
+      onPress={disabled ? undefined : onPress}
       style={({ pressed }) => [
         styles.button,
-        { backgroundColor: palette.background, borderColor: palette.border, opacity: pressed ? 0.78 : 1 },
+        { backgroundColor: palette.background, borderColor: palette.border },
+        styleModifier({ pressed }),
         activeRowStyle(),
         style,
       ]}
@@ -71,6 +99,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
+    overflow: 'hidden',
   },
   label: {
     ...typography.body,
