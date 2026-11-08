@@ -38,10 +38,26 @@ export function AddMealScreen({ t, onSave }: AddMealScreenProps) {
   const [protein, setProtein] = useState('');
   const [carbs, setCarbs] = useState('');
   const [fats, setFats] = useState('');
+  const [mealNameError, setMealNameError] = useState('');
+  const [foodNameError, setFoodNameError] = useState('');
 
   function handleSave() {
-    if (!mealName.trim() || !foodName.trim()) {
-      Alert.alert(t('common.requiredTitle'), t('common.requiredMessage'));
+    let hasError = false;
+    if (!mealName.trim()) {
+      setMealNameError(t('common.requiredMessage') || 'Required');
+      hasError = true;
+    } else {
+      setMealNameError('');
+    }
+
+    if (!foodName.trim()) {
+      setFoodNameError(t('common.requiredMessage') || 'Required');
+      hasError = true;
+    } else {
+      setFoodNameError('');
+    }
+
+    if (hasError) {
       return;
     }
 
@@ -81,8 +97,26 @@ export function AddMealScreen({ t, onSave }: AddMealScreenProps) {
           <View style={styles.innerForm}>
             <AppHeader title={t('meals.addTitle')} subtitle={t('meals.subtitle')} />
             <AppCard>
-              <AppInput label={t('meals.mealName')} placeholder={t('meals.mealNamePlaceholder')} value={mealName} onChangeText={setMealName} />
-              <AppInput label={t('meals.foodName')} placeholder={t('meals.foodPlaceholder')} value={foodName} onChangeText={setFoodName} />
+              <AppInput
+                label={t('meals.mealName')}
+                placeholder={t('meals.mealNamePlaceholder')}
+                value={mealName}
+                error={mealNameError}
+                onChangeText={(text) => {
+                  setMealName(text);
+                  if (mealNameError) setMealNameError('');
+                }}
+              />
+              <AppInput
+                label={t('meals.foodName')}
+                placeholder={t('meals.foodPlaceholder')}
+                value={foodName}
+                error={foodNameError}
+                onChangeText={(text) => {
+                  setFoodName(text);
+                  if (foodNameError) setFoodNameError('');
+                }}
+              />
               <View style={[styles.inputRow, activeRowStyle()]}>
                 <AppInput
                   label={t('meals.quantity')}
