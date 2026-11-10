@@ -1,15 +1,14 @@
-import { ScrollView, StyleSheet, Text } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 
 import { AppButton } from '../components/AppButton';
 import { AppHeader } from '../components/AppHeader';
+import { EmptyState } from '../components/EmptyState';
 import { MealCard } from '../components/MealCard';
 import { useBottomNavScrollHandler } from '../context/BottomNavContext';
 import type { Translator } from '../i18n';
 import { themeColors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
-import { typography } from '../theme/typography';
 import type { Meal } from '../types';
-import { activeTextAlign, activeWritingDirection } from '../utils/rtl';
 
 type MealsScreenProps = {
   t: Translator;
@@ -21,10 +20,6 @@ type MealsScreenProps = {
 export function MealsScreen({ t, meals, onAddMeal, onMealPress }: MealsScreenProps) {
   const colors = themeColors();
   const handleBottomNavScroll = useBottomNavScrollHandler();
-  const directionalText = {
-    textAlign: activeTextAlign(),
-    writingDirection: activeWritingDirection(),
-  } as const;
 
   return (
     <ScrollView
@@ -40,7 +35,14 @@ export function MealsScreen({ t, meals, onAddMeal, onMealPress }: MealsScreenPro
           <MealCard key={meal.id} meal={meal} caloriesLabel={t('common.kcal')} itemLabel={t('meals.itemLabel')} onPress={() => onMealPress(meal)} />
         ))
       ) : (
-        <Text style={[styles.empty, directionalText, { color: colors.textMuted }]}>{t('meals.emptyMessage')}</Text>
+        <EmptyState
+          icon="restaurant-outline"
+          title={t('meals.emptyTitle')}
+          description={t('meals.emptyMessage')}
+          actionTitle={t('meals.addTitle')}
+          actionIcon="add"
+          onAction={onAddMeal}
+        />
       )}
     </ScrollView>
   );
@@ -54,8 +56,5 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     paddingBottom: 120,
     gap: spacing.lg,
-  },
-  empty: {
-    ...typography.body,
   },
 });

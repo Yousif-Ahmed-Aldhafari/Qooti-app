@@ -1,24 +1,70 @@
+/**
+ * Canonical Meal domain model.
+ */
 export type MealItem = {
   id: string;
-  name: string;
+  foodName: string;
+  name?: string;
   quantity: number;
-  unit: string;
+  unit?: string;
   calories: number;
   protein: number;
   carbs: number;
-  fat: number;
+  fats: number;
+  fat?: number;
 };
 
 export type FoodItem = MealItem;
 
 export type Meal = {
   id: string;
-  name: string;
+  title: string;
+  name?: string;
   date: string;
   time: string;
   items: MealItem[];
-  totalCalories: number;
-  totalProtein: number;
-  totalCarbs: number;
-  totalFat: number;
+  totalCalories?: number;
+  totalProtein?: number;
+  totalCarbs?: number;
+  totalFat?: number;
+  totalFats?: number;
 };
+
+export function normalizeMealItem(
+  item: Partial<MealItem> & { id: string; quantity: number; calories: number; protein: number; carbs: number }
+): MealItem {
+  const name = item.foodName || item.name || '';
+  const fats = item.fats ?? item.fat ?? 0;
+  return {
+    ...item,
+    foodName: name,
+    name,
+    fats,
+    fat: fats,
+  };
+}
+
+export function normalizeMeal(
+  meal: Partial<Meal> & { id: string; date: string; time: string; items: MealItem[] }
+): Meal {
+  const title = meal.title || meal.name || '';
+  const items = (meal.items || []).map(normalizeMealItem);
+  const computedCalories = items.reduce((sum, item) => sum + (Number.isFinite(item.calories) ? item.calories : 0), 0);
+  const computedProtein = items.reduce((sum, item) => sum + (Number.isFinite(item.protein) ? item.protein : 0), 0);
+  const computedCarbs = items.reduce((sum, item) => sum + (Number.isFinite(item.carbs) ? item.carbs : 0), 0);
+  const computedFats = items.reduce((sum, item) => sum + (Number.isFinite(item.fats) ? item.fats : 0), 0);
+
+  const hasItems = items.length > 0;
+
+  return {
+    ...meal,
+    title,
+    name: title,
+    items,
+    totalCalories: hasItems ? computedCalories : (meal.totalCalories ?? computedCalories),
+    totalProtein: hasItems ? computedProtein : (meal.totalProtein ?? computedProtein),
+    totalCarbs: hasItems ? computedCarbs : (meal.totalCarbs ?? computedCarbs),
+    totalFat: hasItems ? computedFats : (meal.totalFat ?? meal.totalFats ?? computedFats),
+    totalFats: hasItems ? computedFats : (meal.totalFats ?? meal.totalFat ?? computedFats),
+  };
+}

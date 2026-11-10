@@ -53,7 +53,7 @@ export function WorkoutDetailsScreen() {
 
   return (
     <ScreenContainer>
-      <AppHeader title={currentWorkout.name} subtitle={`${formatDisplayDate(currentWorkout.date, language)} · ${currentWorkout.time}`} />
+      <AppHeader title={currentWorkout.title || currentWorkout.name || ''} subtitle={`${formatDisplayDate(currentWorkout.date, language)} · ${currentWorkout.time}`} />
 
       <View style={[styles.stats, rowDirectionStyle]}>
         <AppCard style={styles.statCard}>

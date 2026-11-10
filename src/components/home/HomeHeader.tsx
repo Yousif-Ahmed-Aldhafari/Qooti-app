@@ -5,30 +5,39 @@ import { themeColors } from '../../theme/colors';
 import { radius } from '../../theme/radius';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
-import { activeRowStyle, activeTextAlign, activeWritingDirection } from '../../utils/rtl';
+import type { Language } from '../../types';
+import { rowStyle, textAlign, writingDirection } from '../../utils/rtl';
+import { calculateHitSlop, getPressFeedback } from '../../utils/touchFeedback';
 
 type HomeHeaderProps = {
   avatarInitials: string;
   greeting: string;
   subtitle: string;
   onActionPress: () => void;
+  language?: Language;
 };
 
-export function HomeHeader({ avatarInitials, greeting, subtitle, onActionPress }: HomeHeaderProps) {
+export function HomeHeader({ avatarInitials, greeting, subtitle, onActionPress, language }: HomeHeaderProps) {
   const colors = themeColors();
   const directionalText = {
-    textAlign: activeTextAlign(),
-    writingDirection: activeWritingDirection(),
+    textAlign: textAlign(language),
+    writingDirection: writingDirection(language),
   } as const;
 
+  const { android_ripple, styleModifier } = getPressFeedback({
+    rippleColor: `${colors.text}26`,
+    borderless: true,
+    activeOpacity: 0.72,
+  });
+
   return (
-    <View style={[styles.wrap, activeRowStyle()]}>
-      <View style={[styles.identity, activeRowStyle()]}>
-        <View style={[styles.avatar, { backgroundColor: colors.orange }]}>
+    <View style={[styles.wrap, rowStyle(language)]}>
+      <View style={[styles.identity, rowStyle(language)]}>
+        <View style={[styles.avatar, { backgroundColor: colors.orange }]} accessible={false} importantForAccessibility="no">
           <Text style={[styles.avatarText, { color: colors.black }]}>{avatarInitials}</Text>
         </View>
         <View style={styles.copy}>
-          <Text style={[styles.greeting, directionalText, { color: colors.text }]} numberOfLines={1}>
+          <Text accessibilityRole="header" style={[styles.greeting, directionalText, { color: colors.text }]} numberOfLines={1}>
             {greeting}
           </Text>
           <Text style={[styles.subtitle, directionalText, { color: colors.textMuted }]} numberOfLines={2}>
@@ -39,8 +48,15 @@ export function HomeHeader({ avatarInitials, greeting, subtitle, onActionPress }
 
       <Pressable
         accessibilityRole="button"
+        accessibilityLabel="Notifications and messages"
+        hitSlop={calculateHitSlop(40, 40)}
+        android_ripple={android_ripple}
         onPress={onActionPress}
-        style={({ pressed }) => [styles.action, { borderColor: colors.text, backgroundColor: colors.background, opacity: pressed ? 0.72 : 1 }]}
+        style={({ pressed }) => [
+          styles.action,
+          { borderColor: colors.text, backgroundColor: colors.background },
+          styleModifier({ pressed }),
+        ]}
       >
         <Ionicons name="chatbubble-ellipses-outline" size={25} color={colors.text} />
       </Pressable>
@@ -86,5 +102,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
+    overflow: 'hidden',
   },
 });

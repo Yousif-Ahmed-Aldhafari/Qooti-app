@@ -5,7 +5,9 @@ import { themeColors } from '../../theme/colors';
 import { radius } from '../../theme/radius';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
-import { activeIsRTL, activeRowStyle, activeTextAlign, activeWritingDirection } from '../../utils/rtl';
+import type { Language } from '../../types';
+import { isRTL, rowStyle, textAlign, writingDirection } from '../../utils/rtl';
+import { getPressFeedback } from '../../utils/touchFeedback';
 
 export type HomeActivity = {
   id: string;
@@ -21,19 +23,25 @@ type LatestActivityListProps = {
   title: string;
   emptyTitle: string;
   activities: HomeActivity[];
+  language?: Language;
 };
 
-export function LatestActivityList({ title, emptyTitle, activities }: LatestActivityListProps) {
+export function LatestActivityList({ title, emptyTitle, activities, language }: LatestActivityListProps) {
   const colors = themeColors();
-  const rtl = activeIsRTL();
+  const rtl = isRTL(language);
   const directionalText = {
-    textAlign: activeTextAlign(),
-    writingDirection: activeWritingDirection(),
+    textAlign: textAlign(language),
+    writingDirection: writingDirection(language),
   } as const;
+
+  const { android_ripple, styleModifier } = getPressFeedback({
+    rippleColor: `${colors.border}4D`,
+    activeOpacity: 0.76,
+  });
 
   return (
     <View style={styles.wrap}>
-      <View style={[styles.headingRow, activeRowStyle()]}>
+      <View style={[styles.headingRow, rowStyle(language)]}>
         <Text style={[styles.heading, directionalText, { color: colors.text }]}>{title}</Text>
         <View style={[styles.headingAction, { borderColor: colors.text }]}>
           <Ionicons name={rtl ? 'arrow-back' : 'arrow-forward'} size={20} color={colors.orange} />
@@ -45,11 +53,14 @@ export function LatestActivityList({ title, emptyTitle, activities }: LatestActi
           <Pressable
             key={activity.id}
             accessibilityRole="button"
+            accessibilityLabel={`${activity.title}, ${activity.time}, ${activity.meta}`}
+            android_ripple={android_ripple}
             onPress={activity.onPress}
             style={({ pressed }) => [
               styles.activity,
-              activeRowStyle(),
-              { backgroundColor: colors.card, opacity: pressed ? 0.76 : 1 },
+              rowStyle(language),
+              { backgroundColor: colors.card },
+              styleModifier({ pressed }),
             ]}
           >
             <View style={[styles.icon, { backgroundColor: activity.accent }]}>
@@ -100,6 +111,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     borderRadius: radius.lg,
     padding: spacing.md,
+    overflow: 'hidden',
   },
   icon: {
     width: 44,

@@ -1,62 +1,85 @@
 import { I18nManager } from 'react-native';
 import type { TextStyle, ViewStyle } from 'react-native';
-import type { Language } from '../types';
+import type { Language, TabKey } from '../types';
 
 let activeLanguage: Language = 'en';
 
-export function isRTL(language: Language): boolean {
-  return language === 'ar';
+export function isRTL(language?: Language): boolean {
+  const lang = language ?? activeLanguage;
+  return lang === 'ar';
+}
+
+export function shouldReverseLayout(language?: Language): boolean {
+  const lang = language ?? activeLanguage;
+  return isRTL(lang) !== I18nManager.isRTL;
 }
 
 export function applyRTL(language: Language): boolean {
   activeLanguage = language;
-  const shouldUseRTL = isRTL(language);
-  const restartRequired = I18nManager.isRTL !== shouldUseRTL;
-
-  I18nManager.allowRTL(shouldUseRTL);
-  I18nManager.forceRTL(shouldUseRTL);
-  I18nManager.swapLeftAndRightInRTL(shouldUseRTL);
-
-  return restartRequired;
+  // Per Task 10B/10C requirements: Do NOT invoke I18nManager.forceRTL() or allowRTL()
+  // during normal in-app language switching. Direction is handled dynamically via React styles.
+  return false;
 }
 
-export function direction(language: Language): ViewStyle['direction'] {
-  return isRTL(language) ? 'rtl' : 'ltr';
+export function direction(language?: Language): ViewStyle['direction'] {
+  const lang = language ?? activeLanguage;
+  return isRTL(lang) ? 'rtl' : 'ltr';
 }
 
-export function textAlign(language: Language): TextStyle['textAlign'] {
-  return isRTL(language) ? 'right' as const : 'left' as const;
+export function textAlign(language?: Language): TextStyle['textAlign'] {
+  const lang = language ?? activeLanguage;
+  return isRTL(lang) ? ('right' as const) : ('left' as const);
 }
 
-export function writingDirection(language: Language): TextStyle['writingDirection'] {
-  return isRTL(language) ? 'rtl' : 'ltr';
+export function writingDirection(language?: Language): TextStyle['writingDirection'] {
+  const lang = language ?? activeLanguage;
+  return isRTL(lang) ? 'rtl' : 'ltr';
 }
 
-export function rowDirection(language: Language): ViewStyle['flexDirection'] {
-  return 'row';
+export function rowDirection(language?: Language): ViewStyle['flexDirection'] {
+  const lang = language ?? activeLanguage;
+  return shouldReverseLayout(lang) ? 'row-reverse' : 'row';
 }
 
-export function rowStyle(language: Language): ViewStyle {
+/**
+ * CANONICAL RTL RULE (Task 10C):
+ * Do NOT include direction: 'rtl' together with row-reverse in rowStyle.
+ * In React Native / Yoga, combining direction: 'rtl' with flexDirection: 'row-reverse'
+ * causes double mirroring back to LTR.
+ * We use pure deterministic flexDirection for rows.
+ */
+export function rowStyle(language?: Language): ViewStyle {
+  const lang = language ?? activeLanguage;
   return {
-    direction: direction(language),
-    flexDirection: rowDirection(language),
+    flexDirection: rowDirection(lang),
   };
 }
 
-export function flexStart(language: Language): ViewStyle['alignSelf'] {
-  return 'flex-start';
+export function flexStart(language?: Language): ViewStyle['alignSelf'] {
+  const lang = language ?? activeLanguage;
+  return shouldReverseLayout(lang) ? 'flex-end' : 'flex-start';
 }
 
-export function flexEnd(language: Language): ViewStyle['alignSelf'] {
-  return 'flex-end';
+export function flexEnd(language?: Language): ViewStyle['alignSelf'] {
+  const lang = language ?? activeLanguage;
+  return shouldReverseLayout(lang) ? 'flex-start' : 'flex-end';
 }
 
-export function alignItemsStart(language: Language): ViewStyle['alignItems'] {
-  return 'flex-start';
+export function alignItemsStart(language?: Language): ViewStyle['alignItems'] {
+  const lang = language ?? activeLanguage;
+  return shouldReverseLayout(lang) ? 'flex-end' : 'flex-start';
 }
 
-export function alignItemsEnd(language: Language): ViewStyle['alignItems'] {
-  return 'flex-end';
+export function alignItemsEnd(language?: Language): ViewStyle['alignItems'] {
+  const lang = language ?? activeLanguage;
+  return shouldReverseLayout(lang) ? 'flex-start' : 'flex-end';
+}
+
+export function getTabOrder(language?: Language): TabKey[] {
+  const lang = language ?? activeLanguage;
+  return isRTL(lang)
+    ? ['profile', 'progress', 'workouts', 'meals', 'home']
+    : ['home', 'meals', 'workouts', 'progress', 'profile'];
 }
 
 export const getDirection = direction;
@@ -68,6 +91,14 @@ export const getFlexStart = flexStart;
 export const getFlexEnd = flexEnd;
 export const getAlignItems = alignItemsStart;
 export const getOppositeAlignItems = alignItemsEnd;
+
+export function setActiveLanguage(language: Language) {
+  activeLanguage = language;
+}
+
+export function getActiveLanguage(): Language {
+  return activeLanguage;
+}
 
 export function activeIsRTL(): boolean {
   return isRTL(activeLanguage);
@@ -100,3 +131,4 @@ export function activeFlexStart() {
 export function activeFlexEnd() {
   return flexEnd(activeLanguage);
 }
+

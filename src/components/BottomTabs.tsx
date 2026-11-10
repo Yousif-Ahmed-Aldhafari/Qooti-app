@@ -1,19 +1,38 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { Animated, Easing, Platform, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useBottomNav } from '../context/BottomNavContext';
-import type { TabKey } from '../types';
 import { getActiveTheme, themeColors } from '../theme/colors';
-import { radius } from '../theme/radius';
-import { activeRowStyle } from '../utils/rtl';
+import type { Language, TabKey } from '../types';
+import { getTabOrder } from '../utils/rtl';
+
+import {
+  bottomTabStyles,
+  calculateBottomNavOffset,
+  compactActiveButtonRadius,
+  compactIconContainerSize,
+  compactIconSize,
+  compactNavHeight,
+  compactNavHorizontalInset,
+  compactNavPaddingX,
+  compactNavRadius,
+  normalActiveButtonRadius,
+  normalIconContainerSize,
+  normalIconSize,
+  normalNavHeight,
+  normalNavHorizontalInset,
+  normalNavPaddingX,
+  normalNavRadius,
+} from './bottomTabStyles';
 
 type BottomTabsProps = {
   activeTab: TabKey;
   labels: Record<TabKey, string>;
   onChange: (tab: TabKey) => void;
+  language?: Language;
 };
 
 const icons: Record<TabKey, keyof typeof Ionicons.glyphMap> = {
@@ -24,30 +43,14 @@ const icons: Record<TabKey, keyof typeof Ionicons.glyphMap> = {
   profile: 'person-outline',
 };
 
-const tabs: TabKey[] = ['home', 'meals', 'workouts', 'progress', 'profile'];
-const normalNavHorizontalInset = 16;
-const compactNavHorizontalInset = 42;
-const normalNavHeight = 64;
-const compactNavHeight = 52;
-const normalNavRadius = normalNavHeight / 2;
-const compactNavRadius = compactNavHeight / 2;
-const normalNavPaddingX = 4;
-const compactNavPaddingX = 2;
-const tabVerticalPadding = 2;
-const normalActiveButtonRadius = (normalNavHeight - (tabVerticalPadding * 2)) / 2;
-const compactActiveButtonRadius = (compactNavHeight - (tabVerticalPadding * 2)) / 2;
-const normalIconContainerSize = 44;
-const compactIconContainerSize = 34;
-const normalIconSize = 24;
-const compactIconSize = 20;
-
-export function BottomTabs({ activeTab, labels, onChange }: BottomTabsProps) {
+export function BottomTabs({ activeTab, labels, onChange, language }: BottomTabsProps) {
   const colors = themeColors();
   const theme = getActiveTheme();
   const insets = useSafeAreaInsets();
   const { isBottomNavCompact } = useBottomNav();
-  const navProgress = useRef(new Animated.Value(isBottomNavCompact ? 1 : 0)).current;
-  const bottomOffset = Platform.OS === 'ios' ? Math.max(insets.bottom - 8, 2) : 4;
+  const [navProgress] = useState(() => new Animated.Value(isBottomNavCompact ? 1 : 0));
+  const tabs = getTabOrder(language);
+  const bottomOffset = calculateBottomNavOffset(insets.bottom, Platform.OS);
   const navHeight = navProgress.interpolate({ inputRange: [0, 1], outputRange: [normalNavHeight, compactNavHeight] });
   const navHorizontalInset = navProgress.interpolate({
     inputRange: [0, 1],
@@ -91,7 +94,6 @@ export function BottomTabs({ activeTab, labels, onChange }: BottomTabsProps) {
       <Animated.View
         style={[
           styles.glass,
-          activeRowStyle(),
           {
             backgroundColor: colors.glassTabBackground,
             borderRadius: navRadius,
@@ -137,37 +139,4 @@ export function BottomTabs({ activeTab, labels, onChange }: BottomTabsProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: {
-    position: 'absolute',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.18,
-    shadowRadius: 24,
-    elevation: 12,
-  },
-  glass: {
-    flex: 1,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    overflow: 'hidden',
-  },
-  tabPressable: {
-    flex: 1,
-    height: '100%',
-    paddingHorizontal: 0,
-    paddingVertical: tabVerticalPadding,
-  },
-  tabItem: {
-    flex: 1,
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-  },
-  iconWrap: {
-    borderRadius: radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+const styles = bottomTabStyles;

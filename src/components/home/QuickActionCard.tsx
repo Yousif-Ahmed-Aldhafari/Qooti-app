@@ -5,7 +5,9 @@ import { themeColors } from '../../theme/colors';
 import { radius } from '../../theme/radius';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
-import { activeFlexStart, activeIsRTL, activeRowStyle, activeTextAlign, activeWritingDirection } from '../../utils/rtl';
+import type { Language } from '../../types';
+import { flexStart, isRTL, rowStyle, textAlign, writingDirection } from '../../utils/rtl';
+import { getPressFeedback } from '../../utils/touchFeedback';
 
 type QuickActionCardProps = {
   title: string;
@@ -14,19 +16,35 @@ type QuickActionCardProps = {
   icon: keyof typeof Ionicons.glyphMap;
   accent: string;
   onPress: () => void;
+  language?: Language;
 };
 
-export function QuickActionCard({ title, subtitle, actionLabel, icon, accent, onPress }: QuickActionCardProps) {
+export function QuickActionCard({ title, subtitle, actionLabel, icon, accent, onPress, language }: QuickActionCardProps) {
   const colors = themeColors();
-  const rtl = activeIsRTL();
+  const rtl = isRTL(language);
   const directionalText = {
-    textAlign: activeTextAlign(),
-    writingDirection: activeWritingDirection(),
+    textAlign: textAlign(language),
+    writingDirection: writingDirection(language),
   } as const;
 
+  const { android_ripple, styleModifier } = getPressFeedback({
+    rippleColor: 'rgba(0, 0, 0, 0.15)',
+    activeOpacity: 0.82,
+  });
+
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.card, { backgroundColor: accent, opacity: pressed ? 0.82 : 1 }]}>
-      <Ionicons name={icon} size={28} color={colors.black} />
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${title}, ${subtitle}, ${actionLabel}`}
+      android_ripple={android_ripple}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.card,
+        { backgroundColor: accent },
+        styleModifier({ pressed }),
+      ]}
+    >
+      <Ionicons name={icon} size={28} color={colors.black} style={{ alignSelf: flexStart(language) }} />
       <View style={styles.copy}>
         <Text style={[styles.title, directionalText]} numberOfLines={2}>
           {title}
@@ -35,8 +53,8 @@ export function QuickActionCard({ title, subtitle, actionLabel, icon, accent, on
           {subtitle}
         </Text>
       </View>
-      <View style={[styles.action, activeRowStyle(), { alignSelf: activeFlexStart() }]}>
-        <Text style={[styles.actionText, { writingDirection: activeWritingDirection() }]} numberOfLines={1}>
+      <View style={[styles.action, rowStyle(language), { alignSelf: flexStart(language) }]}>
+        <Text style={[styles.actionText, { writingDirection: writingDirection(language) }]} numberOfLines={1}>
           {actionLabel}
         </Text>
         <Ionicons name={rtl ? 'arrow-back' : 'arrow-forward'} size={20} color={colors.white} />
@@ -53,6 +71,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     padding: spacing.lg,
     justifyContent: 'space-between',
+    overflow: 'hidden',
   },
   copy: {
     gap: spacing.xs,

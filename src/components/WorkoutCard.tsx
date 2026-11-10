@@ -1,36 +1,46 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import type { Workout } from '../types';
+import type { Language, Workout } from '../types';
 import { themeColors } from '../theme/colors';
 import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
-import { activeRowStyle, activeTextAlign, activeWritingDirection } from '../utils/rtl';
+import { rowStyle, textAlign, writingDirection } from '../utils/rtl';
+import { getPressFeedback } from '../utils/touchFeedback';
 
 type WorkoutCardProps = {
   workout: Workout;
   minutesLabel: string;
   exerciseLabel: string;
   onPress: () => void;
+  language?: Language;
 };
 
-export function WorkoutCard({ workout, minutesLabel, exerciseLabel, onPress }: WorkoutCardProps) {
+export function WorkoutCard({ workout, minutesLabel, exerciseLabel, onPress, language }: WorkoutCardProps) {
   const colors = themeColors();
   const minutes = workout.exercises.reduce((sum, exercise) => sum + exercise.duration, 0);
   const directionalText = {
-    textAlign: activeTextAlign(),
-    writingDirection: activeWritingDirection(),
+    textAlign: textAlign(language),
+    writingDirection: writingDirection(language),
   } as const;
+
+  const { android_ripple, styleModifier } = getPressFeedback({
+    rippleColor: `${colors.border}4D`,
+    activeOpacity: 0.78,
+  });
 
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={`${workout.title}, ${workout.time}, ${minutes || 45} ${minutesLabel}`}
+      android_ripple={android_ripple}
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
-        activeRowStyle(),
-        { backgroundColor: colors.card, opacity: pressed ? 0.78 : 1 },
+        rowStyle(language),
+        { backgroundColor: colors.card },
+        styleModifier({ pressed }),
       ]}
     >
       <View style={[styles.icon, { backgroundColor: colors.purple }]}>
@@ -60,6 +70,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     alignItems: 'center',
     gap: spacing.md,
+    overflow: 'hidden',
   },
   icon: {
     width: 48,

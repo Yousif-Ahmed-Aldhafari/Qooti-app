@@ -53,13 +53,13 @@ export function MealDetailsScreen() {
 
   return (
     <ScreenContainer>
-      <AppHeader title={currentMeal.name} subtitle={`${formatDisplayDate(currentMeal.date, language)} · ${currentMeal.time}`} />
+      <AppHeader title={currentMeal.title || currentMeal.name || ''} subtitle={`${formatDisplayDate(currentMeal.date, language)} · ${currentMeal.time}`} />
 
       <View style={[styles.grid, rowDirectionStyle]}>
-        <MacroCard label={t('macros.calories')} value={currentMeal.totalCalories} goal={profile.targetCalories} unit={t('macros.kcal')} icon="flame-outline" color={theme.colors.warning} />
-        <MacroCard label={t('macros.protein')} value={currentMeal.totalProtein} goal={profile.targetProtein} unit={t('macros.grams')} icon="barbell-outline" />
-        <MacroCard label={t('macros.carbs')} value={currentMeal.totalCarbs} goal={profile.targetCarbs} unit={t('macros.grams')} icon="leaf-outline" color={theme.colors.accent} />
-        <MacroCard label={t('macros.fat')} value={currentMeal.totalFat} goal={profile.targetFat} unit={t('macros.grams')} icon="water-outline" color={theme.colors.secondary} />
+        <MacroCard label={t('macros.calories')} value={currentMeal.totalCalories ?? 0} goal={profile.targetCalories} unit={t('macros.kcal')} icon="flame-outline" color={theme.colors.warning} />
+        <MacroCard label={t('macros.protein')} value={currentMeal.totalProtein ?? 0} goal={profile.targetProtein} unit={t('macros.grams')} icon="barbell-outline" />
+        <MacroCard label={t('macros.carbs')} value={currentMeal.totalCarbs ?? 0} goal={profile.targetCarbs} unit={t('macros.grams')} icon="leaf-outline" color={theme.colors.accent} />
+        <MacroCard label={t('macros.fat')} value={currentMeal.totalFat ?? currentMeal.totalFats ?? 0} goal={profile.targetFat ?? profile.targetFats ?? 0} unit={t('macros.grams')} icon="water-outline" color={theme.colors.secondary} />
       </View>
 
       <AppCard>

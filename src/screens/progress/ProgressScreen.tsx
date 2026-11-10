@@ -64,7 +64,7 @@ export function ProgressScreen() {
                 />
               </View>
               <Text style={[styles.barLabel, { color: theme.colors.textMuted }]}>
-                {formatShortDate(entry.date, language)}
+                {entry.date ? formatShortDate(entry.date, language) : (entry.label || '')}
               </Text>
             </View>
           ))}

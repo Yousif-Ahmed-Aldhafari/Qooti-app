@@ -1,11 +1,18 @@
-import { STORAGE_KEYS } from '../constants/storageKeys';
 import type { UserProfile } from '../models/profile';
-import { getOptionalJson, setJson } from './storageService';
+import { getDatabase } from '../db/database';
+import { SQLiteProfileRepository } from '../db/repositories/profileRepository';
+
+export async function getProfileRepository(): Promise<SQLiteProfileRepository> {
+  const db = await getDatabase();
+  return new SQLiteProfileRepository(db);
+}
 
 export async function loadProfile(): Promise<UserProfile | null> {
-  return getOptionalJson<UserProfile>(STORAGE_KEYS.profile);
+  const repo = await getProfileRepository();
+  return await repo.getProfile();
 }
 
 export async function saveProfile(profile: UserProfile): Promise<void> {
-  await setJson(STORAGE_KEYS.profile, profile);
+  const repo = await getProfileRepository();
+  await repo.saveProfile(profile);
 }

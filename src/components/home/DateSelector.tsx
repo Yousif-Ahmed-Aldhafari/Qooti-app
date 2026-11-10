@@ -4,7 +4,9 @@ import { themeColors } from '../../theme/colors';
 import { radius } from '../../theme/radius';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
-import { activeRowStyle, activeWritingDirection } from '../../utils/rtl';
+import type { Language } from '../../types';
+import { rowStyle, writingDirection as getWritingDirection } from '../../utils/rtl';
+import { calculateHitSlop, getPressFeedback } from '../../utils/touchFeedback';
 
 export type DateOption = {
   key: string;
@@ -17,20 +19,36 @@ type DateSelectorProps = {
   dates: DateOption[];
   selectedDate: string;
   onSelect: (date: string) => void;
+  language?: Language;
 };
 
-export function DateSelector({ title, dates, selectedDate, onSelect }: DateSelectorProps) {
+export function DateSelector({ title, dates, selectedDate, onSelect, language }: DateSelectorProps) {
   const colors = themeColors();
-  const writingDirection = activeWritingDirection();
+  const writingDirection = getWritingDirection(language);
+
   return (
     <View style={styles.wrap}>
       <Text style={[styles.title, { color: colors.text, writingDirection }]}>{title}</Text>
-      <View style={[styles.row, activeRowStyle()]}>
+      <View style={[styles.row, rowStyle(language)]}>
         {dates.map((date) => {
           const selected = date.key === selectedDate;
+          const { android_ripple, styleModifier } = getPressFeedback({
+            rippleColor: selected ? 'rgba(255, 255, 255, 0.25)' : `${colors.text}26`,
+            borderless: true,
+            activeOpacity: 0.72,
+          });
 
           return (
-            <Pressable key={date.key} accessibilityRole="button" onPress={() => onSelect(date.key)} style={styles.day}>
+            <Pressable
+              key={date.key}
+              accessibilityRole="button"
+              accessibilityLabel={`${date.dayName}, ${date.dayNumber}`}
+              accessibilityState={{ selected }}
+              hitSlop={calculateHitSlop(40, 56)}
+              android_ripple={android_ripple}
+              onPress={() => onSelect(date.key)}
+              style={({ pressed }) => [styles.day, styleModifier({ pressed })]}
+            >
               <Text style={[styles.dayName, { color: selected ? colors.text : colors.textMuted, writingDirection }]}>{date.dayName}</Text>
               <View
                 style={[

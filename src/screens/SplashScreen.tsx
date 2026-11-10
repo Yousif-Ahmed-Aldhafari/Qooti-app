@@ -6,6 +6,7 @@ import { themeColors } from '../theme/colors';
 import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
+import { activeTextAlign, activeWritingDirection } from '../utils/rtl';
 
 type SplashScreenProps = {
   t: Translator;
@@ -13,14 +14,19 @@ type SplashScreenProps = {
 
 export function SplashScreen({ t }: SplashScreenProps) {
   const colors = themeColors();
+  const directionalText = {
+    textAlign: activeTextAlign(),
+    writingDirection: activeWritingDirection(),
+  } as const;
+
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <View style={[styles.logo, { backgroundColor: colors.accent }]}>
         <Ionicons name="flash" size={42} color={colors.buttonText} />
       </View>
-      <Text style={[styles.name, { color: colors.text }]}>{t('app.name')}</Text>
-      <Text style={[styles.title, { color: colors.text }]}>{t('splash.title')}</Text>
-      <Text style={[styles.subtitle, { color: colors.textMuted }]}>{t('splash.subtitle')}</Text>
+      <Text style={[styles.name, directionalText, { color: colors.text }]}>{t('app.name')}</Text>
+      <Text style={[styles.title, directionalText, { color: colors.text }]}>{t('splash.title')}</Text>
+      <Text style={[styles.subtitle, directionalText, { color: colors.textMuted }]}>{t('splash.subtitle')}</Text>
     </View>
   );
 }

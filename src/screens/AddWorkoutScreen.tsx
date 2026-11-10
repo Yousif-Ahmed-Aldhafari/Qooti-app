@@ -1,5 +1,13 @@
 import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TouchableWithoutFeedback,
+  View,
+} from 'react-native';
 
 import { AppButton } from '../components/AppButton';
 import { AppCard } from '../components/AppCard';
@@ -26,10 +34,26 @@ export function AddWorkoutScreen({ t, onSave }: AddWorkoutScreenProps) {
   const [weight, setWeight] = useState('0');
   const [duration, setDuration] = useState('30');
   const [notes, setNotes] = useState('');
+  const [workoutNameError, setWorkoutNameError] = useState('');
+  const [exerciseNameError, setExerciseNameError] = useState('');
 
   function handleSave() {
-    if (!workoutName.trim() || !exerciseName.trim()) {
-      Alert.alert(t('common.requiredTitle'), t('common.requiredMessage'));
+    let hasError = false;
+    if (!workoutName.trim()) {
+      setWorkoutNameError(t('common.requiredMessage') || 'Required');
+      hasError = true;
+    } else {
+      setWorkoutNameError('');
+    }
+
+    if (!exerciseName.trim()) {
+      setExerciseNameError(t('common.requiredMessage') || 'Required');
+      hasError = true;
+    } else {
+      setExerciseNameError('');
+    }
+
+    if (hasError) {
       return;
     }
 
@@ -53,41 +77,105 @@ export function AddWorkoutScreen({ t, onSave }: AddWorkoutScreenProps) {
   }
 
   return (
-    <ScrollView style={[styles.screen, { backgroundColor: colors.background }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <AppHeader title={t('workouts.addTitle')} subtitle={t('workouts.subtitle')} />
-      <AppCard>
-        <AppInput label={t('workouts.workoutName')} placeholder={t('workouts.workoutPlaceholder')} value={workoutName} onChangeText={setWorkoutName} />
-        <AppInput label={t('workouts.exerciseName')} placeholder={t('workouts.exercisePlaceholder')} value={exerciseName} onChangeText={setExerciseName} />
-        <View style={[styles.row, activeRowStyle()]}>
-          <AppInput label={t('workouts.sets')} keyboardType="number-pad" value={sets} onChangeText={setSets} style={styles.input} />
-          <AppInput label={t('workouts.reps')} keyboardType="number-pad" value={reps} onChangeText={setReps} style={styles.input} />
-        </View>
-        <View style={[styles.row, activeRowStyle()]}>
-          <AppInput label={t('workouts.weight')} keyboardType="decimal-pad" value={weight} onChangeText={setWeight} style={styles.input} />
-          <AppInput label={t('workouts.duration')} keyboardType="decimal-pad" value={duration} onChangeText={setDuration} style={styles.input} />
-        </View>
-        <AppInput label={t('workouts.notes')} multiline value={notes} onChangeText={setNotes} />
-      </AppCard>
-      <AppButton title={t('common.save')} icon="save-outline" onPress={handleSave} />
-    </ScrollView>
+    <KeyboardAvoidingView
+      style={styles.keyboardRoot}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
+    >
+      <ScrollView
+        style={[styles.screen, { backgroundColor: colors.background }]}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+          <View style={styles.innerForm}>
+            <AppHeader title={t('workouts.addTitle')} subtitle={t('workouts.subtitle')} />
+            <AppCard>
+              <AppInput
+                label={t('workouts.workoutName')}
+                placeholder={t('workouts.workoutPlaceholder')}
+                value={workoutName}
+                error={workoutNameError}
+                onChangeText={(text) => {
+                  setWorkoutName(text);
+                  if (workoutNameError) setWorkoutNameError('');
+                }}
+              />
+              <AppInput
+                label={t('workouts.exerciseName')}
+                placeholder={t('workouts.exercisePlaceholder')}
+                value={exerciseName}
+                error={exerciseNameError}
+                onChangeText={(text) => {
+                  setExerciseName(text);
+                  if (exerciseNameError) setExerciseNameError('');
+                }}
+              />
+              <View style={[styles.row, activeRowStyle()]}>
+                <AppInput
+                  label={t('workouts.sets')}
+                  keyboardType="number-pad"
+                  value={sets}
+                  onChangeText={setSets}
+                  containerStyle={styles.input}
+                />
+                <AppInput
+                  label={t('workouts.reps')}
+                  keyboardType="number-pad"
+                  value={reps}
+                  onChangeText={setReps}
+                  containerStyle={styles.input}
+                />
+              </View>
+              <View style={[styles.row, activeRowStyle()]}>
+                <AppInput
+                  label={t('workouts.weight')}
+                  keyboardType="decimal-pad"
+                  value={weight}
+                  onChangeText={setWeight}
+                  containerStyle={styles.input}
+                />
+                <AppInput
+                  label={t('workouts.duration')}
+                  keyboardType="decimal-pad"
+                  value={duration}
+                  onChangeText={setDuration}
+                  containerStyle={styles.input}
+                />
+              </View>
+              <AppInput label={t('workouts.notes')} multiline value={notes} onChangeText={setNotes} />
+            </AppCard>
+            <AppButton title={t('common.save')} icon="save-outline" onPress={handleSave} />
+          </View>
+        </TouchableWithoutFeedback>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
+  keyboardRoot: {
+    flex: 1,
+  },
   screen: {
     flex: 1,
   },
   content: {
+    flexGrow: 1,
     padding: spacing.xl,
-    paddingBottom: 120,
+    paddingBottom: 140,
+  },
+  innerForm: {
     gap: spacing.lg,
   },
   row: {
-    flexWrap: 'wrap',
+    flexDirection: 'row',
     gap: spacing.md,
   },
   input: {
-    minWidth: 120,
     flex: 1,
+    minWidth: 0,
   },
 });

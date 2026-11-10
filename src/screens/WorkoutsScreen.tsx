@@ -1,15 +1,14 @@
-import { ScrollView, StyleSheet, Text } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 
 import { AppButton } from '../components/AppButton';
 import { AppHeader } from '../components/AppHeader';
+import { EmptyState } from '../components/EmptyState';
 import { WorkoutCard } from '../components/WorkoutCard';
 import { useBottomNavScrollHandler } from '../context/BottomNavContext';
 import type { Translator } from '../i18n';
 import { themeColors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
-import { typography } from '../theme/typography';
 import type { Workout } from '../types';
-import { activeTextAlign, activeWritingDirection } from '../utils/rtl';
 
 type WorkoutsScreenProps = {
   t: Translator;
@@ -21,10 +20,6 @@ type WorkoutsScreenProps = {
 export function WorkoutsScreen({ t, workouts, onAddWorkout, onWorkoutPress }: WorkoutsScreenProps) {
   const colors = themeColors();
   const handleBottomNavScroll = useBottomNavScrollHandler();
-  const directionalText = {
-    textAlign: activeTextAlign(),
-    writingDirection: activeWritingDirection(),
-  } as const;
 
   return (
     <ScrollView
@@ -40,7 +35,14 @@ export function WorkoutsScreen({ t, workouts, onAddWorkout, onWorkoutPress }: Wo
           <WorkoutCard key={workout.id} workout={workout} minutesLabel={t('common.minutes')} exerciseLabel={t('workouts.exerciseLabel')} onPress={() => onWorkoutPress(workout)} />
         ))
       ) : (
-        <Text style={[styles.empty, directionalText, { color: colors.textMuted }]}>{t('workouts.emptyMessage')}</Text>
+        <EmptyState
+          icon="barbell-outline"
+          title={t('workouts.emptyTitle')}
+          description={t('workouts.emptyMessage')}
+          actionTitle={t('workouts.addTitle')}
+          actionIcon="add"
+          onAction={onAddWorkout}
+        />
       )}
     </ScrollView>
   );
@@ -54,8 +56,5 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     paddingBottom: 120,
     gap: spacing.lg,
-  },
-  empty: {
-    ...typography.body,
   },
 });

@@ -22,7 +22,11 @@ export function ProgressCard({ title, value, helper, accent }: ProgressCardProps
   } as const;
 
   return (
-    <View style={[styles.card, { borderColor: tone, backgroundColor: colors.glassBackground, shadowColor: colors.shadow }]}>
+    <View
+      accessible={true}
+      accessibilityLabel={`${title}: ${value}, ${helper}`}
+      style={[styles.card, { borderColor: tone, backgroundColor: colors.glassBackground, shadowColor: colors.shadow }]}
+    >
       <Text style={[styles.title, directionalText, { color: colors.textMuted }]}>{title}</Text>
       <Text style={[styles.value, directionalText, { color: tone }]}>{value}</Text>
       <Text style={[styles.helper, directionalText, { color: colors.textSecondary }]}>{helper}</Text>

@@ -11,6 +11,7 @@ import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import type { Language } from '../types';
 import { activeRowStyle, activeTextAlign, activeWritingDirection } from '../utils/rtl';
+import { getPressFeedback } from '../utils/touchFeedback';
 
 type SettingsScreenProps = {
   t: Translator;
@@ -29,11 +30,16 @@ export function SettingsScreen({ t, language, themePreference, resolvedTheme, on
     writingDirection: activeWritingDirection(),
   } as const;
 
-  const options: Array<{ value: Language; label: string }> = [
+  const { android_ripple, styleModifier } = getPressFeedback({
+    rippleColor: `${palette.border}4D`,
+    activeOpacity: 0.78,
+  });
+
+  const options: { value: Language; label: string }[] = [
     { value: 'en', label: t('settings.english') },
     { value: 'ar', label: t('settings.arabic') },
   ];
-  const themeOptions: Array<{ value: ThemePreference; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
+  const themeOptions: { value: ThemePreference; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
     { value: 'light', label: t('settings.lightMode'), icon: 'sunny-outline' },
     { value: 'dark', label: t('settings.darkMode'), icon: 'moon-outline' },
     { value: 'system', label: t('settings.systemMode'), icon: 'phone-portrait-outline' },
@@ -51,14 +57,17 @@ export function SettingsScreen({ t, language, themePreference, resolvedTheme, on
 
       <AppCard>
         <Text style={[styles.sectionTitle, directionalText, { color: palette.text }]}>{t('settings.language')}</Text>
-        <View style={styles.options}>
+        <View style={styles.options} accessibilityRole="radiogroup">
           {options.map((option) => {
             const selected = option.value === language;
 
             return (
               <Pressable
                 key={option.value}
-                accessibilityRole="button"
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
+                accessibilityLabel={`${option.label}, ${selected ? t('settings.selected') : ''}`}
+                android_ripple={android_ripple}
                 onPress={() => onLanguageChange(option.value)}
                 style={({ pressed }) => [
                   styles.option,
@@ -66,8 +75,8 @@ export function SettingsScreen({ t, language, themePreference, resolvedTheme, on
                     ...activeRowStyle(),
                     borderColor: selected ? palette.accent : palette.border,
                     backgroundColor: palette.cardMuted,
-                    opacity: pressed ? 0.78 : 1,
                   },
+                  styleModifier({ pressed }),
                 ]}
               >
                 <View style={styles.optionIcon}>
@@ -86,14 +95,17 @@ export function SettingsScreen({ t, language, themePreference, resolvedTheme, on
       <AppCard>
         <Text style={[styles.sectionTitle, directionalText, { color: palette.text }]}>{t('settings.appearance')}</Text>
         <Text style={[styles.about, directionalText, { color: palette.textMuted }]}>{t('settings.theme')}</Text>
-        <View style={styles.options}>
+        <View style={styles.options} accessibilityRole="radiogroup">
           {themeOptions.map((option) => {
             const selected = option.value === themePreference;
 
             return (
               <Pressable
                 key={option.value}
-                accessibilityRole="button"
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
+                accessibilityLabel={`${option.label}, ${selected ? t('settings.selected') : ''}`}
+                android_ripple={android_ripple}
                 onPress={() => onThemeChange(option.value)}
                 style={({ pressed }) => [
                   styles.option,
@@ -101,8 +113,8 @@ export function SettingsScreen({ t, language, themePreference, resolvedTheme, on
                     ...activeRowStyle(),
                     borderColor: selected ? palette.accent : palette.border,
                     backgroundColor: palette.cardMuted,
-                    opacity: pressed ? 0.78 : 1,
                   },
+                  styleModifier({ pressed }),
                 ]}
               >
                 <View style={styles.optionIcon}>
@@ -154,6 +166,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1,
     padding: spacing.md,
+    overflow: 'hidden',
   },
   optionIcon: {
     width: 32,

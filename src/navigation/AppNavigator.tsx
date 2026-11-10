@@ -1,14 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, DevSettings, I18nManager, Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { BackHandler, I18nManager, Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BottomTabs } from '../components/BottomTabs';
 import { BottomNavProvider } from '../context/BottomNavContext';
-import { sampleMeals, sampleProfile, sampleProgress, sampleSleepEntries, sampleWaterEntries, sampleWorkouts } from '../data/sampleData';
-import { translate, type Translator } from '../i18n';
+import { sampleSleepEntries, sampleWaterEntries } from '../data/sampleData';
 import { AddMealScreen } from '../screens/AddMealScreen';
 import { AddWorkoutScreen } from '../screens/AddWorkoutScreen';
 import { HomeScreen } from '../screens/HomeScreen';
@@ -21,8 +19,10 @@ import { SettingsScreen } from '../screens/SettingsScreen';
 import { SplashScreen } from '../screens/SplashScreen';
 import { WorkoutDetailsScreen } from '../screens/WorkoutDetailsScreen';
 import { WorkoutsScreen } from '../screens/WorkoutsScreen';
+import { getLocalizationDiagnostics } from '../services/localizationService';
+import { saveSettings } from '../services/settingsService';
+import { useApp } from '../store/AppContext';
 import {
-  isThemePreference,
   resolveThemePreference,
   setActiveTheme,
   themeColors,
@@ -32,12 +32,8 @@ import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import type { Language, Meal, ScreenKey, TabKey, Workout } from '../types';
-import { applyRTL, direction, isRTL, rowStyle, textAlign, writingDirection } from '../utils/rtl';
+import { applyRTL, flexStart, isRTL, rowStyle, textAlign, writingDirection } from '../utils/rtl';
 
-const LANGUAGE_STORAGE_KEY = '@qooti/language';
-const ONBOARDING_STORAGE_KEY = '@qooti/hasOnboarded';
-const THEME_STORAGE_KEY = '@qooti/themePreference';
-const LEGACY_THEME_STORAGE_KEY = '@qooti/themeMode';
 const mainTabs: TabKey[] = ['home', 'meals', 'workouts', 'progress', 'profile'];
 
 function isMainTab(screen: ScreenKey): screen is TabKey {
@@ -45,38 +41,105 @@ function isMainTab(screen: ScreenKey): screen is TabKey {
 }
 
 function logDirectionDebug(selectedLanguage: Language) {
-  if (!__DEV__) {
+  if (typeof __DEV__ !== 'undefined' && !__DEV__) {
     return;
   }
 
-  const shouldBeRTL = isRTL(selectedLanguage);
-  console.log('selectedLanguage:', selectedLanguage);
-  console.log('isRTL:', shouldBeRTL);
-  console.log('I18nManager.isRTL:', I18nManager.isRTL);
-  console.log('resolved direction:', shouldBeRTL ? 'rtl' : 'ltr');
+  const diag = getLocalizationDiagnostics(selectedLanguage);
+  console.log('[i18n-debug] platform:', diag.platform);
+  console.log('[i18n-debug] authoritativeLanguage:', diag.resolvedLanguage);
+  console.log('[i18n-debug] primaryTag:', diag.primaryTag);
+  console.log('[i18n-debug] isRTL:', diag.isRTL);
+  console.log('[i18n-debug] I18nManager.isRTL:', I18nManager.isRTL);
 }
 
 export function AppNavigator() {
-  const [isReady, setIsReady] = useState(false);
+  const {
+    isReady: isAppReady,
+    persistenceError,
+    clearPersistenceError,
+    meals,
+    workouts,
+    profile,
+    progressEntries,
+    settings,
+    setLanguage: updateLanguage,
+    updateSettings,
+    completeOnboarding: finishOnboardingInContext,
+    addMeal,
+    addWorkout,
+    t,
+  } = useApp();
+
   const [showSplash, setShowSplash] = useState(true);
-  const [hasOnboarded, setHasOnboarded] = useState(false);
-  const [language, setLanguage] = useState<Language>('en');
-  const [themePreference, setThemePreference] = useState<ThemePreference>('system');
+  const [isSwitchingLanguage, setIsSwitchingLanguage] = useState(false);
+  const isTransitioningRef = useRef(false);
   const [activeTab, setActiveTab] = useState<TabKey>('home');
   const [activeScreen, setActiveScreen] = useState<ScreenKey>('home');
-  const [meals, setMeals] = useState<Meal[]>(sampleMeals);
-  const [workouts, setWorkouts] = useState<Workout[]>(sampleWorkouts);
-  const [selectedMeal, setSelectedMeal] = useState<Meal | null>(sampleMeals[0] ?? null);
-  const [selectedWorkout, setSelectedWorkout] = useState<Workout | null>(sampleWorkouts[0] ?? null);
+  const [selectedMealId, setSelectedMealId] = useState<string | null>(null);
+  const [selectedWorkoutId, setSelectedWorkoutId] = useState<string | null>(null);
+
+  const language = settings.selectedLanguage;
+  const themePreference: ThemePreference = settings.themeMode;
+  const hasOnboarded = settings.hasCompletedOnboarding;
+
+  const selectedMeal = useMemo(() => {
+    if (selectedMealId) {
+      const match = meals.find((m) => m.id === selectedMealId);
+      if (match) {
+        return match;
+      }
+    }
+    return null;
+  }, [meals, selectedMealId]);
+
+  const selectedWorkout = useMemo(() => {
+    if (selectedWorkoutId) {
+      const match = workouts.find((w) => w.id === selectedWorkoutId);
+      if (match) {
+        return match;
+      }
+    }
+    return null;
+  }, [workouts, selectedWorkoutId]);
+
+  // Derive effective screen: safely fall back to parent list if selected entity is missing
+  const effectiveScreen: ScreenKey = useMemo(() => {
+    if (activeScreen === 'mealDetails' && !selectedMeal) {
+      return 'meals';
+    }
+    if (activeScreen === 'workoutDetails' && !selectedWorkout) {
+      return 'workouts';
+    }
+    return activeScreen;
+  }, [activeScreen, selectedMeal, selectedWorkout]);
+
+  // Android hardware back handler: prevents accidental app exits on sub-screens
+  useEffect(() => {
+    const onHardwareBack = () => {
+      // 1. If currently on a detail or form screen, back goes to the active tab
+      if (!isMainTab(effectiveScreen)) {
+        setActiveScreen(activeTab);
+        return true;
+      }
+      // 2. If on a main tab other than 'home', back navigates to 'home' before exit
+      if (activeTab !== 'home') {
+        setActiveTab('home');
+        setActiveScreen('home');
+        return true;
+      }
+      // 3. Already on 'home': allow OS default (exit application)
+      return false;
+    };
+
+    const backSubscription = BackHandler.addEventListener('hardwareBackPress', onHardwareBack);
+    return () => backSubscription.remove();
+  }, [activeTab, effectiveScreen]);
+
   const systemColorScheme = useColorScheme();
   const resolvedTheme = useMemo(
     () => resolveThemePreference(themePreference, systemColorScheme),
     [systemColorScheme, themePreference],
-  );
-
-  const t = useCallback<Translator>(
-    (key, values) => translate(language, key, values),
-    [language],
   );
 
   const tabLabels = useMemo(
@@ -91,105 +154,75 @@ export function AppNavigator() {
   );
 
   useEffect(() => {
-    let mounted = true;
-
-    async function bootstrap() {
-      const [savedLanguage, savedOnboarding, savedThemePreference, legacyThemeMode] = await Promise.all([
-        AsyncStorage.getItem(LANGUAGE_STORAGE_KEY),
-        AsyncStorage.getItem(ONBOARDING_STORAGE_KEY),
-        AsyncStorage.getItem(THEME_STORAGE_KEY),
-        AsyncStorage.getItem(LEGACY_THEME_STORAGE_KEY),
-      ]);
-      const nextLanguage: Language = savedLanguage === 'ar' ? 'ar' : 'en';
-      const storedThemePreference = savedThemePreference ?? legacyThemeMode;
-      const nextThemePreference: ThemePreference = isThemePreference(storedThemePreference)
-        ? storedThemePreference
-        : 'system';
-
-      applyRTL(nextLanguage);
-      logDirectionDebug(nextLanguage);
-
-      if (mounted) {
-        setLanguage(nextLanguage);
-        setThemePreference(nextThemePreference);
-        setHasOnboarded(savedOnboarding === 'true');
-        setIsReady(true);
-      }
-    }
-
-    bootstrap();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
     const timer = setTimeout(() => setShowSplash(false), 950);
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    if (isAppReady) {
+      logDirectionDebug(language);
+    }
+  }, [isAppReady, language]);
 
   function selectTab(tab: TabKey) {
     setActiveTab(tab);
     setActiveScreen(tab);
   }
 
-  async function finishOnboarding() {
-    setHasOnboarded(true);
+  function finishOnboarding() {
+    finishOnboardingInContext();
     setActiveTab('home');
     setActiveScreen('home');
-    await AsyncStorage.setItem(ONBOARDING_STORAGE_KEY, 'true');
   }
 
   async function changeLanguage(nextLanguage: Language) {
-    const restartRequired = applyRTL(nextLanguage);
-    logDirectionDebug(nextLanguage);
-    setLanguage(nextLanguage);
-    await AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, nextLanguage);
+    if (nextLanguage === language || isTransitioningRef.current) {
+      return;
+    }
+    isTransitioningRef.current = true;
+    setIsSwitchingLanguage(true);
 
-    if (restartRequired) {
-      Alert.alert(
-        translate(nextLanguage, 'settings.restartTitle'),
-        translate(nextLanguage, 'settings.restartMessage'),
-        [
-          {
-            text: translate(nextLanguage, 'settings.restartAction'),
-            onPress: () => {
-              if (typeof DevSettings.reload === 'function') {
-                DevSettings.reload();
-              }
-            },
-          },
-        ],
-      );
+    try {
+      // 1. Complete the SQLite language save before switching authoritative language (Correction 7)
+      await saveSettings({ ...settings, selectedLanguage: nextLanguage });
+
+      // 2. Switch authoritative language in AppContext state
+      updateLanguage(nextLanguage);
+      applyRTL(nextLanguage);
+      logDirectionDebug(nextLanguage);
+    } catch (err) {
+      console.warn('[changeLanguage] Failed to persist settings immediately:', err);
+    } finally {
+      // Dismiss splash when state is ready (Correction 6)
+      setIsSwitchingLanguage(false);
+      isTransitioningRef.current = false;
     }
   }
 
   async function changeTheme(nextThemePreference: ThemePreference) {
-    setThemePreference(nextThemePreference);
-    await AsyncStorage.setItem(THEME_STORAGE_KEY, nextThemePreference);
+    updateSettings({ themeMode: nextThemePreference });
   }
 
   function openMealDetails(meal: Meal) {
-    setSelectedMeal(meal);
+    setSelectedMealId(meal.id);
     setActiveScreen('mealDetails');
   }
 
   function saveMeal(meal: Meal) {
-    setMeals((currentMeals) => [meal, ...currentMeals]);
-    setSelectedMeal(meal);
+    addMeal(meal);
+    setSelectedMealId(meal.id);
     setActiveTab('meals');
     setActiveScreen('mealDetails');
   }
 
   function openWorkoutDetails(workout: Workout) {
-    setSelectedWorkout(workout);
+    setSelectedWorkoutId(workout.id);
     setActiveScreen('workoutDetails');
   }
 
   function saveWorkout(workout: Workout) {
-    setWorkouts((currentWorkouts) => [workout, ...currentWorkouts]);
-    setSelectedWorkout(workout);
+    addWorkout(workout);
+    setSelectedWorkoutId(workout.id);
     setActiveTab('workouts');
     setActiveScreen('workoutDetails');
   }
@@ -200,15 +233,16 @@ export function AppNavigator() {
 
   function renderActiveScreen() {
     if (!hasOnboarded) {
-      return <OnboardingScreen t={t} onDone={finishOnboarding} />;
+      return <OnboardingScreen key={language} t={t} onDone={finishOnboarding} />;
     }
 
-    switch (activeScreen) {
+    switch (effectiveScreen) {
       case 'home':
         return (
           <HomeScreen
+            key={language}
             t={t}
-            profile={sampleProfile}
+            profile={profile}
             meals={meals}
             workouts={workouts}
             sleepEntries={sampleSleepEntries}
@@ -220,24 +254,31 @@ export function AppNavigator() {
           />
         );
       case 'meals':
-        return <MealsScreen t={t} meals={meals} onAddMeal={() => setActiveScreen('addMeal')} onMealPress={openMealDetails} />;
+        return <MealsScreen key={language} t={t} meals={meals} onAddMeal={() => setActiveScreen('addMeal')} onMealPress={openMealDetails} />;
       case 'addMeal':
-        return <AddMealScreen t={t} onSave={saveMeal} />;
+        return <AddMealScreen key={language} t={t} onSave={saveMeal} />;
       case 'mealDetails':
-        return selectedMeal ? <MealDetailsScreen t={t} meal={selectedMeal} profile={sampleProfile} /> : null;
+        if (!selectedMeal) {
+          return <MealsScreen key={language} t={t} meals={meals} onAddMeal={() => setActiveScreen('addMeal')} onMealPress={openMealDetails} />;
+        }
+        return <MealDetailsScreen key={language} t={t} meal={selectedMeal} profile={profile} />;
       case 'workouts':
-        return <WorkoutsScreen t={t} workouts={workouts} onAddWorkout={() => setActiveScreen('addWorkout')} onWorkoutPress={openWorkoutDetails} />;
+        return <WorkoutsScreen key={language} t={t} workouts={workouts} onAddWorkout={() => setActiveScreen('addWorkout')} onWorkoutPress={openWorkoutDetails} />;
       case 'addWorkout':
-        return <AddWorkoutScreen t={t} onSave={saveWorkout} />;
+        return <AddWorkoutScreen key={language} t={t} onSave={saveWorkout} />;
       case 'workoutDetails':
-        return selectedWorkout ? <WorkoutDetailsScreen t={t} workout={selectedWorkout} /> : null;
+        if (!selectedWorkout) {
+          return <WorkoutsScreen key={language} t={t} workouts={workouts} onAddWorkout={() => setActiveScreen('addWorkout')} onWorkoutPress={openWorkoutDetails} />;
+        }
+        return <WorkoutDetailsScreen key={language} t={t} workout={selectedWorkout} />;
       case 'progress':
-        return <ProgressScreen t={t} profile={sampleProfile} progress={sampleProgress} />;
+        return <ProgressScreen key={language} t={t} profile={profile} progress={progressEntries} />;
       case 'profile':
-        return <ProfileScreen t={t} profile={sampleProfile} onSettingsPress={() => setActiveScreen('settings')} />;
+        return <ProfileScreen key={language} t={t} profile={profile} onSettingsPress={() => setActiveScreen('settings')} />;
       case 'settings':
         return (
           <SettingsScreen
+            key={language}
             t={t}
             language={language}
             themePreference={themePreference}
@@ -251,9 +292,8 @@ export function AppNavigator() {
     }
   }
 
-  const showTabs = hasOnboarded && isMainTab(activeScreen);
-  const showBack = hasOnboarded && !isMainTab(activeScreen);
-  const layoutDirection = direction(language);
+  const showTabs = hasOnboarded && isMainTab(effectiveScreen);
+  const showBack = hasOnboarded && !isMainTab(effectiveScreen);
   const rtl = isRTL(language);
   setActiveTheme(resolvedTheme);
   const palette = themeColors();
@@ -262,9 +302,9 @@ export function AppNavigator() {
     writingDirection: writingDirection(language),
   } as const;
 
-  if (!isReady || showSplash) {
+  if (!isAppReady || showSplash || isSwitchingLanguage) {
     return (
-      <View style={[styles.root, { direction: layoutDirection, backgroundColor: palette.background }]}>
+      <View style={[styles.root, { backgroundColor: palette.background }]}>
         <SplashScreen t={t} />
         <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
       </View>
@@ -273,8 +313,26 @@ export function AppNavigator() {
 
   return (
     <BottomNavProvider>
-      <SafeAreaView style={[styles.root, { direction: layoutDirection, backgroundColor: palette.background }]} edges={['top']}>
+      <SafeAreaView style={[styles.root, { backgroundColor: palette.background }]} edges={['top']}>
         <View style={[styles.screenSlot, { backgroundColor: palette.background }]}>
+          {persistenceError ? (
+            <View style={[styles.errorBanner, { backgroundColor: palette.card, borderColor: '#F59E0B' }]}>
+              <View style={[styles.errorContent, rowStyle(language)]}>
+                <Ionicons name="warning-outline" size={20} color="#F59E0B" />
+                <Text style={[styles.errorText, directionalText, { color: palette.text }]} numberOfLines={2}>
+                  {persistenceError}
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Dismiss storage error"
+                  onPress={clearPersistenceError}
+                  style={styles.errorDismiss}
+                >
+                  <Ionicons name="close-circle-outline" size={20} color={palette.textMuted} />
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
           {showBack ? (
             <Pressable
               accessibilityRole="button"
@@ -282,7 +340,7 @@ export function AppNavigator() {
               style={({ pressed }) => [
                 styles.backButton,
                 {
-                  alignSelf: 'flex-start',
+                  alignSelf: flexStart(language),
                   ...rowStyle(language),
                   backgroundColor: palette.cardMuted,
                   opacity: pressed ? 0.72 : 1,
@@ -296,7 +354,7 @@ export function AppNavigator() {
           {renderActiveScreen()}
         </View>
 
-        {showTabs ? <BottomTabs activeTab={activeTab} labels={tabLabels} onChange={selectTab} /> : null}
+        {showTabs ? <BottomTabs key={language} language={language} activeTab={activeTab} labels={tabLabels} onChange={selectTab} /> : null}
         <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
       </SafeAreaView>
     </BottomNavProvider>
@@ -321,5 +379,24 @@ const styles = StyleSheet.create({
   },
   backText: {
     ...typography.caption,
+  },
+  errorBanner: {
+    marginHorizontal: spacing.xl,
+    marginTop: spacing.xs,
+    marginBottom: spacing.xs,
+    padding: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+  },
+  errorContent: {
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  errorText: {
+    flex: 1,
+    ...typography.caption,
+  },
+  errorDismiss: {
+    padding: spacing.xs,
   },
 });

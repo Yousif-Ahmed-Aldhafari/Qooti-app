@@ -7,7 +7,7 @@ import { radius } from '../../theme/radius';
 import { spacing } from '../../theme/spacing';
 import { themeColors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
-import { activeWritingDirection } from '../../utils/rtl';
+import { activeWritingDirection, rowDirection } from '../../utils/rtl';
 
 type DonutStat = {
   title: string;
@@ -52,7 +52,7 @@ export function CombinedProgressStatsCard({
 
   return (
     <GlassCard style={styles.card} contentStyle={styles.content} blur>
-      <View style={[styles.progressContentRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+      <View style={[styles.progressContentRow, { flexDirection: rowDirection(isRTL ? 'ar' : 'en') }]}>
         <ProgressDonutSection stat={progressStat} />
         <View style={styles.progressInfoList}>
           {progressInfo.map((item) => (
@@ -64,7 +64,7 @@ export function CombinedProgressStatsCard({
       <View style={[styles.divider, { backgroundColor: colors.glassBorder }]} />
 
       <View style={styles.metricsGrid}>
-        <View style={[styles.metricsGridRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+        <View style={[styles.metricsGridRow, { flexDirection: rowDirection(isRTL ? 'ar' : 'en') }]}>
           <CompactDonutSection stat={caloriesStat} />
           <CompactDonutSection stat={workoutStat} />
         </View>
@@ -81,7 +81,11 @@ function ProgressDonutSection({ stat }: { stat: DonutStat }) {
   };
 
   return (
-    <View style={styles.progressDonutSection}>
+    <View
+      accessible={true}
+      accessibilityLabel={`${stat.title}: ${stat.value}, ${stat.subtitle}`}
+      style={styles.progressDonutSection}
+    >
       <Text style={[styles.title, centeredText, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
         {stat.title}
       </Text>
@@ -104,7 +108,11 @@ function CompactDonutSection({ stat }: { stat: DonutStat }) {
   };
 
   return (
-    <View style={styles.compactDonutSection}>
+    <View
+      accessible={true}
+      accessibilityLabel={`${stat.title}: ${stat.value}, ${stat.subtitle}`}
+      style={styles.compactDonutSection}
+    >
       <Text style={[styles.compactTitle, centeredText, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.74}>
         {stat.title}
       </Text>
@@ -127,7 +135,11 @@ function ProgressInfoRow({ item, isRTL }: { item: ProgressInfoItem; isRTL: boole
   };
 
   return (
-    <View style={[styles.infoRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+    <View
+      accessible={true}
+      accessibilityLabel={`${item.label}: ${item.value}`}
+      style={[styles.infoRow, { flexDirection: rowDirection(isRTL ? 'ar' : 'en') }]}
+    >
       <View style={styles.infoIconWrap}>
         {item.iconFamily === 'materialCommunity' ? (
           <MaterialCommunityIcons name={item.icon as keyof typeof MaterialCommunityIcons.glyphMap} size={18} color={item.accent} />
@@ -157,7 +169,11 @@ function DonutRing({ stat, size, stroke, centerSize }: { stat: DonutStat; size: 
   const progressLabel = `${Math.round(safeProgress * 100)}%`;
 
   return (
-    <View style={[styles.ring, { width: size, height: size, borderRadius: size / 2 }]}>
+    <View
+      accessible={false}
+      importantForAccessibility="no"
+      style={[styles.ring, { width: size, height: size, borderRadius: size / 2 }]}
+    >
       <Svg width={size} height={size} style={styles.ringSvg}>
         <Circle cx={center} cy={center} r={radiusValue} stroke={colors.donutTrack} strokeWidth={stroke} fill="none" />
         <Circle

@@ -1,37 +1,47 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import type { Meal } from '../types';
+import type { Language, Meal } from '../types';
 import { themeColors } from '../theme/colors';
 import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import { calculateMealTotals } from '../utils/nutrition';
-import { activeRowStyle, activeTextAlign, activeWritingDirection } from '../utils/rtl';
+import { rowStyle, textAlign, writingDirection } from '../utils/rtl';
+import { getPressFeedback } from '../utils/touchFeedback';
 
 type MealCardProps = {
   meal: Meal;
   caloriesLabel: string;
   itemLabel: string;
   onPress: () => void;
+  language?: Language;
 };
 
-export function MealCard({ meal, caloriesLabel, itemLabel, onPress }: MealCardProps) {
+export function MealCard({ meal, caloriesLabel, itemLabel, onPress, language }: MealCardProps) {
   const colors = themeColors();
   const totals = calculateMealTotals(meal.items);
   const directionalText = {
-    textAlign: activeTextAlign(),
-    writingDirection: activeWritingDirection(),
+    textAlign: textAlign(language),
+    writingDirection: writingDirection(language),
   } as const;
+
+  const { android_ripple, styleModifier } = getPressFeedback({
+    rippleColor: `${colors.border}4D`,
+    activeOpacity: 0.78,
+  });
 
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={`${meal.title}, ${meal.time}, ${Math.round(totals.calories)} ${caloriesLabel}`}
+      android_ripple={android_ripple}
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
-        activeRowStyle(),
-        { backgroundColor: colors.card, opacity: pressed ? 0.78 : 1 },
+        rowStyle(language),
+        { backgroundColor: colors.card },
+        styleModifier({ pressed }),
       ]}
     >
       <View style={[styles.icon, { backgroundColor: colors.accent }]}>
@@ -59,6 +69,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     alignItems: 'center',
     gap: spacing.md,
+    overflow: 'hidden',
   },
   icon: {
     width: 48,
