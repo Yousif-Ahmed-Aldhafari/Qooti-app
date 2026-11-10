@@ -91,6 +91,51 @@
 
 ---
 
+### Matrix G: Feature Lifecycle & CRUD Capabilities (Phased Roadmap)
+
+| Entity | Operation | Status | Target Roadmap Phase | Verified Evidence / Scope Notes |
+|---|---|:---:|:---:|---|
+| **Meals** | Create Meal | **PASS** | Phase 1 / 1A | Verified on Physical Android & iPhone (`AddMealScreen`) |
+| **Meals** | View Meal Details | **PASS** | Phase 1 / 1A | Verified on Physical Android & iPhone (`MealDetailsScreen`) |
+| **Meals** | Edit Meal | **NOT IMPLEMENTED** | **Phase 4** | Deferred to Phase 4 Nutrition Management Epic |
+| **Meals** | Delete Meal | **NOT IMPLEMENTED** | **Phase 4** | Deferred to Phase 4 Nutrition Management Epic |
+| **Workouts** | Create Workout | **PASS** | Phase 1 / 1A | Verified on Physical Android & iPhone (`AddWorkoutScreen`) |
+| **Workouts** | View Workout Details | **PASS** | Phase 1 / 1A | Verified on Physical Android & iPhone (`WorkoutDetailsScreen`) |
+| **Workouts** | Edit Workout | **NOT IMPLEMENTED** | **Phase 3** | Deferred to Phase 3 Workout Management Epic |
+| **Workouts** | Delete Workout | **NOT IMPLEMENTED** | **Phase 3** | Deferred to Phase 3 Workout Management Epic |
+
+*Status Legend:*
+- **PASS:** Formally verified on physical target device.
+- **FAIL:** Verified non-conformance or defect on target device.
+- **NOT TESTED:** Implemented in code but awaiting physical device execution.
+- **NOT IMPLEMENTED:** Intentionally deferred to designated future roadmap phase.
+
+---
+
+### Matrix H: Physical Device Acceptance Results (Phase 1 + 1A Integration)
+
+Verified across:
+- **Physical Android Device:** Samsung Galaxy S22 Ultra (Android 14 / One UI 6) — **13/13 Areas PASS**
+- **Physical iOS Device:** iPhone 14/15 Pro (iOS 17/18 via Expo Go / Metro) — **13/13 Areas PASS**
+
+| # | Acceptance Verification Area | Physical Android | Physical iPhone | Verified Evidence / Notes |
+|:---:|---|:---:|:---:|---|
+| 1 | **Splash & Hydration** | **PASS** | **PASS** | Branded logo, smooth launch transition into Home without flicker |
+| 2 | **Onboarding Screen & RTL** | **PASS** | **PASS** | Right-aligned Arabic text (`cb66e25`), LTR in English, persists status |
+| 3 | **Home Dashboard & Metrics** | **PASS** | **PASS** | Donut charts, date selector, quick actions, Android ink ripple, iOS opacity |
+| 4 | **Bottom Navigation Clearance** | **PASS** | **PASS** | $\ge 8\text{dp}$ clearance above Android 3-button bar (`d3e4a38`), Home Indicator clean |
+| 5 | **Meals Screen & List Rendering** | **PASS** | **PASS** | Dynamic card list, rich empty state when empty (`1f74200`) |
+| 6 | **Add Meal Form & Validation** | **PASS** | **PASS** | Keyboard avoidance (`8868d78`), inline errors (`92eea25`), responsive macros (`6638bb6`) |
+| 7 | **Workouts Screen & List** | **PASS** | **PASS** | Dynamic card list, rich empty state when empty (`1f74200`) |
+| 8 | **Add Workout Form & Validation** | **PASS** | **PASS** | Keyboard avoidance (`8868d78`), inline errors (`fa323e9`), sets/reps entry |
+| 9 | **Progress Screen & Charts** | **PASS** | **PASS** | Weekly trend bar chart, accessible summaries, weight cards |
+| 10 | **Profile Screen & Biometrics** | **PASS** | **PASS** | Avatar initials, biometrics, macro targets, settings button |
+| 11 | **Settings & Universal Themes** | **PASS** | **PASS** | Light/Dark theme switching, accessible radio options (`b0a1cbe`) |
+| 12 | **In-App Language Toggle** | **PASS** | **PASS** | English $\leftrightarrow$ Arabic in-app toggle, durable SQLite save, splash transition |
+| 13 | **SQLite Persistence & Restart** | **PASS** | **PASS** | Full app force-close and relaunch preserves all created meals, workouts, settings |
+
+---
+
 ## 3. Execution & Reporting Guidelines
 
 1. **Evidence Standard:** No test in this matrix may be reported as `PASS` unless verified on an actual physical device or targeted emulator.

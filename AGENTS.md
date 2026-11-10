@@ -11,6 +11,7 @@ Before creating or modifying any screen, component, or user interaction, read an
 - [Phase 1A UI/UX Audit & Issue Inventory](file:///mnt/samsungSSD/Projects/Qooti-app/docs/design/phase-1a-uiux-audit.md)
 - [Phase 1A Improvement Backlog](file:///mnt/samsungSSD/Projects/Qooti-app/docs/design/phase-1a-improvement-backlog.md)
 - [Platform Acceptance Test Matrix](file:///mnt/samsungSSD/Projects/Qooti-app/docs/design/platform-acceptance-matrix.md)
+- [Product & Engineering Roadmap](file:///mnt/samsungSSD/Projects/Qooti-app/docs/design/qooti-roadmap.md)
 
 ---
 
