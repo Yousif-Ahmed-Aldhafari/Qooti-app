@@ -335,13 +335,27 @@ Our repository audit revealed an important structural distinction:
 
 ## 4. Phase 1A Implementation & Hardening Status (Tasks 1A.2 – 1A.5)
 
-- **Finding 1 (Android 3-Button Clearance):** RESOLVED in Task 1A.2 (`BottomTabs.tsx`, `bottomTabStyles.ts`).
-- **Finding 2 (iOS Edge-Swipe Navigation):** ASSESSED in Task 1A.5 (`docs/design/native-navigation-migration-assessment.md`). Dedicated blueprint for `@react-navigation/native-stack` in Phase 1B; state-based router retained for Phase 1A stability.
-- **Finding 3 (Keyboard Avoidance):** RESOLVED in Task 1A.2 (`AddMealScreen.tsx`, `AddWorkoutScreen.tsx`).
-- **Finding 4 (Compact Macro Input Grid):** RESOLVED in Task 1A.2 with flexWrap grid. Verified across 320dp-430dp in Task 1A.5.
-- **Finding 5 & 6 (Touch Targets & Ripple Feedback):** RESOLVED in Task 1A.3 across all interactive controls with `touchFeedback.ts`.
-- **Finding 7 (Input Focus & Inline Validation):** RESOLVED in Task 1A.3 & Task 1A.4 (`AppInput.tsx`, inline error alerts replaced).
-- **Finding 8 (Screen Reader Accessibility):** HARDENED in Task 1A.5: composite `accessibilityLabel` on `StatCard`, `ProgressCard`, `MacroCard`, `CombinedProgressStatsCard`, and `GoalProgressCard`; `accessibilityRole="header"` on headers.
-- **Finding 10 (Onboarding RTL):** RESOLVED in Task 1A.2.
-- **Finding 12 (Empty States):** RESOLVED in Task 1A.3 & Task 1A.4 (`EmptyState.tsx`).
+### P1 Findings Reconciliation (3 Confirmed P1s — 100% Resolved)
+- **Finding 1 [P1] (Android 3-Button Clearance):** RESOLVED in Task 1A.2 (`BottomTabs.tsx`, `bottomTabStyles.ts`) via dynamic inset measurement.
+- **Finding 2 [P1] (Keyboard Occlusion on Form Entry):** RESOLVED in Task 1A.2 (`AddMealScreen.tsx`, `AddWorkoutScreen.tsx`) via `KeyboardAvoidingView` and `keyboardShouldPersistTaps="handled"`.
+- **Finding 3 [P1] (Compact Screen Layout Grid for Macros):** RESOLVED in Task 1A.2 (`AddMealScreen.tsx`) via responsive wrapping grid (`minWidth: 120`). Verified across 320dp–430dp viewports in Task 1A.5.
+
+### Deferred Enhancements (Documented & Non-Blocking)
+- **Finding 8 [P2] (iOS Left-Edge Interactive Swipe-Back):** DOCUMENTED & DEFERRED to Phase 1B. Fully assessed in [`docs/design/native-navigation-migration-assessment.md`](file:///mnt/samsungSSD/Projects/Qooti-app/docs/design/native-navigation-migration-assessment.md). Migrating to `@react-navigation/native-stack` during Phase 1A would destabilize existing regression suites and conflate UI/UX styling with navigation architecture refactoring. Non-blocking for Phase 1A.
+- **Finding 9 [P2] (Unmounted Prototype Cleanup):** DEFERRED to Phase 2 to allow complete review against upcoming features before deleting legacy prototype files.
+- **Finding 13 [P3] (Sub-Screen Transition Animation):** DEFERRED to Phase 1B to be implemented concurrently with native stack transitions.
+
+### P2 & P3 Resolved Findings
+- **Finding 4 [P2] & Finding 5 [P2] (Touch Targets & Ripple Feedback):** RESOLVED in Task 1A.3 across all interactive controls with `touchFeedback.ts`.
+- **Finding 6 [P2] & Finding 9 [P2] (Input Focus & Inline Validation):** RESOLVED in Task 1A.3 & Task 1A.4 (`AppInput.tsx`, inline error alerts replaced).
+- **Finding 7 [P2] (Onboarding RTL Text Alignment):** RESOLVED in Task 1A.2 (`OnboardingScreen.tsx`).
+- **Finding 10 [P2] & Finding 11 [P3] (Accessibility & Semantics):** HARDENED in Task 1A.4 & Task 1A.5: composite `accessibilityLabel` on `StatCard`, `ProgressCard`, `MacroCard`, `CombinedProgressStatsCard`, and `GoalProgressCard`; `accessibilityRole="header"` on headers.
+- **Finding 12 [P3] (Empty States):** RESOLVED in Task 1A.3 & Task 1A.4 (`EmptyState.tsx`).
+- **Finding 14 [P3] (Dynamic Type Scaling):** RESOLVED in Task 1A.5 with flexible container heights and wrap assertions.
+
+### Approved Language & RTL Architecture
+- **In-App Language Selector:** Dual-language toggle (English / العربية) is fully in-app within `SettingsScreen.tsx`.
+- **SQLite Persistence:** Language preference is durably saved to the SQLite `settings` table as the single source of truth.
+- **Splash Transition:** A smooth, controlled splash screen reinitialization ensures bidirectional UI elements remount cleanly without visual flashes.
+- **No DevSettings.reload() & No Forced Native RTL Restart:** Operates completely without destructive developer reload calls (`DevSettings.reload()`) or `I18nManager.forceRTL()`, avoiding native iOS Asset crashes and preventing state corruption.
 

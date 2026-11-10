@@ -39,13 +39,16 @@
   3. On iOS with Home Indicator, bottom offset remains `Math.max(insets.bottom - 8, 2)`.
   4. Tab switching remains responsive across all 5 tabs in both English and Arabic.
 
-#### Item 1.2 [P2] iOS Interactive Edge-Swipe Back Navigation
+#### Item 1.2 [P2 — DEFERRED TO PHASE 1B] iOS Interactive Edge-Swipe Back Navigation
 - **Affected Files:** `src/navigation/AppNavigator.tsx`
-- **Description:** Enable native swipe-from-left-edge to go back on iOS when inside detail or sub-screens (`mealDetails`, `workoutDetails`, `addMeal`, `addWorkout`, `settings`).
-- **Acceptance Criteria:**
-  1. Swiping from the left edge on iOS returns to the parent tab.
-  2. Android hardware back button and system back gesture continue to work seamlessly.
-  3. No blank screens or unmounted state loops.
+- **Status:** Documented & Deferred to Phase 1B (Non-blocking for Phase 1A foundation integration).
+- **Assessment Document:** [`docs/design/native-navigation-migration-assessment.md`](file:///mnt/samsungSSD/Projects/Qooti-app/docs/design/native-navigation-migration-assessment.md)
+- **Rationale:** Requires architectural migration to `@react-navigation/native-stack` to achieve authentic UIKit gesture physics without JS-thread gesture collisions. State-based navigation is retained for Phase 1A stability and zero regressions.
+- **Phase 1B Acceptance Criteria:**
+  1. Swiping from the left edge on iOS returns to the parent tab with UIKit spring physics.
+  2. In Arabic (RTL), edge swipe operates symmetrically from the right screen edge.
+  3. Android hardware back button and system back gesture continue to work seamlessly.
+  4. Form dirty-state guards prevent accidental loss of uncommitted meal/workout entries.
 
 ---
 
