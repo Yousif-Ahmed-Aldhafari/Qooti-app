@@ -9,6 +9,38 @@ export const MIGRATIONS: SchemaMigration[] = [
       await db.execAsync(SCHEMA_V1_SQL);
     },
   },
+  {
+    version: 2,
+    name: 'add_profile_personalization_v2',
+    up: async (db: IDatabase) => {
+      // Check existing columns to ensure safe, idempotent migration
+      const tableInfo = await db.getAllAsync<{ name: string }>('PRAGMA table_info(user_profiles);');
+      const existingColumns = new Set(tableInfo.map((col) => col.name));
+
+      const newColumns: { name: string; ddl: string }[] = [
+        { name: 'age', ddl: 'ALTER TABLE user_profiles ADD COLUMN age INTEGER DEFAULT 28;' },
+        { name: 'gender', ddl: "ALTER TABLE user_profiles ADD COLUMN gender TEXT DEFAULT 'unspecified';" },
+        { name: 'activity_level', ddl: "ALTER TABLE user_profiles ADD COLUMN activity_level TEXT DEFAULT 'moderately_active';" },
+        { name: 'primary_goal', ddl: "ALTER TABLE user_profiles ADD COLUMN primary_goal TEXT DEFAULT 'general_health';" },
+        { name: 'target_weight_kg', ddl: 'ALTER TABLE user_profiles ADD COLUMN target_weight_kg REAL DEFAULT 70;' },
+        { name: 'weekly_goal_rate', ddl: "ALTER TABLE user_profiles ADD COLUMN weekly_goal_rate TEXT DEFAULT 'moderate';" },
+        { name: 'training_experience', ddl: "ALTER TABLE user_profiles ADD COLUMN training_experience TEXT DEFAULT 'beginner';" },
+        { name: 'preferred_workout_days', ddl: 'ALTER TABLE user_profiles ADD COLUMN preferred_workout_days INTEGER DEFAULT 4;' },
+        { name: 'available_equipment', ddl: `ALTER TABLE user_profiles ADD COLUMN available_equipment TEXT DEFAULT '["bodyweight"]';` },
+        { name: 'workout_location', ddl: "ALTER TABLE user_profiles ADD COLUMN workout_location TEXT DEFAULT 'flexible';" },
+        { name: 'dietary_preference', ddl: "ALTER TABLE user_profiles ADD COLUMN dietary_preference TEXT DEFAULT 'standard';" },
+        { name: 'meals_per_day', ddl: 'ALTER TABLE user_profiles ADD COLUMN meals_per_day INTEGER DEFAULT 3;' },
+        { name: 'allergies_restrictions', ddl: `ALTER TABLE user_profiles ADD COLUMN allergies_restrictions TEXT DEFAULT '[]';` },
+        { name: 'calculation_overridden', ddl: 'ALTER TABLE user_profiles ADD COLUMN calculation_overridden INTEGER DEFAULT 0;' },
+      ];
+
+      for (const col of newColumns) {
+        if (!existingColumns.has(col.name)) {
+          await db.execAsync(col.ddl);
+        }
+      }
+    },
+  },
 ];
 
 /**
@@ -45,4 +77,3 @@ export async function runMigrations(db: IDatabase): Promise<void> {
     }
   }
 }
-
