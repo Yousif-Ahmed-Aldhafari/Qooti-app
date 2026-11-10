@@ -18,6 +18,8 @@ import {
   calculateSleepRecommendation,
   calculateFullRecommendation,
   isCustomTargetsOverridden,
+  validateProfileEligibility,
+  resolveBMREquation,
   PAL_MULTIPLIERS,
 } from '../utils/personalization';
 import { SCHEMA_V1_SQL } from '../db/schema';
@@ -307,4 +309,282 @@ test('SQLite: Migration 2 upgrades V1 schema to V2 preserving existing profile d
   await runMigrations(db);
   const finalMigrations = await db.getAllAsync<{ version: number }>('SELECT version FROM schema_migrations;');
   assert.equal(finalMigrations.length, 2, 'Migration 2 must not be re-applied or duplicated');
+});
+
+test('Personalization Safety: Age 17 vs 18 eligibility and adolescent protection', () => {
+  // Age 17 adolescent profile
+  const adolescentProfile = normalizeProfile({
+    id: 'user_teen',
+    name: 'Yousef',
+    email: 'yousef@teen.com',
+    goal: 'Get leaner',
+    age: 17,
+    gender: 'male',
+    weightKg: 72,
+    heightCm: 176,
+    primaryGoal: 'weight_loss',
+    weeklyGoalRate: 'aggressive',
+  });
+
+  const teenEligibility = validateProfileEligibility(adolescentProfile);
+  assert.equal(teenEligibility.isEligible, false);
+  assert.equal(teenEligibility.status, 'unsupported_adolescent');
+  assert.ok(teenEligibility.reason?.includes('under 18'));
+
+  const teenRec = calculateFullRecommendation(adolescentProfile);
+  assert.equal(teenRec.isEligible, false);
+  assert.equal(teenRec.status, 'unsupported_adolescent');
+  assert.equal(teenRec.calorieDelta, 0, 'Must not calculate adult weight loss deficit for under-18 users');
+  assert.equal(teenRec.requiresProfessionalReview, true);
+
+  // Age 18 adult profile
+  const adultProfile = normalizeProfile({
+    id: 'user_adult',
+    name: 'Ziad',
+    email: 'ziad@adult.com',
+    goal: 'Get leaner',
+    age: 18,
+    gender: 'male',
+    weightKg: 72,
+    heightCm: 176,
+    primaryGoal: 'weight_loss',
+    weeklyGoalRate: 'moderate',
+  });
+
+  const adultEligibility = validateProfileEligibility(adultProfile);
+  assert.equal(adultEligibility.isEligible, true);
+  assert.equal(adultEligibility.status, 'eligible');
+
+  const adultRec = calculateFullRecommendation(adultProfile);
+  assert.equal(adultRec.isEligible, true);
+  assert.equal(adultRec.status, 'eligible');
+  assert.equal(adultRec.calorieDelta, -500);
+});
+
+test('Personalization Transparency: BMR equation transparency and biological reference choice', () => {
+  // Male equation (+5)
+  assert.equal(resolveBMREquation('male'), 'mifflin_st_jeor_male');
+  const bmrMale = calculateBMR(70, 170, 25, 'male');
+  assert.equal(bmrMale, Math.round(10 * 70 + 6.25 * 170 - 5 * 25 + 5));
+
+  // Female equation (-161)
+  assert.equal(resolveBMREquation('female'), 'mifflin_st_jeor_female');
+  const bmrFemale = calculateBMR(70, 170, 25, 'female');
+  assert.equal(bmrFemale, Math.round(10 * 70 + 6.25 * 170 - 5 * 25 - 161));
+
+  // Other / unspecified default: arithmetic midpoint approximation (-78)
+  assert.equal(resolveBMREquation('unspecified'), 'mifflin_st_jeor_midpoint_approximation');
+  assert.equal(resolveBMREquation('other'), 'mifflin_st_jeor_midpoint_approximation');
+  const bmrMidpoint = calculateBMR(70, 170, 25, 'unspecified');
+  assert.equal(bmrMidpoint, Math.round(10 * 70 + 6.25 * 170 - 5 * 25 - 78));
+
+  // Other / unspecified with explicit biological reference equation selection
+  assert.equal(resolveBMREquation('other', 'male'), 'mifflin_st_jeor_male');
+  assert.equal(resolveBMREquation('other', 'female'), 'mifflin_st_jeor_female');
+  assert.equal(calculateBMR(70, 170, 25, 'other', 'male'), bmrMale);
+  assert.equal(calculateBMR(70, 170, 25, 'unspecified', 'female'), bmrFemale);
+});
+
+test('Personalization Safety: Boundary, invalid, zero, negative, and non-finite inputs', () => {
+  // Invalid zero/negative weight & height validation
+  const invalidProfile = normalizeProfile({
+    id: 'user_invalid',
+    name: 'Ghost',
+    email: 'ghost@test.com',
+    goal: 'Stay safe',
+    weightKg: 0,
+    heightCm: -10,
+    age: 25,
+  });
+
+  const eligibility = validateProfileEligibility(invalidProfile);
+  assert.equal(eligibility.isEligible, false);
+  assert.equal(eligibility.status, 'invalid_inputs');
+
+  // Math calculation graceful safety without NaN
+  assert.ok(Number.isFinite(calculateBMR(0, 0, 0, 'unspecified')));
+  assert.ok(Number.isFinite(calculateBMR(-50, -100, -20, 'male')));
+  assert.ok(Number.isFinite(calculateBMR(NaN, Infinity, -Infinity, 'female')));
+  assert.ok(Number.isFinite(calculateTDEE(NaN, 'sedentary')));
+  assert.ok(Number.isFinite(calculateWaterRecommendation(-10)));
+});
+
+test('Personalization Safety: Aggressive goal adjustments and professional review flags', () => {
+  // Aggressive weight loss
+  const aggResult = calculateCaloricTarget(2400, 'weight_loss', 'aggressive', 'female', 30);
+  assert.equal(aggResult.target, 1650); // 2400 - 750
+  assert.equal(aggResult.requiresProfessionalReview, true);
+  assert.ok(aggResult.warnings.some((w) => w.includes('Aggressive calorie deficit')));
+
+  // Moderate weight loss
+  const modResult = calculateCaloricTarget(2400, 'weight_loss', 'moderate', 'female', 30);
+  assert.equal(modResult.target, 1900); // 2400 - 500
+  assert.equal(modResult.requiresProfessionalReview, false);
+
+  // Clamping to conventional clinical floor
+  const lowTdeeResult = calculateCaloricTarget(1400, 'weight_loss', 'moderate', 'female', 30);
+  assert.equal(lowTdeeResult.target, 1200); // Clamped to 1200
+  assert.equal(lowTdeeResult.requiresProfessionalReview, true);
+  assert.ok(lowTdeeResult.warnings.some((w) => w.includes('conventional non-supervised threshold')));
+});
+
+test('Personalization Macros: Exact calorie-macro reconciliation across diverse diet patterns', () => {
+  const diets: ('standard' | 'high_protein' | 'low_carb' | 'keto' | 'mediterranean')[] = [
+    'standard',
+    'high_protein',
+    'low_carb',
+    'keto',
+    'mediterranean',
+  ];
+  const goals: ('weight_loss' | 'muscle_gain' | 'maintenance' | 'endurance')[] = [
+    'weight_loss',
+    'muscle_gain',
+    'maintenance',
+    'endurance',
+  ];
+
+  for (const diet of diets) {
+    for (const goal of goals) {
+      const calories = 2150;
+      const weightKg = 70;
+      const result = calculateMacroTargets(calories, weightKg, diet, goal);
+
+      // Verify Atwater energy reconciliation
+      const totalFromMacros = result.protein * 4 + result.carbs * 4 + result.fats * 9;
+      const diff = Math.abs(calories - totalFromMacros);
+
+      // Documented rounding tolerance: <= 4 kcal for carb-reconciled diets, <= 60 kcal for strict carbohydrate-capped keto
+      const maxTolerance = diet === 'keto' ? 60 : 4;
+      assert.ok(
+        diff <= maxTolerance,
+        `Diet '${diet}' with goal '${goal}' exceeded documented rounding tolerance (diff: ${diff} kcal, max: ${maxTolerance})`
+      );
+      assert.ok(result.carbs >= 0, `Carbohydrates must never be negative (got ${result.carbs})`);
+      assert.ok(result.protein >= 50, 'Protein must satisfy essential floor');
+      assert.ok(result.fats >= 30, 'Fat must satisfy essential floor');
+      assert.equal(result.reconciliationDiff, diff);
+    }
+  }
+});
+
+test('Personalization Macros: Impossible diet constraint conflict resolution', () => {
+  // Low calories (900 kcal) + heavy individual (120 kg) on high_protein (2.2 g/kg = 264g = 1056 kcal > 900 kcal!)
+  const conflictResult = calculateMacroTargets(900, 120, 'high_protein', 'muscle_gain');
+
+  assert.equal(conflictResult.dietConstraintSatisfied, false);
+  assert.ok(conflictResult.warning?.includes('cannot be mathematically satisfied'));
+  assert.ok(conflictResult.carbs >= 0, 'Carbohydrates must never be negative');
+
+  // Verify total macro calories do not exceed the caloric allowance
+  const totalMacroKcal = conflictResult.protein * 4 + conflictResult.carbs * 4 + conflictResult.fats * 9;
+  assert.ok(totalMacroKcal <= 900 + 4, `Macro calories (${totalMacroKcal}) should not exceed ceiling`);
+});
+
+test('Personalization Integrity: Unconfirmed vs confirmed attributes and user override preservation', () => {
+  // Unconfirmed minimal profile
+  const unconfirmed = normalizeProfile({
+    id: 'u-unconf',
+    name: 'Laila',
+    email: 'laila@test.com',
+    goal: 'Tone',
+    attributesConfirmed: false,
+  });
+
+  const unconfRec = calculateFullRecommendation(unconfirmed);
+  assert.equal(unconfRec.status, 'unconfirmed_attributes');
+  assert.ok(unconfRec.warnings.some((w) => w.includes('baseline defaults')));
+
+  // Confirmed profile with manual custom targets
+  const customProfile = normalizeProfile({
+    id: 'u-custom',
+    name: 'Tareq',
+    email: 'tareq@test.com',
+    goal: 'Custom macros',
+    age: 29,
+    weightKg: 80,
+    heightCm: 182,
+    targetCalories: 2800,
+    targetProtein: 210,
+    targetCarbs: 310,
+    targetFats: 80,
+    calculationOverridden: true,
+    attributesConfirmed: true,
+  });
+
+  assert.equal(isCustomTargetsOverridden(customProfile), true);
+
+  // Verify that calculating recommendations does not overwrite stored targets
+  const customRec = calculateFullRecommendation(customProfile);
+  assert.notEqual(customRec.recommendedCalories, customProfile.targetCalories);
+  assert.equal(customProfile.targetCalories, 2800, 'Original custom target calories must be preserved');
+  assert.equal(customProfile.targetProtein, 210, 'Original custom target protein must be preserved');
+});
+
+test('SQLite: Migration 2 upgrades V1 database preserving existing manually customized targets', async () => {
+  const db = await openDatabaseAsync(':memory:');
+  await db.execAsync('PRAGMA foreign_keys = ON;');
+
+  // Initialize V1 schema
+  await db.execAsync(SCHEMA_V1_SQL);
+  await db.runAsync(
+    'INSERT INTO schema_migrations (version, name, applied_at) VALUES (1, ?, ?);',
+    'initial_schema_v1',
+    new Date().toISOString()
+  );
+
+  // Insert user with custom non-default targets in V1
+  await db.runAsync(
+    `INSERT INTO user_profiles (
+      id, name, email, goal, avatar_initials, height_cm, weight_kg,
+      target_calories, target_protein, target_carbs, target_fats,
+      sleep_goal_hours, water_goal_liters, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+    'custom-v1-user',
+    'Hassan Omar',
+    'hassan@custom.com',
+    'Strict Bodybuilding',
+    'HO',
+    185,
+    92,
+    3150,
+    220,
+    360,
+    90,
+    8.5,
+    4.0,
+    new Date().toISOString()
+  );
+
+  // Run Migration 2
+  await runMigrations(db);
+
+  const repo = new SQLiteProfileRepository(db);
+  const loaded = await repo.getProfile();
+
+  assert.ok(loaded);
+  assert.equal(loaded.id, 'custom-v1-user');
+  assert.equal(loaded.name, 'Hassan Omar');
+  assert.equal(loaded.targetCalories, 3150, 'Custom calories must be preserved across migration');
+  assert.equal(loaded.targetProtein, 220, 'Custom protein must be preserved across migration');
+  assert.equal(loaded.targetCarbs, 360, 'Custom carbs must be preserved across migration');
+  assert.equal(loaded.targetFats, 90, 'Custom fats must be preserved across migration');
+  assert.equal(loaded.sleepGoalHours, 8.5);
+  assert.equal(loaded.waterGoalLiters, 4.0);
+
+  // Update with explicit biological reference and confirmed status
+  const updated: UserProfile = {
+    ...loaded,
+    age: 27,
+    gender: 'other',
+    bmrBiologicalReference: 'male',
+    attributesConfirmed: true,
+  };
+  await repo.saveProfile(updated);
+
+  const reloaded = await repo.getProfile();
+  assert.ok(reloaded);
+  assert.equal(reloaded.gender, 'other');
+  assert.equal(reloaded.bmrBiologicalReference, 'male');
+  assert.equal(reloaded.attributesConfirmed, true);
+  assert.equal(reloaded.targetCalories, 3150);
 });

@@ -77,6 +77,8 @@ export type UserProfile = {
   mealsPerDayPreference?: number;
   allergiesRestrictions?: string[];
   calculationOverridden?: boolean;
+  attributesConfirmed?: boolean;
+  bmrBiologicalReference?: 'male' | 'female';
 };
 
 export const DEFAULT_PROFILE_ATTRIBUTES = {
@@ -102,6 +104,8 @@ export const DEFAULT_PROFILE_ATTRIBUTES = {
   mealsPerDayPreference: 3,
   allergiesRestrictions: [] as string[],
   calculationOverridden: false,
+  attributesConfirmed: false,
+  bmrBiologicalReference: undefined as ('male' | 'female' | undefined),
 };
 
 export function normalizeProfile(
@@ -152,5 +156,12 @@ export function normalizeProfile(
       ? profile.allergiesRestrictions
       : DEFAULT_PROFILE_ATTRIBUTES.allergiesRestrictions,
     calculationOverridden: profile.calculationOverridden ?? DEFAULT_PROFILE_ATTRIBUTES.calculationOverridden,
+    attributesConfirmed:
+      profile.attributesConfirmed ??
+      (profile.age !== undefined ||
+        profile.activityLevel !== undefined ||
+        profile.primaryGoal !== undefined ||
+        profile.gender !== undefined),
+    bmrBiologicalReference: profile.bmrBiologicalReference ?? DEFAULT_PROFILE_ATTRIBUTES.bmrBiologicalReference,
   };
 }

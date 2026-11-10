@@ -42,6 +42,8 @@ interface UserProfileRow {
   meals_per_day?: number | null;
   allergies_restrictions?: string | null;
   calculation_overridden?: number | null;
+  attributes_confirmed?: number | null;
+  bmr_biological_reference?: string | null;
 }
 
 export class SQLiteProfileRepository implements ProfileRepository {
@@ -108,6 +110,8 @@ export class SQLiteProfileRepository implements ProfileRepository {
       mealsPerDayPreference: row.meals_per_day != null ? row.meals_per_day : undefined,
       allergiesRestrictions: allergies,
       calculationOverridden: row.calculation_overridden === 1,
+      attributesConfirmed: row.attributes_confirmed != null ? row.attributes_confirmed === 1 : undefined,
+      bmrBiologicalReference: (row.bmr_biological_reference as 'male' | 'female') || undefined,
     });
   }
 
@@ -120,6 +124,7 @@ export class SQLiteProfileRepository implements ProfileRepository {
     const equipmentJson = JSON.stringify(normalized.availableEquipment ?? ['bodyweight']);
     const allergiesJson = JSON.stringify(normalized.allergiesRestrictions ?? []);
     const calculationOverriddenInt = normalized.calculationOverridden ? 1 : 0;
+    const attributesConfirmedInt = normalized.attributesConfirmed ? 1 : 0;
 
     await target.runAsync(
       `INSERT INTO user_profiles (
@@ -129,8 +134,9 @@ export class SQLiteProfileRepository implements ProfileRepository {
         age, gender, activity_level, primary_goal, target_weight_kg, weekly_goal_rate,
         training_experience, preferred_workout_days, available_equipment, workout_location,
         dietary_preference, meals_per_day, allergies_restrictions, calculation_overridden,
+        attributes_confirmed, bmr_biological_reference,
         updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         name = excluded.name,
         email = excluded.email,
@@ -158,6 +164,8 @@ export class SQLiteProfileRepository implements ProfileRepository {
         meals_per_day = excluded.meals_per_day,
         allergies_restrictions = excluded.allergies_restrictions,
         calculation_overridden = excluded.calculation_overridden,
+        attributes_confirmed = excluded.attributes_confirmed,
+        bmr_biological_reference = excluded.bmr_biological_reference,
         updated_at = excluded.updated_at;`,
       id,
       normalized.name ?? '',
@@ -186,6 +194,8 @@ export class SQLiteProfileRepository implements ProfileRepository {
       normalized.mealsPerDayPreference ?? 3,
       allergiesJson,
       calculationOverriddenInt,
+      attributesConfirmedInt,
+      normalized.bmrBiologicalReference ?? null,
       now
     );
   }
