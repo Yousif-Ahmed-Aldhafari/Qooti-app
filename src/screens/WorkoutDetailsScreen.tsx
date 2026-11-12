@@ -1,5 +1,6 @@
 import { ScrollView, StyleSheet, Text } from 'react-native';
 
+import { AppButton } from '../components/AppButton';
 import { AppCard } from '../components/AppCard';
 import { AppHeader } from '../components/AppHeader';
 import { StatCard } from '../components/StatCard';
@@ -13,9 +14,10 @@ import { activeTextAlign, activeWritingDirection } from '../utils/rtl';
 type WorkoutDetailsScreenProps = {
   t: Translator;
   workout: Workout;
+  onEdit?: (workout: Workout) => void;
 };
 
-export function WorkoutDetailsScreen({ t, workout }: WorkoutDetailsScreenProps) {
+export function WorkoutDetailsScreen({ t, workout, onEdit }: WorkoutDetailsScreenProps) {
   const colors = themeColors();
   const totalMinutes = workout.exercises.reduce((sum, exercise) => sum + exercise.duration, 0);
   const directionalText = {
@@ -25,7 +27,20 @@ export function WorkoutDetailsScreen({ t, workout }: WorkoutDetailsScreenProps) 
 
   return (
     <ScrollView style={[styles.screen, { backgroundColor: colors.background }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <AppHeader title={workout.title} subtitle={t('workouts.detailsTitle')} />
+      <AppHeader
+        title={workout.title}
+        subtitle={t('workouts.detailsTitle')}
+        action={
+          onEdit ? (
+            <AppButton
+              title={t('common.edit')}
+              icon="create-outline"
+              variant="secondary"
+              onPress={() => onEdit(workout)}
+            />
+          ) : undefined
+        }
+      />
       <StatCard label={t('workouts.duration')} value={`${totalMinutes || 45} ${t('common.minutes')}`} />
       {workout.exercises.map((exercise) => (
         <AppCard key={exercise.id}>

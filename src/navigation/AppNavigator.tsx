@@ -9,6 +9,7 @@ import { BottomNavProvider } from '../context/BottomNavContext';
 import { sampleSleepEntries, sampleWaterEntries } from '../data/sampleData';
 import { AddMealScreen } from '../screens/AddMealScreen';
 import { AddWorkoutScreen } from '../screens/AddWorkoutScreen';
+import { EditWorkoutScreen } from '../screens/EditWorkoutScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { MealDetailsScreen } from '../screens/MealDetailsScreen';
 import { MealsScreen } from '../screens/MealsScreen';
@@ -69,6 +70,7 @@ export function AppNavigator() {
     completeOnboarding: finishOnboardingInContext,
     addMeal,
     addWorkout,
+    updateWorkout,
     t,
   } = useApp();
 
@@ -109,7 +111,7 @@ export function AppNavigator() {
     if (activeScreen === 'mealDetails' && !selectedMeal) {
       return 'meals';
     }
-    if (activeScreen === 'workoutDetails' && !selectedWorkout) {
+    if ((activeScreen === 'workoutDetails' || activeScreen === 'editWorkout') && !selectedWorkout) {
       return 'workouts';
     }
     return activeScreen;
@@ -118,18 +120,23 @@ export function AppNavigator() {
   // Android hardware back handler: prevents accidental app exits on sub-screens
   useEffect(() => {
     const onHardwareBack = () => {
-      // 1. If currently on a detail or form screen, back goes to the active tab
+      // 1. If currently on edit workout, back returns to workout details
+      if (effectiveScreen === 'editWorkout') {
+        setActiveScreen('workoutDetails');
+        return true;
+      }
+      // 2. If currently on a detail or form screen, back goes to the active tab
       if (!isMainTab(effectiveScreen)) {
         setActiveScreen(activeTab);
         return true;
       }
-      // 2. If on a main tab other than 'home', back navigates to 'home' before exit
+      // 3. If on a main tab other than 'home', back navigates to 'home' before exit
       if (activeTab !== 'home') {
         setActiveTab('home');
         setActiveScreen('home');
         return true;
       }
-      // 3. Already on 'home': allow OS default (exit application)
+      // 4. Already on 'home': allow OS default (exit application)
       return false;
     };
 
@@ -228,7 +235,22 @@ export function AppNavigator() {
     setActiveScreen('workoutDetails');
   }
 
+  function openEditWorkout(workout: Workout) {
+    setSelectedWorkoutId(workout.id);
+    setActiveScreen('editWorkout');
+  }
+
+  async function handleUpdateWorkout(updatedWorkout: Workout) {
+    await updateWorkout(updatedWorkout);
+    setSelectedWorkoutId(updatedWorkout.id);
+    setActiveScreen('workoutDetails');
+  }
+
   function goBack() {
+    if (effectiveScreen === 'editWorkout') {
+      setActiveScreen('workoutDetails');
+      return;
+    }
     setActiveScreen(activeTab);
   }
 
@@ -288,7 +310,20 @@ export function AppNavigator() {
         if (!selectedWorkout) {
           return <WorkoutsScreen key={language} t={t} workouts={workouts} onAddWorkout={() => setActiveScreen('addWorkout')} onWorkoutPress={openWorkoutDetails} />;
         }
-        return <WorkoutDetailsScreen key={language} t={t} workout={selectedWorkout} />;
+        return <WorkoutDetailsScreen key={language} t={t} workout={selectedWorkout} onEdit={openEditWorkout} />;
+      case 'editWorkout':
+        if (!selectedWorkout) {
+          return <WorkoutsScreen key={language} t={t} workouts={workouts} onAddWorkout={() => setActiveScreen('addWorkout')} onWorkoutPress={openWorkoutDetails} />;
+        }
+        return (
+          <EditWorkoutScreen
+            key={`${language}-${selectedWorkout.id}`}
+            t={t}
+            workout={selectedWorkout}
+            onSave={handleUpdateWorkout}
+            onCancel={() => setActiveScreen('workoutDetails')}
+          />
+        );
       case 'progress':
         return <ProgressScreen key={language} t={t} profile={profile} progress={progressEntries} />;
       case 'profile':

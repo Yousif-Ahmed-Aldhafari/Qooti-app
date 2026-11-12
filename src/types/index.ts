@@ -26,6 +26,7 @@ export type ScreenKey =
   | 'mealDetails'
   | 'workouts'
   | 'addWorkout'
+  | 'editWorkout'
   | 'workoutDetails'
   | 'progress'
   | 'profile'
