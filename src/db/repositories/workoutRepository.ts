@@ -1,5 +1,11 @@
 import { IDatabase, WorkoutRepository } from '../types';
-import { Workout, Exercise, normalizeWorkout, normalizeExercise } from '../../models/workout';
+import {
+  Workout,
+  Exercise,
+  normalizeWorkout,
+  normalizeExercise,
+  validateWorkout,
+} from '../../models/workout';
 
 interface WorkoutRow {
   id: string;
@@ -128,6 +134,7 @@ export class SQLiteWorkoutRepository implements WorkoutRepository {
   async insertWorkout(workout: Workout, txn?: IDatabase): Promise<void> {
     const target = txn || this.db;
     const normalized = normalizeWorkout(workout);
+    validateWorkout(normalized);
     const now = new Date().toISOString();
 
     await target.withExclusiveTransactionAsync(async (t) => {
@@ -166,8 +173,17 @@ export class SQLiteWorkoutRepository implements WorkoutRepository {
   async updateWorkout(workout: Workout, txn?: IDatabase): Promise<void> {
     const target = txn || this.db;
     const normalized = normalizeWorkout(workout);
+    validateWorkout(normalized);
 
     await target.withExclusiveTransactionAsync(async (t) => {
+      const existing = await t.getFirstAsync<{ id: string }>(
+        'SELECT id FROM workouts WHERE id = ?;',
+        normalized.id
+      );
+      if (!existing) {
+        throw new Error(`Cannot update workout: Workout with id "${normalized.id}" not found.`);
+      }
+
       await t.runAsync(
         `UPDATE workouts SET
            title = ?,

@@ -12,7 +12,13 @@ import { loadProfile, saveProfile } from '../services/profileService';
 import { loadProgressEntries, saveProgressEntries } from '../services/progressService';
 import { resolveAuthoritativeLanguage } from '../services/localizationService';
 import { defaultSettings, loadSettings, saveSettings } from '../services/settingsService';
-import { loadWorkouts, saveWorkouts } from '../services/workoutService';
+import {
+  loadWorkouts,
+  saveWorkouts,
+  insertWorkout as insertWorkoutService,
+  updateWorkout as updateWorkoutService,
+  deleteWorkout as deleteWorkoutService,
+} from '../services/workoutService';
 import { applyAppDirection, isRTLLanguage } from '../utils/languageDirection';
 import { getDatabase, migrateFromAsyncStorage } from '../db';
 
@@ -57,9 +63,9 @@ type AppContextValue = AppStateData & {
   addMeal: (meal: Meal) => void;
   updateMeal: (meal: Meal) => void;
   deleteMeal: (mealId: string) => void;
-  addWorkout: (workout: Workout) => void;
-  updateWorkout: (workout: Workout) => void;
-  deleteWorkout: (workoutId: string) => void;
+  addWorkout: (workout: Workout) => Promise<void> | void;
+  updateWorkout: (workout: Workout) => Promise<void> | void;
+  deleteWorkout: (workoutId: string) => Promise<void> | void;
   addProgressEntry: (entry: ProgressEntry) => void;
   updateSettings: (settings: Partial<Settings>) => void;
   clearPersistenceError: () => void;
@@ -355,26 +361,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!isHydratedRef.current) {
       return;
     }
-    saveWorkouts(state.workouts)
-      .then(() => {
-        dispatch({ type: 'setPersistenceError', error: null });
-      })
-      .catch((err) => {
-        console.error('[AppContext] Failed to persist workouts:', err);
-        dispatch({
-          type: 'setPersistenceError',
-          error: err instanceof Error ? err.message : 'Failed to persist workouts',
-        });
-      });
-  }, [state.isReady, state.workouts]);
-
-  useEffect(() => {
-    if (!state.isReady) {
-      return;
-    }
-    if (!isHydratedRef.current) {
-      return;
-    }
     saveProfile(state.profile)
       .then(() => {
         dispatch({ type: 'setPersistenceError', error: null });
@@ -466,9 +452,50 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addMeal: (meal) => dispatch({ type: 'addMeal', meal }),
       updateMeal: (meal) => dispatch({ type: 'updateMeal', meal }),
       deleteMeal: (mealId) => dispatch({ type: 'deleteMeal', mealId }),
-      addWorkout: (workout) => dispatch({ type: 'addWorkout', workout }),
-      updateWorkout: (workout) => dispatch({ type: 'updateWorkout', workout }),
-      deleteWorkout: (workoutId) => dispatch({ type: 'deleteWorkout', workoutId }),
+      addWorkout: async (workout) => {
+        try {
+          const normalized = normalizeWorkout(workout);
+          await insertWorkoutService(normalized);
+          dispatch({ type: 'addWorkout', workout: normalized });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to insert workout:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to persist workout',
+          });
+          throw err;
+        }
+      },
+      updateWorkout: async (workout) => {
+        try {
+          const normalized = normalizeWorkout(workout);
+          await updateWorkoutService(normalized);
+          dispatch({ type: 'updateWorkout', workout: normalized });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to update workout:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to persist workout',
+          });
+          throw err;
+        }
+      },
+      deleteWorkout: async (workoutId) => {
+        try {
+          await deleteWorkoutService(workoutId);
+          dispatch({ type: 'deleteWorkout', workoutId });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to delete workout:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to persist workout deletion',
+          });
+          throw err;
+        }
+      },
       addProgressEntry: (entry) => dispatch({ type: 'addProgressEntry', entry }),
       updateSettings: (settings) => dispatch({ type: 'updateSettings', settings }),
       clearPersistenceError: () => dispatch({ type: 'setPersistenceError', error: null }),
