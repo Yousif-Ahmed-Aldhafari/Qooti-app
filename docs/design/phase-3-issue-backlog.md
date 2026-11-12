@@ -49,15 +49,43 @@
 
 ---
 
-## 2. Planned Tasks in Phase 3
+### Item 3.2 [RESOLVED] Safe Workout Deletion & History Integrity
+- **Description:** Implement safe, user-confirmed deletion of individual workouts using the existing SQLite repository and AppContext architecture, ensuring deletion affects exactly the selected workout and its owned exercises without data loss elsewhere or premature UI updates.
+- **Resolution:**
+  1. **Delete Repository Hardening:**
+     - Pre-flight ID validation (rejects empty/whitespace IDs).
+     - Existence verification (`SELECT id FROM workouts WHERE id = ?`) inside transaction returning explicit not-found error.
+     - Atomic transaction with rollback (`withExclusiveTransactionAsync`) ensuring clean rollback on simulated SQL failures.
+     - Cascade child exercise deletion alongside foreign key constraints.
+     - Deterministic handling of concurrent/duplicate deletion attempts and support for empty exercise collections.
+  2. **Deletion UI & Platform-Native Confirmation:**
+     - Added `'danger'` variant to `AppButton` adhering to WCAG 2.1 AA contrast in light and dark themes.
+     - Native confirmation dialog identifying the workout and informing that its exercises will be removed.
+     - Minimum 48dp touch target on Android and >= 44pt on iOS.
+     - Full English and Arabic localization parity (`workouts.deleteWorkout`, `workouts.deleteWorkoutMessage`).
+  3. **Delete State Machine:**
+     - Explicit state machine: `idle` -> `confirming` -> `deleting` -> `success` / `error`.
+     - Button disabled during deletion to prevent duplicate submissions.
+     - In error state: screen and workout remain available with localized retryable error banner.
+     - Never navigates away before persistence succeeds.
+  4. **Navigation & Synchronization:**
+     - `AppNavigator` routes to `WorkoutsScreen` upon successful deletion and clears `selectedWorkoutId`.
+     - Stale selection guard safely falls back to workouts screen without crash.
+     - `HomeScreen` recalculates workout count and progress ratios; `WorkoutsScreen` restores empty state when last workout is removed.
+     - Unrelated workouts, meals, and profile data remain completely untouched.
+  5. **Edit Screen UX Correction:**
+     - Replaced generic `common.requiredMessage` with dedicated localized confirmation (`workouts.discardChangesMessage`) and actions ("Keep Editing" / "Discard Changes").
+     - Added Android hardware Back button handling to trigger the discard prompt when form is dirty.
+  6. **Testing Evidence:**
+     - 19 automated tests in `src/__tests__/workoutDeletionIntegrity.test.ts` (191 total tests passing, 0 failures).
 
-### Item 3.2 [PLANNED] Workout Deletion & Cascade Cleanup
-- **Description:** Implement platform-conforming deletion confirmation (iOS ActionSheet / Android AlertDialog) with atomic SQLite cascade deletion of workouts and exercise sets, dynamic dashboard metric recalculation, and empty state restoration.
-- **Status:** Next planned task in Phase 3. Deletion UI is strictly excluded from Task 3.1.
+---
+
+## 2. Planned Tasks in Phase 3
 
 ### Item 3.3 [PLANNED] Exercise Catalog & Muscle Group Targeting
 - **Description:** Built-in exercise library categorized by muscle groups (chest, back, legs, shoulders, arms, core), exercise search, and quick-add from previous workout history with remembered loads.
-- **Status:** Planned following Task 3.2.
+- **Status:** Next planned task in Phase 3.
 
 ---
 

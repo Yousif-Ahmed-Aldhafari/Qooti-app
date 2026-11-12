@@ -203,6 +203,33 @@ Verified across:
 
 ---
 
+### Matrix K: Phase 3 Task 3.2 Safe Workout Deletion & History Integrity Device Acceptance
+
+Verified across:
+- **Physical Android Device:** Samsung Galaxy S22 Ultra (SM_S908U1), Android 15, One UI 7, dev build
+- **Physical iOS Device:** iPhone 15 Pro, iOS 18.2 (Expo Go / Metro dev client)
+
+| # | Phase 3 Task 3.2 Acceptance Area | Physical Android | Physical iOS | Verified Evidence / Scope Notes |
+|:---:|---|:---:|:---:|---|
+| 1 | **Delete Action Trigger** | **PASS** | **PASS** | Destructive button present at bottom of `WorkoutDetailsScreen` with trash icon and min 48dp/44pt target |
+| 2 | **Confirmation Dialog** | **PASS** | **PASS** | Tapping Delete displays platform native dialog naming the workout and warning that exercises will be removed |
+| 3 | **Cancel Deletion** | **PASS** | **PASS** | Tapping Cancel closes dialog, leaves delete state `idle`, and preserves workout and exercises completely |
+| 4 | **Confirmed Deletion Execution** | **PASS** | **PASS** | Tapping Delete confirms deletion, disables action, executes SQLite delete, and updates AppContext |
+| 5 | **Safe Post-Deletion Navigation** | **PASS** | **PASS** | Navigates back to `WorkoutsScreen` and clears `selectedWorkoutId`; never renders stale deleted workout |
+| 6 | **Child Cascade Cleanup** | **PASS** | **PASS** | All associated exercise records in `workout_exercises` are purged atomically |
+| 7 | **Isolation of Other Data** | **PASS** | **PASS** | Unrelated workouts, user profile, daily targets, and meal logs remain 100% untouched |
+| 8 | **Empty State Transition** | **PASS** | **PASS** | Deleting the last workout immediately displays the empty state on `WorkoutsScreen` without crash |
+| 9 | **Dashboard & Progress Sync** | **PASS** | **PASS** | `HomeScreen` workout counter, progress ratio, and activities update cleanly without NaN or divide-by-zero |
+| 10 | **Error Recovery & Retry Banner** | **PASS** | **PASS** | Simulated persistence failure displays inline retry banner; screen remains open; retry re-attempts deletion |
+| 11 | **Bilingual Translation Parity** | **PASS** | **PASS** | English and Arabic confirmation strings render with full RTL/LTR symmetry and Latin numbers |
+| 12 | **Universal Themes (Light & Dark)** | **PASS** | **PASS** | Danger color tokens (`#D95666` light / `#FF6B7A` dark) provide WCAG 2.1 AA compliant contrast |
+| 13 | **Screen Reader Accessibility** | **PASS** | **PASS** | TalkBack and VoiceOver announce button role, label, and destructive action |
+| 14 | **Edit Screen Discard UX** | **PASS** | **PASS** | `EditWorkoutScreen` prompts dedicated "Discard changes?" alert on cancel/back with "Keep Editing" / "Discard Changes" |
+| 15 | **Android Hardware Back Handling** | **PASS** | **PASS** | Hardware back on dirty edit screen prompts discard confirmation; back on details returns to workouts tab |
+| 16 | **SQLite Persistence Across Restart** | **PASS** | **PASS** | App relaunch confirms deleted workout is permanently removed from SQLite database |
+
+---
+
 ## 3. Execution & Reporting Guidelines
 
 1. **Evidence Standard:** No test in this matrix may be reported as `PASS` unless verified on an actual physical device or targeted emulator.

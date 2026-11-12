@@ -22,7 +22,7 @@ import {
 import { applyAppDirection, isRTLLanguage } from '../utils/languageDirection';
 import { getDatabase, migrateFromAsyncStorage } from '../db';
 
-type AppStateData = {
+export type AppStateData = {
   isReady: boolean;
   persistenceError: string | null;
   meals: Meal[];
@@ -32,7 +32,7 @@ type AppStateData = {
   settings: Settings;
 };
 
-type AppAction =
+export type AppAction =
   | {
       type: 'hydrate';
       meals: Meal[];
@@ -83,7 +83,7 @@ const initialState: AppStateData = {
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
 
-function appReducer(state: AppStateData, action: AppAction): AppStateData {
+export function appReducer(state: AppStateData, action: AppAction): AppStateData {
   switch (action.type) {
     case 'hydrate':
       return {

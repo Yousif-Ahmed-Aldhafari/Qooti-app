@@ -76,8 +76,8 @@
 - **Core Mission:** Implement full lifecycle management for logged workouts, exercise items, and training progression.
 - **Key Deliverables:**
   - **Task 3.1 [COMPLETED]:** Workout Lifecycle Audit & Safe Editing. Atomic `updateWorkout` transactions, strict domain validation (`validateWorkout`), granular `AppContext` persistence (no global `saveAllWorkouts`), and `EditWorkoutScreen` UI.
-  - **Task 3.2 [NEXT]:** Workout Deletion & Cascade Cleanup. Platform-conforming deletion confirmation (iOS ActionSheet / Android Material AlertDialog) with atomic SQLite cascade deletion of workouts and exercise sets, dynamic dashboard metric recalculation, and empty state restoration.
-  - **Task 3.3 [PLANNED]:** Exercise Catalog & Muscle Group Targeting. Built-in exercise database, muscle group targeting, and quick-add from previous workout history.
+  - **Task 3.2 [COMPLETED]:** Safe Workout Deletion & History Integrity. Pre-flight ID verification, atomic SQLite deletion with cascade child cleanup and rollback, delete state machine (`idle` -> `confirming` -> `deleting` -> `success` / `error`), localized confirmation dialogs, retryable error handling, navigation safety, and empty state sync.
+  - **Task 3.3 [NEXT]:** Exercise Catalog & Muscle Group Targeting. Built-in exercise database, muscle group targeting, and quick-add from previous workout history.
 
 ### Phase 4: Nutrition & Meal Planning — Planned
 - **Core Mission:** Implement full lifecycle management for logged meals, food items, and nutrition planning.
