@@ -148,9 +148,14 @@ test('Personalization: Full recommendation and custom override detection', () =>
   });
 
   const rec = calculateFullRecommendation(testProfile);
-  assert.ok(rec.bmr > 1500);
-  assert.ok(rec.tdee > 2000);
-  assert.ok(rec.recommendedCalories > rec.tdee); // because muscle_gain adds surplus
+  assert.equal(rec.hasApprovedTarget, true);
+  assert.equal(rec.recommendationState, 'recommended_estimate');
+  assert.ok(rec.bmr !== null && rec.bmr > 1500);
+  assert.ok(rec.tdee !== null && rec.tdee > 2000);
+  assert.ok(rec.recommendedCalories !== null && rec.recommendedCalories > rec.tdee); // because muscle_gain adds surplus
+  assert.ok(rec.recommendedProtein !== null);
+  assert.ok(rec.recommendedCarbs !== null);
+  assert.ok(rec.recommendedFats !== null);
   assert.equal(rec.waterIntakeLiters, calculateWaterRecommendation(75));
   assert.equal(rec.sleepHours, 8.0);
   assert.equal(calculateSleepRecommendation('extra_active'), 8.5);
@@ -242,9 +247,11 @@ test('SQLite: Migration 2 upgrades V1 schema to V2 preserving existing profile d
   const migrationsAfter = await db.getAllAsync<{ version: number; name: string }>(
     'SELECT version, name FROM schema_migrations ORDER BY version ASC;'
   );
-  assert.equal(migrationsAfter.length, 2);
+  assert.equal(migrationsAfter.length, 3);
   assert.equal(migrationsAfter[1].version, 2);
   assert.equal(migrationsAfter[1].name, 'add_profile_personalization_v2');
+  assert.equal(migrationsAfter[2].version, 3);
+  assert.equal(migrationsAfter[2].name, 'add_profile_confirmation_and_bmr_ref_v3');
 
   // 4. Verify existing profile data is completely preserved
   const repo = new SQLiteProfileRepository(db);
@@ -308,7 +315,7 @@ test('SQLite: Migration 2 upgrades V1 schema to V2 preserving existing profile d
   // 7. Test migration idempotence by running runMigrations again
   await runMigrations(db);
   const finalMigrations = await db.getAllAsync<{ version: number }>('SELECT version FROM schema_migrations;');
-  assert.equal(finalMigrations.length, 2, 'Migration 2 must not be re-applied or duplicated');
+  assert.equal(finalMigrations.length, 3, 'Migrations must not be re-applied or duplicated');
 });
 
 test('Personalization Safety: Age 17 vs 18 eligibility and adolescent protection', () => {
@@ -587,4 +594,221 @@ test('SQLite: Migration 2 upgrades V1 database preserving existing manually cust
   assert.equal(reloaded.bmrBiologicalReference, 'male');
   assert.equal(reloaded.attributesConfirmed, true);
   assert.equal(reloaded.targetCalories, 3150);
+});
+
+test('SQLite: Already-applied original V2 (ce7bbe1) upgrades cleanly to V3 preserving records and custom targets', async () => {
+  const db = await openDatabaseAsync(':memory:');
+  await db.execAsync('PRAGMA foreign_keys = ON;');
+
+  // 1. Initialize V1 schema and apply ONLY original V2 columns (from ce7bbe1)
+  await db.execAsync(SCHEMA_V1_SQL);
+  await db.runAsync(
+    'INSERT INTO schema_migrations (version, name, applied_at) VALUES (1, ?, ?);',
+    'initial_schema_v1',
+    new Date().toISOString()
+  );
+
+  // Original Migration 2 DDL without attributes_confirmed / bmr_biological_reference
+  await db.execAsync(`
+    ALTER TABLE user_profiles ADD COLUMN age INTEGER DEFAULT 28;
+    ALTER TABLE user_profiles ADD COLUMN gender TEXT DEFAULT 'unspecified';
+    ALTER TABLE user_profiles ADD COLUMN activity_level TEXT DEFAULT 'moderately_active';
+    ALTER TABLE user_profiles ADD COLUMN primary_goal TEXT DEFAULT 'general_health';
+    ALTER TABLE user_profiles ADD COLUMN target_weight_kg REAL DEFAULT 70;
+    ALTER TABLE user_profiles ADD COLUMN weekly_goal_rate TEXT DEFAULT 'moderate';
+    ALTER TABLE user_profiles ADD COLUMN training_experience TEXT DEFAULT 'beginner';
+    ALTER TABLE user_profiles ADD COLUMN preferred_workout_days INTEGER DEFAULT 4;
+    ALTER TABLE user_profiles ADD COLUMN available_equipment TEXT DEFAULT '["bodyweight"]';
+    ALTER TABLE user_profiles ADD COLUMN workout_location TEXT DEFAULT 'flexible';
+    ALTER TABLE user_profiles ADD COLUMN dietary_preference TEXT DEFAULT 'standard';
+    ALTER TABLE user_profiles ADD COLUMN meals_per_day INTEGER DEFAULT 3;
+    ALTER TABLE user_profiles ADD COLUMN allergies_restrictions TEXT DEFAULT '[]';
+    ALTER TABLE user_profiles ADD COLUMN calculation_overridden INTEGER DEFAULT 0;
+  `);
+  await db.runAsync(
+    'INSERT INTO schema_migrations (version, name, applied_at) VALUES (2, ?, ?);',
+    'add_profile_personalization_v2',
+    new Date().toISOString()
+  );
+
+  // 2. Insert an existing V2 user record with custom targets
+  await db.runAsync(
+    `INSERT INTO user_profiles (
+      id, name, email, goal, avatar_initials, height_cm, weight_kg,
+      target_calories, target_protein, target_carbs, target_fats,
+      sleep_goal_hours, water_goal_liters, age, gender, calculation_overridden, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+    'v2-existing-user',
+    'Nadia Mansour',
+    'nadia@example.com',
+    'Strength',
+    'NM',
+    166,
+    62,
+    2250,
+    145,
+    250,
+    70,
+    8,
+    2.5,
+    31,
+    'female',
+    1,
+    new Date().toISOString()
+  );
+
+  // 3. Run current runMigrations(db) — Migration 2 is already recorded so only Migration 3 must run
+  await runMigrations(db);
+
+  const migrations = await db.getAllAsync<{ version: number; name: string }>(
+    'SELECT version, name FROM schema_migrations ORDER BY version ASC;'
+  );
+  assert.equal(migrations.length, 3);
+  assert.equal(migrations[2].version, 3);
+  assert.equal(migrations[2].name, 'add_profile_confirmation_and_bmr_ref_v3');
+
+  // 4. Confirm both new columns exist
+  const cols = await db.getAllAsync<{ name: string }>('PRAGMA table_info(user_profiles);');
+  const colNames = new Set(cols.map((c) => c.name));
+  assert.ok(colNames.has('attributes_confirmed'), 'attributes_confirmed column must exist after V2->V3 upgrade');
+  assert.ok(colNames.has('bmr_biological_reference'), 'bmr_biological_reference column must exist after V2->V3 upgrade');
+
+  // 5. Verify existing V2 record and custom targets are preserved and CRUD works
+  const repo = new SQLiteProfileRepository(db);
+  const loaded = await repo.getProfile();
+  assert.ok(loaded);
+  assert.equal(loaded.id, 'v2-existing-user');
+  assert.equal(loaded.targetCalories, 2250);
+  assert.equal(loaded.targetProtein, 145);
+  assert.equal(loaded.calculationOverridden, true);
+
+  await repo.saveProfile({
+    ...loaded,
+    attributesConfirmed: true,
+    bmrBiologicalReference: 'female',
+  });
+  const afterSave = await repo.getProfile();
+  assert.ok(afterSave);
+  assert.equal(afterSave.attributesConfirmed, true);
+  assert.equal(afterSave.bmrBiologicalReference, 'female');
+  assert.equal(afterSave.targetCalories, 2250);
+});
+
+test('SQLite: Interrupted migration recovery and repeated migration idempotence', async () => {
+  const db = await openDatabaseAsync(':memory:');
+  await db.execAsync(SCHEMA_V1_SQL);
+  await db.runAsync(
+    'INSERT INTO schema_migrations (version, name, applied_at) VALUES (1, ?, ?);',
+    'initial_schema_v1',
+    new Date().toISOString()
+  );
+
+  // Simulate an interrupted Migration 3 where one column was added before failure/rollback of schema_migrations
+  await db.execAsync('ALTER TABLE user_profiles ADD COLUMN age INTEGER DEFAULT 28;');
+  await db.execAsync('ALTER TABLE user_profiles ADD COLUMN attributes_confirmed INTEGER DEFAULT 0;');
+
+  // Running migrations now must recover cleanly without duplicate-column errors
+  await runMigrations(db);
+  await runMigrations(db);
+
+  const migrations = await db.getAllAsync<{ version: number }>('SELECT version FROM schema_migrations ORDER BY version ASC;');
+  assert.deepEqual(
+    migrations.map((m) => m.version),
+    [1, 2, 3]
+  );
+});
+
+test('Personalization Contract: Explicit states for adolescent, unconfirmed, impossible diet, and valid confirmed adult', () => {
+  // 1. Unsupported adolescent: never exposes approved target
+  const adolescent = normalizeProfile({
+    id: 'c-teen',
+    name: 'Teen User',
+    email: 'teen@example.com',
+    goal: 'Weight loss',
+    age: 17,
+    weightKg: 65,
+    heightCm: 170,
+    primaryGoal: 'weight_loss',
+    attributesConfirmed: true,
+  });
+  const teenRec = calculateFullRecommendation(adolescent);
+  assert.equal(teenRec.status, 'unsupported_adolescent');
+  assert.equal(teenRec.recommendationState, 'unsupported');
+  assert.equal(teenRec.isEligible, false);
+  assert.equal(teenRec.hasApprovedTarget, false);
+  assert.equal(teenRec.recommendedCalories, null);
+  assert.equal(teenRec.recommendedProtein, null);
+  assert.equal(teenRec.recommendedCarbs, null);
+  assert.equal(teenRec.recommendedFats, null);
+  assert.equal(teenRec.bmr, null);
+  assert.equal(teenRec.tdee, null);
+  assert.equal(teenRec.requiresProfessionalReview, true);
+
+  // 2. Unconfirmed profile: cannot be represented as confirmed personalized result
+  const unconfirmed = normalizeProfile({
+    id: 'c-unconf',
+    name: 'Unconfirmed User',
+    email: 'unconf@example.com',
+    goal: 'General health',
+  });
+  const unconfRec = calculateFullRecommendation(unconfirmed);
+  assert.equal(unconfRec.status, 'unconfirmed_attributes');
+  assert.equal(unconfRec.recommendationState, 'unconfirmed_estimate');
+  assert.equal(unconfRec.isConfirmed, false);
+  assert.equal(unconfRec.hasApprovedTarget, false);
+  assert.equal(unconfRec.recommendedCalories, null);
+  assert.ok(unconfRec.preliminaryEstimate !== null);
+
+  // 3. Impossible diet constraint: clearly identified as constraint conflict, no approved target exposed
+  const impossibleDiet = normalizeProfile({
+    id: 'c-conflict',
+    name: 'Conflict User',
+    email: 'conflict@example.com',
+    goal: 'Lose fat',
+    age: 60,
+    gender: 'female',
+    weightKg: 200,
+    heightCm: 150,
+    activityLevel: 'sedentary',
+    primaryGoal: 'weight_loss',
+    weeklyGoalRate: 'aggressive',
+    dietaryPreference: 'high_protein',
+    attributesConfirmed: true,
+  });
+  // At 2222 kcal target: 200kg * 2.2 = 440g protein (1760 kcal) + 25% fat (556 kcal) = 2316 kcal > 2222 kcal
+  const conflictRec = calculateFullRecommendation(impossibleDiet);
+  assert.equal(conflictRec.status, 'impossible_diet_constraints');
+  assert.equal(conflictRec.recommendationState, 'conflicting_constraints');
+  assert.equal(conflictRec.dietConstraintSatisfied, false);
+  assert.equal(conflictRec.hasApprovedTarget, false);
+  assert.equal(conflictRec.recommendedCalories, null);
+  assert.equal(conflictRec.recommendedProtein, null);
+  assert.equal(conflictRec.requiresProfessionalReview, true);
+
+  // 4. Valid confirmed adult recommendation: approved target exposed cleanly
+  const validAdult = normalizeProfile({
+    id: 'c-valid',
+    name: 'Valid Adult',
+    email: 'valid@example.com',
+    goal: 'Maintain',
+    age: 30,
+    gender: 'male',
+    weightKg: 75,
+    heightCm: 178,
+    activityLevel: 'moderately_active',
+    primaryGoal: 'maintenance',
+    dietaryPreference: 'standard',
+    attributesConfirmed: true,
+  });
+  const validRec = calculateFullRecommendation(validAdult);
+  assert.equal(validRec.status, 'eligible');
+  assert.equal(validRec.recommendationState, 'recommended_estimate');
+  assert.equal(validRec.isEligible, true);
+  assert.equal(validRec.isConfirmed, true);
+  assert.equal(validRec.hasApprovedTarget, true);
+  assert.equal(validRec.dietConstraintSatisfied, true);
+  assert.ok(validRec.recommendedCalories !== null && validRec.recommendedCalories > 1500);
+  assert.ok(validRec.recommendedProtein !== null && validRec.recommendedProtein >= 50);
+  assert.ok(validRec.recommendedCarbs !== null && validRec.recommendedCarbs >= 0);
+  assert.ok(validRec.recommendedFats !== null && validRec.recommendedFats >= 30);
 });

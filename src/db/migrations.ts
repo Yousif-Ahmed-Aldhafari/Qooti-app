@@ -1,6 +1,23 @@
 import { IDatabase, SchemaMigration } from './types';
 import { SCHEMA_V1_SQL } from './schema';
 
+type ColumnDefinition = { name: string; ddl: string };
+
+async function addMissingColumns(
+  db: IDatabase,
+  tableName: string,
+  columns: ColumnDefinition[]
+): Promise<void> {
+  const tableInfo = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(${tableName});`);
+  const existingColumns = new Set(tableInfo.map((col) => col.name));
+
+  for (const col of columns) {
+    if (!existingColumns.has(col.name)) {
+      await db.execAsync(col.ddl);
+    }
+  }
+}
+
 export const MIGRATIONS: SchemaMigration[] = [
   {
     version: 1,
@@ -13,11 +30,7 @@ export const MIGRATIONS: SchemaMigration[] = [
     version: 2,
     name: 'add_profile_personalization_v2',
     up: async (db: IDatabase) => {
-      // Check existing columns to ensure safe, idempotent migration
-      const tableInfo = await db.getAllAsync<{ name: string }>('PRAGMA table_info(user_profiles);');
-      const existingColumns = new Set(tableInfo.map((col) => col.name));
-
-      const newColumns: { name: string; ddl: string }[] = [
+      await addMissingColumns(db, 'user_profiles', [
         { name: 'age', ddl: 'ALTER TABLE user_profiles ADD COLUMN age INTEGER DEFAULT 28;' },
         { name: 'gender', ddl: "ALTER TABLE user_profiles ADD COLUMN gender TEXT DEFAULT 'unspecified';" },
         { name: 'activity_level', ddl: "ALTER TABLE user_profiles ADD COLUMN activity_level TEXT DEFAULT 'moderately_active';" },
@@ -32,15 +45,17 @@ export const MIGRATIONS: SchemaMigration[] = [
         { name: 'meals_per_day', ddl: 'ALTER TABLE user_profiles ADD COLUMN meals_per_day INTEGER DEFAULT 3;' },
         { name: 'allergies_restrictions', ddl: `ALTER TABLE user_profiles ADD COLUMN allergies_restrictions TEXT DEFAULT '[]';` },
         { name: 'calculation_overridden', ddl: 'ALTER TABLE user_profiles ADD COLUMN calculation_overridden INTEGER DEFAULT 0;' },
+      ]);
+    },
+  },
+  {
+    version: 3,
+    name: 'add_profile_confirmation_and_bmr_ref_v3',
+    up: async (db: IDatabase) => {
+      await addMissingColumns(db, 'user_profiles', [
         { name: 'attributes_confirmed', ddl: 'ALTER TABLE user_profiles ADD COLUMN attributes_confirmed INTEGER DEFAULT 0;' },
         { name: 'bmr_biological_reference', ddl: 'ALTER TABLE user_profiles ADD COLUMN bmr_biological_reference TEXT;' },
-      ];
-
-      for (const col of newColumns) {
-        if (!existingColumns.has(col.name)) {
-          await db.execAsync(col.ddl);
-        }
-      }
+      ]);
     },
   },
 ];

@@ -37,16 +37,36 @@ export type MacroTargetResult = {
   warning?: string;
 };
 
+export type RecommendationState =
+  | 'recommended_estimate'
+  | 'unconfirmed_estimate'
+  | 'unsupported'
+  | 'conflicting_constraints';
+
+export type NutritionTargetSet = {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fats: number;
+};
+
 export type ProfileRecommendations = {
   status: RecommendationStatus;
+  recommendationState: RecommendationState;
   isEligible: boolean;
+  isConfirmed: boolean;
+  hasApprovedTarget: boolean;
+  hasCustomOverride: boolean;
+  customTargets: NutritionTargetSet | null;
   warnings: string[];
-  bmr: number;
-  tdee: number;
-  recommendedCalories: number;
-  recommendedProtein: number;
-  recommendedCarbs: number;
-  recommendedFats: number;
+  professionalReviewReasons: string[];
+  bmr: number | null;
+  tdee: number | null;
+  recommendedCalories: number | null;
+  recommendedProtein: number | null;
+  recommendedCarbs: number | null;
+  recommendedFats: number | null;
+  preliminaryEstimate: NutritionTargetSet | null;
   calorieDelta: number;
   waterIntakeLiters: number;
   sleepHours: number;
@@ -109,7 +129,23 @@ export const GOAL_CALORIE_DELTAS: Record<PrimaryGoal, Record<WeeklyGoalRate, num
 export function validateProfileEligibility(profile: UserProfile): EligibilityResult {
   const warnings: string[] = [];
 
-  // 1. Adult Eligibility Check (18+)
+  // 1. Validate biometric sanity first (positive finite numbers, realistic age)
+  if (
+    !Number.isFinite(profile.weightKg) ||
+    profile.weightKg <= 0 ||
+    !Number.isFinite(profile.heightCm) ||
+    profile.heightCm <= 0 ||
+    (profile.age !== undefined && (!Number.isFinite(profile.age) || profile.age <= 0 || profile.age > 120))
+  ) {
+    return {
+      isEligible: false,
+      status: 'invalid_inputs',
+      reason: 'Weight, height, and age must be positive, finite numbers within valid human ranges.',
+      warnings: ['Invalid or non-positive biometrics detected.'],
+    };
+  }
+
+  // 2. Adult Eligibility Check (18+)
   if (profile.age !== undefined && profile.age < 18) {
     return {
       isEligible: false,
@@ -120,21 +156,6 @@ export function validateProfileEligibility(profile: UserProfile): EligibilityRes
         'Adolescent users require individualized guidance from a qualified pediatric healthcare professional.',
         'Automated weight-loss caloric deficits are disabled for users under 18.',
       ],
-    };
-  }
-
-  // 2. Validate biometric sanity (positive finite numbers)
-  if (
-    !Number.isFinite(profile.weightKg) ||
-    profile.weightKg <= 0 ||
-    !Number.isFinite(profile.heightCm) ||
-    profile.heightCm <= 0
-  ) {
-    return {
-      isEligible: false,
-      status: 'invalid_inputs',
-      reason: 'Weight and height must be positive, finite numbers.',
-      warnings: ['Invalid or non-positive biometrics detected.'],
     };
   }
 
@@ -154,7 +175,7 @@ export function validateProfileEligibility(profile: UserProfile): EligibilityRes
 
   return {
     isEligible: true,
-    status: profile.attributesConfirmed === false ? 'unconfirmed_attributes' : 'eligible',
+    status: profile.attributesConfirmed !== true ? 'unconfirmed_attributes' : 'eligible',
     warnings,
   };
 }
@@ -443,33 +464,61 @@ export function calculateSleepRecommendation(activityLevel: ActivityLevel = 'mod
 
 /**
  * Computes full clinically bounded recommendations for a UserProfile.
- * Enforces adult eligibility, transparent equation labeling, and macro reconciliation.
+ * Enforces adult eligibility, transparent equation labeling, macro reconciliation,
+ * and an explicit user-facing contract that never exposes approved targets when
+ * eligibility, confirmation, or hard diet constraints fail.
  */
 export function calculateFullRecommendation(profile: UserProfile): ProfileRecommendations {
   const eligibility = validateProfileEligibility(profile);
   const warnings = [...eligibility.warnings];
+  const professionalReviewReasons: string[] = [];
 
   const waterDisclaimer =
     'Hydration recommendations are general reference estimates (35 ml/kg). Fluid requirements vary based on sweating, climate, physical activity, medications, and renal or cardiovascular health. Individuals with medical fluid restrictions must follow their physician’s guidance.';
   const sleepDisclaimer =
     'Sleep recommendations are general adult guidelines (7–9 hours per National Sleep Foundation). Recovery demands vary with training volume and life stress.';
 
-  // If user is an adolescent, do not calculate adult caloric deficit!
-  if (eligibility.status === 'unsupported_adolescent') {
+  const bmrEquationUsed = resolveBMREquation(profile.gender, profile.bmrBiologicalReference);
+  const storedCustomTargets: NutritionTargetSet | null = profile.calculationOverridden
+    ? {
+        calories: profile.targetCalories ?? 0,
+        protein: profile.targetProtein ?? 0,
+        carbs: profile.targetCarbs ?? 0,
+        fats: profile.targetFats ?? 0,
+      }
+    : null;
+
+  // 1. Unsupported cases: adolescent (< 18) or invalid biometrics — never expose approved adult targets
+  if (!eligibility.isEligible) {
+    if (eligibility.status === 'unsupported_adolescent') {
+      professionalReviewReasons.push(
+        'User is under 18 years old; specialist pediatric or clinical guidance is required.'
+      );
+    } else if (eligibility.status === 'invalid_inputs') {
+      professionalReviewReasons.push('Valid adult biometrics (weight, height, age) are required.');
+    }
+
     return {
-      status: 'unsupported_adolescent',
+      status: eligibility.status,
+      recommendationState: 'unsupported',
       isEligible: false,
+      isConfirmed: false,
+      hasApprovedTarget: false,
+      hasCustomOverride: Boolean(profile.calculationOverridden),
+      customTargets: storedCustomTargets,
       warnings,
-      bmr: 0,
-      tdee: 0,
-      recommendedCalories: profile.targetCalories ?? 2000,
-      recommendedProtein: profile.targetProtein ?? 140,
-      recommendedCarbs: profile.targetCarbs ?? 200,
-      recommendedFats: profile.targetFats ?? 65,
+      professionalReviewReasons,
+      bmr: null,
+      tdee: null,
+      recommendedCalories: null,
+      recommendedProtein: null,
+      recommendedCarbs: null,
+      recommendedFats: null,
+      preliminaryEstimate: null,
       calorieDelta: 0,
       waterIntakeLiters: calculateWaterRecommendation(profile.weightKg ?? 70),
       sleepHours: calculateSleepRecommendation(profile.activityLevel ?? 'moderately_active'),
-      bmrEquationUsed: resolveBMREquation(profile.gender, profile.bmrBiologicalReference),
+      bmrEquationUsed,
       isEstimate: true,
       macroReconciliationDiff: 0,
       requiresProfessionalReview: true,
@@ -479,7 +528,6 @@ export function calculateFullRecommendation(profile: UserProfile): ProfileRecomm
     };
   }
 
-  const bmrEquationUsed = resolveBMREquation(profile.gender, profile.bmrBiologicalReference);
   if (bmrEquationUsed === 'mifflin_st_jeor_midpoint_approximation') {
     warnings.push(
       'BMR uses an unvalidated arithmetic midpoint approximation (-78) for unspecified/other biological parameters. For higher accuracy, an explicit biological reference equation may be selected.'
@@ -507,6 +555,9 @@ export function calculateFullRecommendation(profile: UserProfile): ProfileRecomm
   if (caloricResult.warnings.length > 0) {
     warnings.push(...caloricResult.warnings);
   }
+  if (caloricResult.requiresProfessionalReview) {
+    professionalReviewReasons.push(...caloricResult.warnings);
+  }
 
   const macroResult = calculateMacroTargets(
     caloricResult.target,
@@ -518,28 +569,127 @@ export function calculateFullRecommendation(profile: UserProfile): ProfileRecomm
   if (macroResult.warning) {
     warnings.push(macroResult.warning);
   }
+  if (!macroResult.dietConstraintSatisfied) {
+    professionalReviewReasons.push(
+      'Requested dietary preference and caloric allowance produce an unsatisfiable macronutrient constraint.'
+    );
+  }
 
   const waterIntakeLiters = calculateWaterRecommendation(profile.weightKg ?? 70);
   const sleepHours = calculateSleepRecommendation(profile.activityLevel ?? 'moderately_active');
+  const requiresProfessionalReview =
+    caloricResult.requiresProfessionalReview || !macroResult.dietConstraintSatisfied;
+
+  // 2. Conflicting diet constraints: do not expose an apparently successful approved target
+  if (!macroResult.dietConstraintSatisfied) {
+    return {
+      status: 'impossible_diet_constraints',
+      recommendationState: 'conflicting_constraints',
+      isEligible: true,
+      isConfirmed: profile.attributesConfirmed === true,
+      hasApprovedTarget: false,
+      hasCustomOverride: Boolean(profile.calculationOverridden),
+      customTargets: storedCustomTargets,
+      warnings,
+      professionalReviewReasons,
+      bmr,
+      tdee,
+      recommendedCalories: null,
+      recommendedProtein: null,
+      recommendedCarbs: null,
+      recommendedFats: null,
+      preliminaryEstimate: null,
+      calorieDelta: caloricResult.delta,
+      waterIntakeLiters,
+      sleepHours,
+      bmrEquationUsed,
+      isEstimate: true,
+      macroReconciliationDiff: macroResult.reconciliationDiff,
+      requiresProfessionalReview: true,
+      dietConstraintSatisfied: false,
+      waterDisclaimer,
+      sleepDisclaimer,
+    };
+  }
+
+  // 3. Unconfirmed profile attributes: cannot be represented as a confirmed personalized result
+  if (eligibility.status === 'unconfirmed_attributes') {
+    return {
+      status: 'unconfirmed_attributes',
+      recommendationState: 'unconfirmed_estimate',
+      isEligible: true,
+      isConfirmed: false,
+      hasApprovedTarget: false,
+      hasCustomOverride: Boolean(profile.calculationOverridden),
+      customTargets: storedCustomTargets,
+      warnings,
+      professionalReviewReasons,
+      bmr,
+      tdee,
+      recommendedCalories: null,
+      recommendedProtein: null,
+      recommendedCarbs: null,
+      recommendedFats: null,
+      preliminaryEstimate: {
+        calories: caloricResult.target,
+        protein: macroResult.protein,
+        carbs: macroResult.carbs,
+        fats: macroResult.fats,
+      },
+      calorieDelta: caloricResult.delta,
+      waterIntakeLiters,
+      sleepHours,
+      bmrEquationUsed,
+      isEstimate: true,
+      macroReconciliationDiff: macroResult.reconciliationDiff,
+      requiresProfessionalReview,
+      dietConstraintSatisfied: true,
+      waterDisclaimer,
+      sleepDisclaimer,
+    };
+  }
+
+  // 4. Eligible & confirmed adult recommendation
+  const divergesFromRecommendation =
+    Math.abs((profile.targetCalories ?? 0) - caloricResult.target) > 10 ||
+    Math.abs((profile.targetProtein ?? 0) - macroResult.protein) > 3 ||
+    Math.abs((profile.targetCarbs ?? 0) - macroResult.carbs) > 3 ||
+    Math.abs((profile.targetFats ?? 0) - macroResult.fats) > 3;
+
+  const hasCustomOverride = Boolean(profile.calculationOverridden) || divergesFromRecommendation;
 
   return {
-    status: eligibility.status,
-    isEligible: eligibility.isEligible,
+    status: 'eligible',
+    recommendationState: 'recommended_estimate',
+    isEligible: true,
+    isConfirmed: true,
+    hasApprovedTarget: true,
+    hasCustomOverride,
+    customTargets: hasCustomOverride
+      ? {
+          calories: profile.targetCalories ?? 0,
+          protein: profile.targetProtein ?? 0,
+          carbs: profile.targetCarbs ?? 0,
+          fats: profile.targetFats ?? 0,
+        }
+      : null,
     warnings,
+    professionalReviewReasons,
     bmr,
     tdee,
     recommendedCalories: caloricResult.target,
     recommendedProtein: macroResult.protein,
     recommendedCarbs: macroResult.carbs,
     recommendedFats: macroResult.fats,
+    preliminaryEstimate: null,
     calorieDelta: caloricResult.delta,
     waterIntakeLiters,
     sleepHours,
     bmrEquationUsed,
     isEstimate: true,
     macroReconciliationDiff: macroResult.reconciliationDiff,
-    requiresProfessionalReview: caloricResult.requiresProfessionalReview || !macroResult.dietConstraintSatisfied,
-    dietConstraintSatisfied: macroResult.dietConstraintSatisfied,
+    requiresProfessionalReview,
+    dietConstraintSatisfied: true,
     waterDisclaimer,
     sleepDisclaimer,
   };
@@ -555,17 +705,9 @@ export function isCustomTargetsOverridden(profile: UserProfile): boolean {
   }
 
   const rec = calculateFullRecommendation(profile);
-
-  // If user is ineligible (e.g. adolescent), do not consider overridden based on adult calculator
-  if (!rec.isEligible) {
+  if (!rec.hasApprovedTarget || rec.recommendedCalories === null) {
     return false;
   }
 
-  // If stored targets differ by more than rounding tolerance (10 kcal / 3g macros), consider overridden
-  const calorieDiff = Math.abs((profile.targetCalories ?? 0) - rec.recommendedCalories);
-  const proteinDiff = Math.abs((profile.targetProtein ?? 0) - rec.recommendedProtein);
-  const carbsDiff = Math.abs((profile.targetCarbs ?? 0) - rec.recommendedCarbs);
-  const fatsDiff = Math.abs((profile.targetFats ?? 0) - rec.recommendedFats);
-
-  return calorieDiff > 10 || proteinDiff > 3 || carbsDiff > 3 || fatsDiff > 3;
+  return rec.hasCustomOverride;
 }
