@@ -5,11 +5,13 @@ on:
     branches:
       - main
       - dev/phase-1-foundation
+      - dev/phase-2-user-profiles
       - upgrade/expo-sdk-58
   pull_request:
     branches:
       - main
       - dev/phase-1-foundation
+      - dev/phase-2-user-profiles
       - upgrade/expo-sdk-58
 
 permissions:
