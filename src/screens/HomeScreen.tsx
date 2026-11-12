@@ -171,13 +171,13 @@ export function HomeScreen({
         language={language}
       />
 
-      {!effectiveTargets.hasActiveTarget && effectiveTargets.setupPrompt ? (
+      {effectiveTargets.setupPrompt ? (
         <View style={[styles.setupBanner, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={[styles.setupBannerRow, activeRowStyle()]}>
             <Ionicons
-              name={effectiveTargets.state === 'unsupported' ? 'alert-circle-outline' : 'information-circle-outline'}
+              name={effectiveTargets.setupPrompt.type === 'unsupported_adolescent' || effectiveTargets.state === 'unsupported' ? 'alert-circle-outline' : 'information-circle-outline'}
               size={22}
-              color={effectiveTargets.state === 'unsupported' ? colors.warning : colors.accent}
+              color={effectiveTargets.setupPrompt.type === 'unsupported_adolescent' || effectiveTargets.state === 'unsupported' ? colors.warning : colors.accent}
             />
             <View style={styles.setupBannerCopy}>
               <Text style={[styles.setupBannerTitle, directionalText, { color: colors.text }]}>

@@ -134,6 +134,10 @@ export function resolveEffectiveNutritionTargets(
     }
 
     const backgroundRec = calculateFullRecommendation(profile);
+    const isInvalidAge =
+      profile.age !== undefined &&
+      (!Number.isFinite(profile.age) || profile.age < 1 || profile.age > 120);
+    const isUnderage = !isInvalidAge && profile.age !== undefined && profile.age < 18;
 
     const rawProt = profile.targetProtein;
     const rawCarbs = profile.targetCarbs;
@@ -144,6 +148,14 @@ export function resolveEffectiveNutritionTargets(
     const hasValidFats = Number.isFinite(rawFats) && rawFats >= 0;
 
     const warnings: string[] = [];
+    if (isInvalidAge) {
+      warnings.push('Invalid age recorded on profile.');
+    } else if (isUnderage) {
+      warnings.push(
+        'Adolescent nutrition requires specialist pediatric assessment. Manually entered targets are stored for tracking only and are not clinically approved by Qooti.'
+      );
+    }
+
     if (rawCal < 1200) {
       warnings.push('Custom calorie target is below recommended physiological safety floor (1200 kcal/day).');
     } else if (rawCal > 6000) {
@@ -168,7 +180,7 @@ export function resolveEffectiveNutritionTargets(
       state: 'ready',
       source: 'custom_override',
       hasActiveTarget: true,
-      hasApprovedTarget: true,
+      hasApprovedTarget: false, // Custom overrides are user-defined and never carry application approval
       isCustomOverride: true,
       calories: Math.round(rawCal),
       protein: resolvedProtein,
@@ -181,6 +193,13 @@ export function resolveEffectiveNutritionTargets(
       bmr: backgroundRec.bmr,
       tdee: backgroundRec.tdee,
       warnings,
+      setupPrompt: isUnderage
+        ? {
+            type: 'unsupported_adolescent',
+            titleKey: 'personalization.unsupportedTitle',
+            messageKey: 'personalization.unsupportedAdolescent',
+          }
+        : undefined,
       recommendation: backgroundRec,
     };
   }

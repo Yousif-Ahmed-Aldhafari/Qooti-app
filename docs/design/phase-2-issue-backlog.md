@@ -32,6 +32,10 @@
 - **Description:** Prevent fabricated target percentages in MealDetails and Profile when targets are unconfirmed; handle partial macro overrides; verify on Android and iOS.
 - **Resolution:** Updated `MacroCard` to omit fake progress fills when `hasTarget` is false; added partial macro estimation in resolver; added historical period comparison labeling; added 9 acceptance regression tests (153 total passing).
 
+### Item 2.5 [RESOLVED] Final Personalization Acceptance & Merge Readiness
+- **Description:** Mandatory eligibility audit, adolescent custom override policy (preserves custom values without application approval), Age 17 vs 18 boundary tests, and remote CI verification.
+- **Resolution:** Hardened `resolveEffectiveNutritionTargets` to enforce `hasApprovedTarget = false` on all custom overrides and adolescent profiles; attached pediatric guidance prompt to adolescent custom overrides; verified Home banner and Profile alert visibility; added 4 regression acceptance tests (157 total passing).
+
 ---
 
 ## 2. Deferred Architectural Enhancements & Non-Blocking Items

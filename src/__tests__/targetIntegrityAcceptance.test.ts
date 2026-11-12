@@ -329,3 +329,144 @@ test('Task 2.4 - Acceptance 9: Arabic and English translation parity and Latin n
   assert.equal(activeTextAlign(), 'left');
   assert.equal(activeWritingDirection(), 'ltr');
 });
+
+test('Task 2.5 - Acceptance 10: Critical Scenario - Adolescent (age 16) with confirmed custom targets', () => {
+  const teenProfile = normalizeProfile({
+    id: 'teen-critical-user',
+    name: 'Zaid Teen',
+    email: 'zaid@example.com',
+    goal: 'Fitness',
+    age: 16,
+    gender: 'male',
+    heightCm: 172,
+    weightKg: 62,
+    targetCalories: 2200,
+    targetProtein: 140,
+    targetCarbs: 260,
+    targetFats: 65,
+    attributesConfirmed: true,
+    calculationOverridden: true,
+  });
+
+  const targets = resolveEffectiveNutritionTargets(teenProfile);
+
+  // 1. Adult automated targets remain strictly unavailable
+  assert.equal(targets.recommendation?.status, 'unsupported_adolescent');
+  assert.equal(targets.recommendation?.hasApprovedTarget, false);
+  assert.equal(targets.recommendation?.recommendedCalories, null);
+
+  // 2. No inappropriate application approval is assigned
+  assert.equal(targets.hasApprovedTarget, false);
+
+  // 3. Existing manually entered values are preserved
+  assert.equal(targets.hasActiveTarget, true);
+  assert.equal(targets.calories, 2200);
+  assert.equal(targets.protein, 140);
+  assert.equal(targets.carbs, 260);
+  assert.equal(targets.fats, 65);
+  assert.equal(targets.rawCalories, 2200);
+
+  // 4. Interface clearly distinguishes stored custom values from supported adult recommendations
+  assert.equal(targets.source, 'custom_override');
+  assert.equal(targets.isCustomOverride, true);
+
+  // 5. Appropriate guidance is shown
+  assert.ok(targets.setupPrompt);
+  assert.equal(targets.setupPrompt?.type, 'unsupported_adolescent');
+  assert.ok(
+    targets.warnings.some((w) => w.includes('Adolescent nutrition requires specialist pediatric assessment'))
+  );
+});
+
+test('Task 2.5 - Acceptance 11: Age 17 versus 18 eligibility boundary', () => {
+  // Age 17: Adolescent
+  const age17Profile = normalizeProfile({
+    id: 'age-17-user',
+    name: 'Seventeen',
+    email: 'seventeen@example.com',
+    goal: 'Health',
+    age: 17,
+    gender: 'female',
+    heightCm: 162,
+    weightKg: 55,
+    activityLevel: 'moderately_active',
+    primaryGoal: 'maintenance',
+    attributesConfirmed: true,
+    calculationOverridden: false,
+  });
+
+  const targets17 = resolveEffectiveNutritionTargets(age17Profile);
+  assert.equal(targets17.state, 'unsupported');
+  assert.equal(targets17.source, 'unsupported_adolescent');
+  assert.equal(targets17.hasActiveTarget, false);
+  assert.equal(targets17.hasApprovedTarget, false);
+  assert.equal(targets17.rawCalories, null);
+
+  // Age 18: Eligible Adult
+  const age18Profile = normalizeProfile({
+    id: 'age-18-user',
+    name: 'Eighteen',
+    email: 'eighteen@example.com',
+    goal: 'Health',
+    age: 18,
+    gender: 'female',
+    heightCm: 162,
+    weightKg: 55,
+    activityLevel: 'moderately_active',
+    primaryGoal: 'maintenance',
+    attributesConfirmed: true,
+    calculationOverridden: false,
+  });
+
+  const targets18 = resolveEffectiveNutritionTargets(age18Profile);
+  assert.equal(targets18.state, 'ready');
+  assert.equal(targets18.source, 'recommended_estimate');
+  assert.equal(targets18.hasActiveTarget, true);
+  assert.equal(targets18.hasApprovedTarget, true);
+  assert.ok(targets18.calories > 1500);
+});
+
+test('Task 2.5 - Acceptance 12: Invalid age with custom targets preserves user tracking without approval', () => {
+  const invalidAgeProfile = normalizeProfile({
+    id: 'invalid-age-custom',
+    name: 'Invalid Age User',
+    email: 'invalidage@example.com',
+    goal: 'Muscle',
+    age: -10,
+    targetCalories: 2600,
+    targetProtein: 160,
+    targetCarbs: 300,
+    targetFats: 70,
+    attributesConfirmed: true,
+    calculationOverridden: true,
+  });
+
+  const targets = resolveEffectiveNutritionTargets(invalidAgeProfile);
+  assert.equal(targets.hasActiveTarget, true);
+  assert.equal(targets.isCustomOverride, true);
+  assert.equal(targets.calories, 2600);
+  assert.equal(targets.hasApprovedTarget, false);
+  assert.ok(targets.warnings.some((w) => w.includes('Invalid age')));
+});
+
+test('Task 2.5 - Acceptance 13: Unconfirmed adult with custom targets honors values without application approval', () => {
+  const unconfirmedCustom = normalizeProfile({
+    id: 'unconfirmed-custom-user',
+    name: 'Unconfirmed Custom',
+    email: 'unconfirmed@example.com',
+    goal: 'Bulk',
+    targetCalories: 3000,
+    targetProtein: 180,
+    targetCarbs: 360,
+    targetFats: 80,
+    attributesConfirmed: false,
+    calculationOverridden: true,
+  });
+
+  const targets = resolveEffectiveNutritionTargets(unconfirmedCustom);
+  assert.equal(targets.hasActiveTarget, true);
+  assert.equal(targets.isCustomOverride, true);
+  assert.equal(targets.hasApprovedTarget, false);
+  assert.equal(targets.calories, 3000);
+  assert.equal(targets.rawCalories, 3000);
+});

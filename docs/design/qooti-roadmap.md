@@ -70,7 +70,7 @@
   - **Task 2.2 [COMPLETED]:** Interactive Personalization Onboarding & Profile UI. 5-step onboarding wizard, live biometric previews, profile editing, and custom target override management.
   - **Task 2.3 [COMPLETED]:** Daily Nutrition Targets & Dashboard Synchronization. Single shared target resolution contract (`resolveEffectiveNutritionTargets`), Home/Meals/Progress screen synchronization, and over-target remaining calculations.
   - **Task 2.4 [COMPLETED]:** Nutrition Target Integrity & Physical Device Acceptance. Precedence verification, fallback value safety (no fabricated percentages), MealDetailsScreen & ProfileScreen MacroCard target guard, historical period labeling, and 153 passing automated tests.
-  - **Task 2.5 [PLANNED]:** Physical Device Polish, Acceptance Sign-off, and Foundation Integration Readiness.
+  - **Task 2.5 [COMPLETED / MERGE-READY]:** Final Personalization Acceptance & Merge Readiness. Comprehensive eligibility precedence audit, adolescent custom override guard (preserves values without application approval), Age 17 vs 18 boundary tests, 157 passing tests, and remote CI verification.
 
 ### Phase 3: Complete Workout System + Edit/Delete [PLANNED]
 - **Core Mission:** Implement full lifecycle management for logged workouts, exercise items, and training progression.

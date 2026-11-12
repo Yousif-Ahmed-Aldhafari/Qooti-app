@@ -158,6 +158,7 @@ Verified across:
 | 14 | **Universal Themes (Light & Dark)** | **PASS** | **PASS** | High contrast, WCAG 2.1 AA compliant text, theme tokens preserved across restarts |
 | 15 | **Screen Reader (TalkBack/VoiceOver)** | **PASS** | **PASS** | MacroCard, StatCard, and ProgressCard announce values with proper role and status |
 | 16 | **SQLite Persistence & Restart** | **PASS** | **PASS** | Force-close and relaunch restores confirmed attributes, custom targets, and meals |
+| 17 | **Adolescent Custom Target Policy** | **PASS** | **PASS** | Custom targets preserved for user tracking, clinical approval withheld, pediatric guidance alert displayed |
 
 ---
 
