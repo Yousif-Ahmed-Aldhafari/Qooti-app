@@ -222,10 +222,23 @@ export class SQLiteWorkoutRepository implements WorkoutRepository {
   }
 
   async deleteWorkout(id: string, txn?: IDatabase): Promise<void> {
+    if (!id || typeof id !== 'string' || id.trim().length === 0) {
+      throw new Error('Cannot delete workout: A valid workout id must be provided.');
+    }
+    const cleanId = id.trim();
     const target = txn || this.db;
+
     await target.withExclusiveTransactionAsync(async (t) => {
-      await t.runAsync('DELETE FROM workout_exercises WHERE workout_id = ?;', id);
-      await t.runAsync('DELETE FROM workouts WHERE id = ?;', id);
+      const existing = await t.getFirstAsync<{ id: string }>(
+        'SELECT id FROM workouts WHERE id = ?;',
+        cleanId
+      );
+      if (!existing) {
+        throw new Error(`Cannot delete workout: Workout with id "${cleanId}" not found.`);
+      }
+
+      await t.runAsync('DELETE FROM workout_exercises WHERE workout_id = ?;', cleanId);
+      await t.runAsync('DELETE FROM workouts WHERE id = ?;', cleanId);
     });
   }
 
