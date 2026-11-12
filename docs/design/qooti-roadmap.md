@@ -64,8 +64,13 @@
 ### Phase 2: User Profiles & Personalization [IN PROGRESS]
 - **Core Mission:** Complete personal profile architecture, clinically-backed caloric and macronutrient targets, fitness goals, training background, workout/equipment preferences, and dietary customization.
 - **Key Deliverables:**
-  - **Task 2.1 (Current):** User Profile & Personalization Architecture. Domain model extensions, non-destructive SQLite Migration 2 (`add_profile_personalization_v2`), Mifflin-St Jeor BMR, PAL activity multipliers for TDEE, goal-adjusted calorie targets, macronutrient distributions, and hydration/sleep recommendations.
-  - **Task 2.2:** Profile UI & Onboarding Personalization Flow. Interactive multi-step onboarding and enhanced ProfileScreen enabling users to configure personal attributes, view calculated recommendations, and adjust custom target overrides.
+  - **Task 2.1 [COMPLETED]:** User Profile & Personalization Architecture. Domain model extensions, non-destructive SQLite Migration 2 (`add_profile_personalization_v2`), Mifflin-St Jeor BMR, PAL activity multipliers for TDEE, goal-adjusted calorie targets, macronutrient distributions, and hydration/sleep recommendations.
+  - **Task 2.1A [COMPLETED]:** Personalization Engine Safety & Data Integrity. Adult eligibility guard (18+), adolescent protection, BMR biological reference transparency, caloric safety floor, and Atwater factor macro balance.
+  - **Task 2.1B [COMPLETED]:** Migration Compatibility & Recommendation Contract. Versioned SQLite Migration 3 (`add_profile_confirmation_and_bmr_ref_v3`), robust legacy migration upgrade matrix, and recommendation state machine.
+  - **Task 2.2 [COMPLETED]:** Interactive Personalization Onboarding & Profile UI. 5-step onboarding wizard, live biometric previews, profile editing, and custom target override management.
+  - **Task 2.3 [COMPLETED]:** Daily Nutrition Targets & Dashboard Synchronization. Single shared target resolution contract (`resolveEffectiveNutritionTargets`), Home/Meals/Progress screen synchronization, and over-target remaining calculations.
+  - **Task 2.4 [COMPLETED]:** Nutrition Target Integrity & Physical Device Acceptance. Precedence verification, fallback value safety (no fabricated percentages), MealDetailsScreen & ProfileScreen MacroCard target guard, historical period labeling, and 153 passing automated tests.
+  - **Task 2.5 [PLANNED]:** Physical Device Polish, Acceptance Sign-off, and Foundation Integration Readiness.
 
 ### Phase 3: Complete Workout System + Edit/Delete [PLANNED]
 - **Core Mission:** Implement full lifecycle management for logged workouts, exercise items, and training progression.
