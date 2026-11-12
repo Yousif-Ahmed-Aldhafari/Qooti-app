@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
+  BackHandler,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -105,25 +106,33 @@ export function EditWorkoutScreen({ t, workout, onSave, onCancel }: EditWorkoutS
     return false;
   }, [date, exercises, notes, time, title, workout]);
 
-  function handleCancel() {
+  const handleCancel = useCallback(() => {
     if (!isDirty) {
       onCancel();
       return;
     }
 
     Alert.alert(
-      t('common.cancel'),
-      t('common.requiredMessage'),
+      t('workouts.discardChangesTitle'),
+      t('workouts.discardChangesMessage'),
       [
-        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('workouts.keepEditing'), style: 'cancel' },
         {
-          text: t('common.done'),
+          text: t('workouts.discardChanges'),
           style: 'destructive',
           onPress: onCancel,
         },
       ]
     );
-  }
+  }, [isDirty, onCancel, t]);
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      handleCancel();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [handleCancel]);
 
   function handleAddExercise() {
     const newEx: ExerciseEditItem = {

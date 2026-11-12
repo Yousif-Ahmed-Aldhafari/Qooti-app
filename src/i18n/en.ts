@@ -219,7 +219,11 @@ export const en = {
     "workoutPlaceholder": "Upper body, run, yoga...",
     "exercisePlaceholder": "Bench press",
     "notes": "Notes",
-    "exerciseLabel": "exercises"
+    "exerciseLabel": "exercises",
+    "discardChangesTitle": "Discard changes?",
+    "discardChangesMessage": "Discard your unsaved workout changes?",
+    "keepEditing": "Keep Editing",
+    "discardChanges": "Discard Changes"
   },
   "progress": {
     "title": "Progress",

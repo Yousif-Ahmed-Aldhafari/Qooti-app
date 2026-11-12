@@ -219,7 +219,11 @@ export const ar = {
     "workoutPlaceholder": "جزء علوي، جري، يوغا...",
     "exercisePlaceholder": "بنش برس",
     "notes": "ملاحظات",
-    "exerciseLabel": "تمارين"
+    "exerciseLabel": "تمارين",
+    "discardChangesTitle": "تجاهل التعديلات؟",
+    "discardChangesMessage": "هل تريد تجاهل التعديلات غير المحفوظة على التمرين؟",
+    "keepEditing": "متابعة التعديل",
+    "discardChanges": "تجاهل التعديلات"
   },
   "progress": {
     "title": "التقدم",
