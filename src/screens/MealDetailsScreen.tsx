@@ -28,14 +28,48 @@ export function MealDetailsScreen({ t, meal, profile }: MealDetailsScreenProps) 
     writingDirection: activeWritingDirection(),
   } as const;
 
+  const hasActiveTarget = effectiveTargets.hasActiveTarget;
+  const unavailableLabel = t('personalization.unconfirmedStatus');
+
   return (
     <ScrollView style={[styles.screen, { backgroundColor: colors.background }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <AppHeader title={meal.title} subtitle={t('meals.detailsTitle')} />
       <View style={[styles.grid, activeRowStyle()]}>
-        <MacroCard label={t('common.calories')} value={totals.calories} target={effectiveTargets.calories} unit={t('common.kcal')} />
-        <MacroCard label={t('common.protein')} value={totals.protein} target={effectiveTargets.protein} unit={t('common.grams')} accent={colors.purple} />
-        <MacroCard label={t('common.carbs')} value={totals.carbs} target={effectiveTargets.carbs} unit={t('common.grams')} accent={colors.lavender} />
-        <MacroCard label={t('common.fats')} value={totals.fats} target={effectiveTargets.fats} unit={t('common.grams')} accent={colors.orange} />
+        <MacroCard
+          label={t('common.calories')}
+          value={totals.calories}
+          target={hasActiveTarget ? effectiveTargets.calories : null}
+          hasTarget={hasActiveTarget}
+          unavailableLabel={unavailableLabel}
+          unit={t('common.kcal')}
+        />
+        <MacroCard
+          label={t('common.protein')}
+          value={totals.protein}
+          target={hasActiveTarget ? effectiveTargets.protein : null}
+          hasTarget={hasActiveTarget}
+          unavailableLabel={unavailableLabel}
+          unit={t('common.grams')}
+          accent={colors.purple}
+        />
+        <MacroCard
+          label={t('common.carbs')}
+          value={totals.carbs}
+          target={hasActiveTarget ? effectiveTargets.carbs : null}
+          hasTarget={hasActiveTarget}
+          unavailableLabel={unavailableLabel}
+          unit={t('common.grams')}
+          accent={colors.lavender}
+        />
+        <MacroCard
+          label={t('common.fats')}
+          value={totals.fats}
+          target={hasActiveTarget ? effectiveTargets.fats : null}
+          hasTarget={hasActiveTarget}
+          unavailableLabel={unavailableLabel}
+          unit={t('common.grams')}
+          accent={colors.orange}
+        />
       </View>
       {meal.items.map((item) => (
         <AppCard key={item.id}>

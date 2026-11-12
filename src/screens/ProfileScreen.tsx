@@ -34,6 +34,7 @@ import {
   calculateFullRecommendation,
   type ProfileRecommendations,
 } from '../utils/personalization';
+import { resolveEffectiveNutritionTargets } from '../utils/nutritionTargets';
 import {
   activeRowStyle,
   activeTextAlign,
@@ -64,10 +65,11 @@ export function ProfileScreen({ t, profile, onSettingsPress, onUpdateProfile }: 
     writingDirection: activeWritingDirection(),
   } as const;
 
-  // Active Profile Recommendations
+  // Active Profile Recommendations & Effective Targets
   const currentRecommendations = useMemo<ProfileRecommendations>(() => {
     return calculateFullRecommendation(profile);
   }, [profile]);
+  const effectiveTargets = useMemo(() => resolveEffectiveNutritionTargets(profile), [profile]);
 
   // Edit Form State
   const [name, setName] = useState<string>(profile.name);
@@ -910,28 +912,36 @@ export function ProfileScreen({ t, profile, onSettingsPress, onUpdateProfile }: 
       <View style={[styles.grid, activeRowStyle()]}>
         <MacroCard
           label={t('common.calories')}
-          value={profile.targetCalories}
-          target={profile.targetCalories}
+          value={effectiveTargets.hasActiveTarget ? effectiveTargets.calories : null}
+          target={effectiveTargets.hasActiveTarget ? effectiveTargets.calories : null}
+          hasTarget={effectiveTargets.hasActiveTarget}
+          unavailableLabel={t('personalization.unconfirmedStatus')}
           unit={t('common.kcal')}
         />
         <MacroCard
           label={t('common.protein')}
-          value={profile.targetProtein}
-          target={profile.targetProtein}
+          value={effectiveTargets.hasActiveTarget ? effectiveTargets.protein : null}
+          target={effectiveTargets.hasActiveTarget ? effectiveTargets.protein : null}
+          hasTarget={effectiveTargets.hasActiveTarget}
+          unavailableLabel={t('personalization.unconfirmedStatus')}
           unit={t('common.grams')}
           accent={colors.purple}
         />
         <MacroCard
           label={t('common.carbs')}
-          value={profile.targetCarbs}
-          target={profile.targetCarbs}
+          value={effectiveTargets.hasActiveTarget ? effectiveTargets.carbs : null}
+          target={effectiveTargets.hasActiveTarget ? effectiveTargets.carbs : null}
+          hasTarget={effectiveTargets.hasActiveTarget}
+          unavailableLabel={t('personalization.unconfirmedStatus')}
           unit={t('common.grams')}
           accent={colors.lavender}
         />
         <MacroCard
           label={t('common.fats')}
-          value={profile.targetFats}
-          target={profile.targetFats}
+          value={effectiveTargets.hasActiveTarget ? effectiveTargets.fats : null}
+          target={effectiveTargets.hasActiveTarget ? effectiveTargets.fats : null}
+          hasTarget={effectiveTargets.hasActiveTarget}
+          unavailableLabel={t('personalization.unconfirmedStatus')}
           unit={t('common.grams')}
           accent={colors.orange}
         />

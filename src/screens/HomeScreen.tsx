@@ -116,14 +116,18 @@ export function HomeScreen({
   ];
   const isOverCalories = totals.calories > calorieTarget;
   const isOverProtein = totals.protein > proteinTarget;
+  const isToday = period === 'today' && selectedDateKey === toDateKey(new Date());
+  const goalTargetLabel = effectiveTargets.hasActiveTarget
+    ? isToday
+      ? t('home.goals.dailyTarget')
+      : t('targets.currentActiveGoal')
+    : t('personalization.unconfirmedStatus');
 
   const goals = [
     {
       id: 'calories',
       title: t('home.goals.calories'),
-      target: effectiveTargets.hasActiveTarget
-        ? t('home.goals.dailyTarget')
-        : t('personalization.unconfirmedStatus'),
+      target: goalTargetLabel,
       progress: caloriesProgress,
       remaining: effectiveTargets.hasActiveTarget
         ? isOverCalories
@@ -135,9 +139,7 @@ export function HomeScreen({
     {
       id: 'protein',
       title: t('home.goals.protein'),
-      target: effectiveTargets.hasActiveTarget
-        ? t('home.goals.dailyTarget')
-        : t('personalization.unconfirmedStatus'),
+      target: goalTargetLabel,
       progress: effectiveTargets.hasActiveTarget ? progressRatio(totals.protein, proteinTarget) : 0,
       remaining: effectiveTargets.hasActiveTarget
         ? isOverProtein

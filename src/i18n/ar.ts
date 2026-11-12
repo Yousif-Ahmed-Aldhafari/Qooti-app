@@ -477,6 +477,8 @@ export const ar = {
     "caloriesOver": "+{{amount}} سعرة إضافية",
     "proteinOver": "+{{amount}} غرام إضافي",
     "activeGoal": "الهدف اليومي",
-    "customTarget": "هدف يدوي"
+    "customTarget": "هدف يدوي",
+    "currentActiveGoal": "الهدف الحالي",
+    "historicalComparison": "مقارنة بالهدف الحالي"
   }
 } as const;

@@ -104,20 +104,9 @@ export function resolveEffectiveNutritionTargets(
   // 2. Custom Target Override takes precedence when enabled
   if (profile.calculationOverridden === true) {
     const rawCal = profile.targetCalories;
-    const rawProt = profile.targetProtein;
-    const rawCarbs = profile.targetCarbs;
-    const rawFats = profile.targetFats ?? profile.targetFat ?? 0;
-
     const isValidCalories = Number.isFinite(rawCal) && rawCal > 0;
-    const isValidMacros =
-      Number.isFinite(rawProt) &&
-      rawProt >= 0 &&
-      Number.isFinite(rawCarbs) &&
-      rawCarbs >= 0 &&
-      Number.isFinite(rawFats) &&
-      rawFats >= 0;
 
-    if (!isValidCalories || !isValidMacros) {
+    if (!isValidCalories) {
       return {
         state: 'invalid',
         source: 'custom_override',
@@ -134,7 +123,7 @@ export function resolveEffectiveNutritionTargets(
         rawFats: null,
         bmr: null,
         tdee: null,
-        warnings: ['Custom nutritional targets must be positive numerical values'],
+        warnings: ['Custom calorie target must be a positive numerical value'],
         setupPrompt: {
           type: 'invalid_custom',
           titleKey: 'personalization.customOverrideBadge',
@@ -144,6 +133,16 @@ export function resolveEffectiveNutritionTargets(
       };
     }
 
+    const backgroundRec = calculateFullRecommendation(profile);
+
+    const rawProt = profile.targetProtein;
+    const rawCarbs = profile.targetCarbs;
+    const rawFats = profile.targetFats ?? profile.targetFat;
+
+    const hasValidProt = Number.isFinite(rawProt) && rawProt >= 0;
+    const hasValidCarbs = Number.isFinite(rawCarbs) && rawCarbs >= 0;
+    const hasValidFats = Number.isFinite(rawFats) && rawFats >= 0;
+
     const warnings: string[] = [];
     if (rawCal < 1200) {
       warnings.push('Custom calorie target is below recommended physiological safety floor (1200 kcal/day).');
@@ -151,7 +150,19 @@ export function resolveEffectiveNutritionTargets(
       warnings.push('Custom calorie target exceeds standard daily expenditure ranges.');
     }
 
-    const backgroundRec = calculateFullRecommendation(profile);
+    if (!hasValidProt || !hasValidCarbs || !hasValidFats) {
+      warnings.push('Some individual macronutrient targets were missing; estimated from dietary guidelines.');
+    }
+
+    const resolvedProtein = hasValidProt
+      ? Math.round(rawProt)
+      : (backgroundRec.recommendedProtein ?? SAFE_FALLBACK_TARGETS.protein);
+    const resolvedCarbs = hasValidCarbs
+      ? Math.round(rawCarbs)
+      : (backgroundRec.recommendedCarbs ?? SAFE_FALLBACK_TARGETS.carbs);
+    const resolvedFats = hasValidFats
+      ? Math.round(rawFats)
+      : (backgroundRec.recommendedFats ?? SAFE_FALLBACK_TARGETS.fats);
 
     return {
       state: 'ready',
@@ -160,13 +171,13 @@ export function resolveEffectiveNutritionTargets(
       hasApprovedTarget: true,
       isCustomOverride: true,
       calories: Math.round(rawCal),
-      protein: Math.round(rawProt),
-      carbs: Math.round(rawCarbs),
-      fats: Math.round(rawFats),
+      protein: resolvedProtein,
+      carbs: resolvedCarbs,
+      fats: resolvedFats,
       rawCalories: Math.round(rawCal),
-      rawProtein: Math.round(rawProt),
-      rawCarbs: Math.round(rawCarbs),
-      rawFats: Math.round(rawFats),
+      rawProtein: hasValidProt ? Math.round(rawProt) : null,
+      rawCarbs: hasValidCarbs ? Math.round(rawCarbs) : null,
+      rawFats: hasValidFats ? Math.round(rawFats) : null,
       bmr: backgroundRec.bmr,
       tdee: backgroundRec.tdee,
       warnings,

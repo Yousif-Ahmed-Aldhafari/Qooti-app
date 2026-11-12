@@ -477,6 +477,8 @@ export const en = {
     "caloriesOver": "+{{amount}} kcal over target",
     "proteinOver": "+{{amount}}g over target",
     "activeGoal": "Daily Goal",
-    "customTarget": "Custom Goal"
+    "customTarget": "Custom Goal",
+    "currentActiveGoal": "Current Target",
+    "historicalComparison": "Compared against current target"
   }
 } as const;
