@@ -82,7 +82,7 @@ export function WorkoutDetailsScreen({ t, workout, onEdit, onDelete }: WorkoutDe
       {
         cancelable: true,
         onDismiss: () => {
-          setDeleteState('idle');
+          setDeleteState((prev) => (prev === 'confirming' ? 'idle' : prev));
         },
       }
     );
@@ -115,15 +115,15 @@ export function WorkoutDetailsScreen({ t, workout, onEdit, onDelete }: WorkoutDe
             </Text>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Retry deletion"
-              onPress={executeDelete}
+              accessibilityLabel={t('workouts.retryDeletion')}
+              onPress={confirmDelete}
               style={styles.retryButton}
             >
               <Text style={[styles.retryText, { color: colors.danger }]}>{t('common.delete')}</Text>
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Dismiss error"
+              accessibilityLabel={t('workouts.dismissError')}
               onPress={() => {
                 setDeleteError(null);
                 setDeleteState('idle');
@@ -136,7 +136,7 @@ export function WorkoutDetailsScreen({ t, workout, onEdit, onDelete }: WorkoutDe
         </View>
       ) : null}
 
-      <StatCard label={t('workouts.duration')} value={`${totalMinutes || 45} ${t('common.minutes')}`} />
+      <StatCard label={t('workouts.duration')} value={`${totalMinutes} ${t('common.minutes')}`} />
       {workout.exercises.map((exercise) => (
         <AppCard key={exercise.id}>
           <Text style={[styles.exerciseTitle, directionalText, { color: colors.text }]}>{exercise.exerciseName}</Text>

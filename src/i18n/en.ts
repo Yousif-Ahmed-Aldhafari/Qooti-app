@@ -223,7 +223,10 @@ export const en = {
     "discardChangesTitle": "Discard changes?",
     "discardChangesMessage": "Discard your unsaved workout changes?",
     "keepEditing": "Keep Editing",
-    "discardChanges": "Discard Changes"
+    "discardChanges": "Discard Changes",
+    "retryDeletion": "Retry deletion",
+    "dismissError": "Dismiss error",
+    "dismissStorageError": "Dismiss storage error"
   },
   "progress": {
     "title": "Progress",

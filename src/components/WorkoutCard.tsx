@@ -33,7 +33,7 @@ export function WorkoutCard({ workout, minutesLabel, exerciseLabel, onPress, lan
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${workout.title}, ${workout.time}, ${minutes || 45} ${minutesLabel}`}
+      accessibilityLabel={`${workout.title}, ${workout.time}, ${minutes} ${minutesLabel}`}
       android_ripple={android_ripple}
       onPress={onPress}
       style={({ pressed }) => [
@@ -56,7 +56,7 @@ export function WorkoutCard({ workout, minutesLabel, exerciseLabel, onPress, lan
       </View>
       <View style={[styles.pill, { backgroundColor: colors.cardMuted }]}>
         <Text style={[styles.pillText, directionalText, { color: colors.accent }]}>
-          {minutes || 45} {minutesLabel}
+          {minutes} {minutesLabel}
         </Text>
       </View>
     </Pressable>

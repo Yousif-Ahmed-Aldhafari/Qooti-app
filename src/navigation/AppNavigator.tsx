@@ -400,7 +400,7 @@ export function AppNavigator() {
                 </Text>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Dismiss storage error"
+                  accessibilityLabel={t('workouts.dismissStorageError')}
                   onPress={clearPersistenceError}
                   style={styles.errorDismiss}
                 >

@@ -223,7 +223,10 @@ export const ar = {
     "discardChangesTitle": "تجاهل التعديلات؟",
     "discardChangesMessage": "هل تريد تجاهل التعديلات غير المحفوظة على التمرين؟",
     "keepEditing": "متابعة التعديل",
-    "discardChanges": "تجاهل التعديلات"
+    "discardChanges": "تجاهل التعديلات",
+    "retryDeletion": "إعادة محاولة الحذف",
+    "dismissError": "تجاهل الخطأ",
+    "dismissStorageError": "تجاهل خطأ التخزين"
   },
   "progress": {
     "title": "التقدم",
