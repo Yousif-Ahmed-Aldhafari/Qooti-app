@@ -72,12 +72,12 @@
   - **Task 2.4 [COMPLETED]:** Nutrition Target Integrity & Physical Device Acceptance. Precedence verification, fallback value safety (no fabricated percentages), MealDetailsScreen & ProfileScreen MacroCard target guard, historical period labeling, and 153 passing automated tests.
   - **Task 2.5 [COMPLETED]:** Final Personalization Acceptance & Merge Readiness. Comprehensive eligibility precedence audit, adolescent custom override guard (preserves values without application approval), Age 17 vs 18 boundary tests, 157 passing tests, and remote CI verification.
 
-### Phase 3: Complete Workout System — Next
+### Phase 3: Complete Workout System [IN PROGRESS]
 - **Core Mission:** Implement full lifecycle management for logged workouts, exercise items, and training progression.
-- **Target Deliverables:**
-  - **Workout Editing:** Edit workout title, duration, date, notes, and individual exercises (sets, reps, weight, duration, notes) with atomic SQLite transactions.
-  - **Workout Deletion:** Platform-conforming deletion confirmation with cascade cleanup of child exercises and real-time dashboard recalculation.
-  - **Exercise Catalog & Templates:** Exercise library, muscle group targeting, and quick-add from previous workout history.
+- **Key Deliverables:**
+  - **Task 3.1 [COMPLETED]:** Workout Lifecycle Audit & Safe Editing. Atomic `updateWorkout` transactions, strict domain validation (`validateWorkout`), granular `AppContext` persistence (no global `saveAllWorkouts`), and `EditWorkoutScreen` UI.
+  - **Task 3.2 [NEXT]:** Workout Deletion & Cascade Cleanup. Platform-conforming deletion confirmation (iOS ActionSheet / Android Material AlertDialog) with atomic SQLite cascade deletion of workouts and exercise sets, dynamic dashboard metric recalculation, and empty state restoration.
+  - **Task 3.3 [PLANNED]:** Exercise Catalog & Muscle Group Targeting. Built-in exercise database, muscle group targeting, and quick-add from previous workout history.
 
 ### Phase 4: Nutrition & Meal Planning — Planned
 - **Core Mission:** Implement full lifecycle management for logged meals, food items, and nutrition planning.

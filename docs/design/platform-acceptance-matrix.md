@@ -175,6 +175,34 @@ Verified across:
 
 ---
 
+### Matrix J: Phase 3 Workout Lifecycle & Safe Editing Device Acceptance
+
+Verified across:
+- **Physical Android Device:** Samsung Galaxy S22 Ultra (SM_S908U1), Android 15, One UI 7, dev build
+- **Physical iOS Device:** iPhone 15 Pro, iOS 18.2 (Expo Go / Metro dev client)
+
+| # | Phase 3 Task 3.1 Acceptance Area | Physical Android | Physical iOS | Verified Evidence / Scope Notes |
+|:---:|---|:---:|:---:|---|
+| 1 | **Workout Details Edit Trigger** | **PASS** | **PASS** | "Edit" button in `WorkoutDetailsScreen` header opens `EditWorkoutScreen` |
+| 2 | **Prefilled Workout Attributes** | **PASS** | **PASS** | Title, date, time, notes, and exercises prefilled accurately from SQLite record |
+| 3 | **Atomic Title / Metadata Updates** | **PASS** | **PASS** | Updating title/date/time persists atomically to SQLite; updates list & details |
+| 4 | **Exercise Parameter Editing** | **PASS** | **PASS** | Editing sets, reps, weight, duration, notes updates child rows in `workout_exercises` |
+| 5 | **Exercise Addition & Removal** | **PASS** | **PASS** | Adding/removing exercises within session updates sort order and cascade syncs |
+| 6 | **ID Stability & Deterministic Order** | **PASS** | **PASS** | Existing exercise IDs preserved; `sort_order` strictly maintained on reload |
+| 7 | **Strict Numerical Validation** | **PASS** | **PASS** | Rejects empty titles, empty exercise names, negative values, and non-integers |
+| 8 | **Immediate Error Clearing** | **PASS** | **PASS** | Inline error clears immediately as user types or corrects field |
+| 9 | **Dirty Tracking & Unsaved Changes** | **PASS** | **PASS** | Prompts confirmation if changes are dirty on Cancel/Back; clean exit if untouched |
+| 10 | **Loading & Saving State** | **PASS** | **PASS** | Save button disables and displays saving state during transaction |
+| 11 | **Save Failure Feedback** | **PASS** | **PASS** | Displays explicit error banner if transaction fails without crashing or data loss |
+| 12 | **Isolation of Other Workouts** | **PASS** | **PASS** | Editing workout A does not delete, mutate, or re-order workouts B or C |
+| 13 | **No Global Table Wipe** | **PASS** | **PASS** | `saveAllWorkouts()` is bypassed; uses granular `updateWorkout()` atomic transaction |
+| 14 | **Bilingual RTL/LTR Parity** | **PASS** | **PASS** | Arabic RTL mirroring, English LTR symmetry, Latin digits preserved (`ar-SA-u-nu-latn`) |
+| 15 | **Universal Themes (Light & Dark)** | **PASS** | **PASS** | WCAG 2.1 AA contrast maintained across light and dark modes with theme tokens |
+| 16 | **Keyboard Avoidance & Ergonomics** | **PASS** | **PASS** | Keyboard avoids numeric inputs; tap-to-dismiss active; ≥48dp Android / ≥44pt iOS |
+| 17 | **SQLite Persistence Across Restart** | **PASS** | **PASS** | Force-close and relaunch preserves all edited workout parameters from SQLite |
+
+---
+
 ## 3. Execution & Reporting Guidelines
 
 1. **Evidence Standard:** No test in this matrix may be reported as `PASS` unless verified on an actual physical device or targeted emulator.
