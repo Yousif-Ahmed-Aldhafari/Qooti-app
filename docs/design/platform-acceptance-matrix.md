@@ -139,6 +139,7 @@ Verified across:
 Verified across:
 - **Physical Android Device:** Samsung Galaxy S22 Ultra (SM_S908U1), Android 15, One UI 7, dev build
 - **Physical iOS Device:** iPhone 15 Pro, iOS 18.2 (Expo Go / Metro dev client)
+- **Acceptance Scope Reconciliation:** 16 core cross-platform physical interaction and UI synchronization scenarios + 1 clinical boundary verification check (Item 17: Adolescent Custom Target Policy) = 17/17 verified scenarios.
 
 | # | Phase 2 Acceptance Area | Physical Android | Physical iPhone | Verified Evidence / Scope Notes |
 |:---:|---|:---:|:---:|---|
@@ -158,7 +159,19 @@ Verified across:
 | 14 | **Universal Themes (Light & Dark)** | **PASS** | **PASS** | High contrast, WCAG 2.1 AA compliant text, theme tokens preserved across restarts |
 | 15 | **Screen Reader (TalkBack/VoiceOver)** | **PASS** | **PASS** | MacroCard, StatCard, and ProgressCard announce values with proper role and status |
 | 16 | **SQLite Persistence & Restart** | **PASS** | **PASS** | Force-close and relaunch restores confirmed attributes, custom targets, and meals |
-| 17 | **Adolescent Custom Target Policy** | **PASS** | **PASS** | Custom targets preserved for user tracking, clinical approval withheld, pediatric guidance alert displayed |
+| 17 | **Adolescent Custom Target Policy** | **PASS** | **PASS** | Stored manual values preserved for user tracking, adult algorithmic calculations withheld (`hasApprovedTarget = false`), pediatric guidance alert displayed |
+
+#### Algorithmic Eligibility vs Clinical Disclaimer
+> [!IMPORTANT]
+> **Application Recommendation Eligibility vs Medical Approval:**  
+> The internal boolean attribute `hasApprovedTarget` strictly designates application recommendation eligibility (i.e., an adult profile with confirmed attributes, valid biometrics, and active calculated recommendations without conflicting constraints). It does **NOT** denote clinical approval, medical certification, or healthcare endorsement.  
+> 
+> **Adolescent Custom Target Tracking:**  
+> For adolescent profiles (<18 years):  
+> 1. Stored manual custom target values remain available and displayed for user reference and tracking.  
+> 2. Automated adult algorithmic deficit calculations remain strictly disabled (`hasApprovedTarget = false`).  
+> 3. Pediatric clinical guidance alerts remain continuously visible in the UI.  
+> 4. Manual target values entered by the user are user reference numbers, not clinical or medical prescriptions.
 
 ---
 
