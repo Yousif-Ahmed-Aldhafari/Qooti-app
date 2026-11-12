@@ -5,17 +5,27 @@ import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import { progressRatio } from '../utils/nutrition';
-import { activeTextAlign, activeWritingDirection } from '../utils/rtl';
+import { activeRowStyle, activeTextAlign, activeWritingDirection } from '../utils/rtl';
 
 type MacroCardProps = {
   label: string;
-  value: number;
-  target: number;
+  value: number | null;
+  target?: number | null;
   unit: string;
   accent?: string;
+  hasTarget?: boolean;
+  unavailableLabel?: string;
 };
 
-export function MacroCard({ label, value, target, unit, accent }: MacroCardProps) {
+export function MacroCard({
+  label,
+  value,
+  target,
+  unit,
+  accent,
+  hasTarget = true,
+  unavailableLabel,
+}: MacroCardProps) {
   const colors = themeColors();
   const tone = accent ?? colors.accent;
   const directionalText = {
@@ -23,18 +33,46 @@ export function MacroCard({ label, value, target, unit, accent }: MacroCardProps
     writingDirection: activeWritingDirection(),
   } as const;
 
+  const validTarget =
+    hasTarget && target != null && Number.isFinite(target) && target > 0 ? target : null;
+  const hasValue = value != null && Number.isFinite(value);
+  const fillPercentage = hasValue && validTarget ? progressRatio(value, validTarget) * 100 : 0;
+
+  const a11yLabel = hasValue
+    ? validTarget
+      ? `${label}: ${Math.round(value)} of ${Math.round(validTarget)} ${unit}`
+      : `${label}: ${Math.round(value)} ${unit}${unavailableLabel ? ` (${unavailableLabel})` : ''}`
+    : `${label}: ${unavailableLabel ?? '--'}`;
+
   return (
     <View
       accessible={true}
-      accessibilityLabel={`${label}: ${Math.round(value)} of ${target} ${unit}`}
-      style={[styles.card, { backgroundColor: colors.glassBackground, borderColor: colors.glassBorder, shadowColor: colors.shadow }]}
+      accessibilityLabel={a11yLabel}
+      style={[
+        styles.card,
+        {
+          backgroundColor: colors.glassBackground,
+          borderColor: colors.glassBorder,
+          shadowColor: colors.shadow,
+        },
+      ]}
     >
-      <Text style={[styles.label, directionalText, { color: colors.textMuted }]}>{label}</Text>
+      <View style={[styles.headerRow, activeRowStyle()]}>
+        <Text style={[styles.label, directionalText, { color: colors.textMuted }]}>{label}</Text>
+        {!validTarget && unavailableLabel ? (
+          <Text style={[styles.badgeText, directionalText, { color: colors.textMuted }]}>
+            {unavailableLabel}
+          </Text>
+        ) : null}
+      </View>
       <Text style={[styles.value, directionalText, { color: colors.text }]}>
-        {Math.round(value)} <Text style={[styles.unit, { color: colors.textMuted }]}>{unit}</Text>
+        {hasValue ? Math.round(value) : '--'}{' '}
+        <Text style={[styles.unit, { color: colors.textMuted }]}>{unit}</Text>
       </Text>
       <View style={[styles.track, { backgroundColor: colors.cardMuted }]}>
-        <View style={[styles.fill, { width: `${progressRatio(value, target) * 100}%`, backgroundColor: tone }]} />
+        {validTarget ? (
+          <View style={[styles.fill, { width: `${fillPercentage}%`, backgroundColor: tone }]} />
+        ) : null}
       </View>
     </View>
   );
@@ -53,8 +91,17 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 4,
   },
+  headerRow: {
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
   label: {
     ...typography.caption,
+  },
+  badgeText: {
+    ...typography.caption,
+    fontSize: 11,
   },
   value: {
     ...typography.h2,

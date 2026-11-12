@@ -1,5 +1,14 @@
 export type { Language, MeasurementUnits, Settings, ThemeMode } from '../models/settings';
-export type { UserProfile } from '../models/profile';
+export type {
+  ActivityLevel,
+  DietaryPreference,
+  Gender,
+  PrimaryGoal,
+  TrainingExperience,
+  UserProfile,
+  WeeklyGoalRate,
+  WorkoutLocation,
+} from '../models/profile';
 export type { FoodItem, Meal, MealItem } from '../models/meal';
 export type { Exercise, Workout } from '../models/workout';
 export type { DailyNutritionSummary, ProgressEntry } from '../models/progress';

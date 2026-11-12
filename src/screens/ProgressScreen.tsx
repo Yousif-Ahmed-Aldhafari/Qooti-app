@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AppCard } from '../components/AppCard';
@@ -11,6 +12,7 @@ import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import type { ProgressEntry, UserProfile } from '../types';
+import { resolveEffectiveNutritionTargets } from '../utils/nutritionTargets';
 import { activeRowStyle, activeTextAlign, activeWritingDirection } from '../utils/rtl';
 
 type ProgressScreenProps = {
@@ -22,6 +24,7 @@ type ProgressScreenProps = {
 export function ProgressScreen({ t, profile, progress }: ProgressScreenProps) {
   const colors = themeColors();
   const handleBottomNavScroll = useBottomNavScrollHandler();
+  const effectiveTargets = useMemo(() => resolveEffectiveNutritionTargets(profile), [profile]);
   const latest = progress[progress.length - 1];
   const workoutDays = progress.reduce((sum, entry) => sum + entry.workouts, 0);
   const averageCalories = progress.length
@@ -75,8 +78,18 @@ export function ProgressScreen({ t, profile, progress }: ProgressScreenProps) {
         />
         <ProgressCard
           title={t('profile.goal')}
-          value={`${profile.targetCalories} ${t('common.kcal')}`}
-          helper={t('progress.goalHelper')}
+          value={
+            effectiveTargets.hasActiveTarget
+              ? `${effectiveTargets.calories} ${t('common.kcal')}`
+              : `-- ${t('common.kcal')}`
+          }
+          helper={
+            effectiveTargets.hasActiveTarget
+              ? effectiveTargets.isCustomOverride
+                ? t('targets.customTarget')
+                : t('targets.activeGoal')
+              : t('personalization.unconfirmedStatus')
+          }
           accent={colors.accent}
         />
       </View>

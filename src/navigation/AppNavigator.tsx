@@ -65,6 +65,7 @@ export function AppNavigator() {
     settings,
     setLanguage: updateLanguage,
     updateSettings,
+    updateProfile,
     completeOnboarding: finishOnboardingInContext,
     addMeal,
     addWorkout,
@@ -233,7 +234,15 @@ export function AppNavigator() {
 
   function renderActiveScreen() {
     if (!hasOnboarded) {
-      return <OnboardingScreen key={language} t={t} onDone={finishOnboarding} />;
+      return (
+        <OnboardingScreen
+          key={language}
+          t={t}
+          profile={profile}
+          onUpdateProfile={updateProfile}
+          onDone={finishOnboarding}
+        />
+      );
     }
 
     switch (effectiveScreen) {
@@ -254,7 +263,16 @@ export function AppNavigator() {
           />
         );
       case 'meals':
-        return <MealsScreen key={language} t={t} meals={meals} onAddMeal={() => setActiveScreen('addMeal')} onMealPress={openMealDetails} />;
+        return (
+          <MealsScreen
+            key={language}
+            t={t}
+            meals={meals}
+            profile={profile}
+            onAddMeal={() => setActiveScreen('addMeal')}
+            onMealPress={openMealDetails}
+          />
+        );
       case 'addMeal':
         return <AddMealScreen key={language} t={t} onSave={saveMeal} />;
       case 'mealDetails':
@@ -274,7 +292,15 @@ export function AppNavigator() {
       case 'progress':
         return <ProgressScreen key={language} t={t} profile={profile} progress={progressEntries} />;
       case 'profile':
-        return <ProfileScreen key={language} t={t} profile={profile} onSettingsPress={() => setActiveScreen('settings')} />;
+        return (
+          <ProfileScreen
+            key={language}
+            t={t}
+            profile={profile}
+            onSettingsPress={() => setActiveScreen('settings')}
+            onUpdateProfile={updateProfile}
+          />
+        );
       case 'settings':
         return (
           <SettingsScreen

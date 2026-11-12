@@ -134,6 +134,45 @@ Verified across:
 | 12 | **In-App Language Toggle** | **PASS** | **PASS** | English $\leftrightarrow$ Arabic in-app toggle, durable SQLite save, splash transition |
 | 13 | **SQLite Persistence & Restart** | **PASS** | **PASS** | Full app force-close and relaunch preserves all created meals, workouts, settings |
 
+### Matrix I: Phase 2 Personalization & Target Integrity Device Acceptance
+
+Verified across:
+- **Physical Android Device:** Samsung Galaxy S22 Ultra (SM_S908U1), Android 15, One UI 7, dev build
+- **Physical iOS Device:** iPhone 15 Pro, iOS 18.2 (Expo Go / Metro dev client)
+- **Acceptance Scope Reconciliation:** 16 core cross-platform physical interaction and UI synchronization scenarios + 1 clinical boundary verification check (Item 17: Adolescent Custom Target Policy) = 17/17 verified scenarios.
+
+| # | Phase 2 Acceptance Area | Physical Android | Physical iPhone | Verified Evidence / Scope Notes |
+|:---:|---|:---:|:---:|---|
+| 1 | **5-Step Onboarding Flow** | **PASS** | **PASS** | Biometrics, goal selection, activity level, diet preferences, recommendation preview |
+| 2 | **Profile Attributes & Confirmation** | **PASS** | **PASS** | Edit mode allows editing and confirming physical attributes; saves atomically to SQLite |
+| 3 | **Target Resolution Precedence** | **PASS** | **PASS** | Custom override takes immediate precedence when enabled; reset restores recommended |
+| 4 | **Adolescent Protection (<18)** | **PASS** | **PASS** | Strict refusal of automated adult deficits; displays pediatric guidance alert |
+| 5 | **Unconfirmed Profile Protection** | **PASS** | **PASS** | Unconfirmed attributes never activate fake targets; displays setup prompt banner |
+| 6 | **Home Dashboard Target Sync** | **PASS** | **PASS** | Combined progress stats, daily goal banner, and goal cards synchronize with resolver |
+| 7 | **Meals Screen Target Summary** | **PASS** | **PASS** | Daily nutrition summary header updates dynamically with consumed totals vs target |
+| 8 | **Meal Details Macro Cards** | **PASS** | **PASS** | Shows actual meal nutrition; omits fake progress fill when targets are unconfirmed |
+| 9 | **Progress Screen Goal Card** | **PASS** | **PASS** | Displays active goal with helper or `-- kcal` when unconfirmed; no invented goals |
+| 10 | **Historical Intake vs Target** | **PASS** | **PASS** | Aggregates historical intake; clearly labels comparison against current active target |
+| 11 | **Form Keyboard Avoidance** | **PASS** | **PASS** | Keyboard avoids numeric inputs on AddMeal, AddWorkout, and Profile edit screens |
+| 12 | **Navigation Modes (3-Button/Gesture)** | **PASS** | **PASS** | Bottom tab bar floats above Android 3-button bar by >= 8dp and clears iOS Home Indicator |
+| 13 | **Bilingual RTL/LTR Parity** | **PASS** | **PASS** | Arabic RTL mirroring, English LTR symmetry, Latin digits preserved (`ar-SA-u-nu-latn`) |
+| 14 | **Universal Themes (Light & Dark)** | **PASS** | **PASS** | High contrast, WCAG 2.1 AA compliant text, theme tokens preserved across restarts |
+| 15 | **Screen Reader (TalkBack/VoiceOver)** | **PASS** | **PASS** | MacroCard, StatCard, and ProgressCard announce values with proper role and status |
+| 16 | **SQLite Persistence & Restart** | **PASS** | **PASS** | Force-close and relaunch restores confirmed attributes, custom targets, and meals |
+| 17 | **Adolescent Custom Target Policy** | **PASS** | **PASS** | Stored manual values preserved for user tracking, adult algorithmic calculations withheld (`hasApprovedTarget = false`), pediatric guidance alert displayed |
+
+#### Algorithmic Eligibility vs Clinical Disclaimer
+> [!IMPORTANT]
+> **Application Recommendation Eligibility vs Medical Approval:**  
+> The internal boolean attribute `hasApprovedTarget` strictly designates application recommendation eligibility (i.e., an adult profile with confirmed attributes, valid biometrics, and active calculated recommendations without conflicting constraints). It does **NOT** denote clinical approval, medical certification, or healthcare endorsement.  
+> 
+> **Adolescent Custom Target Tracking:**  
+> For adolescent profiles (<18 years):  
+> 1. Stored manual custom target values remain available and displayed for user reference and tracking.  
+> 2. Automated adult algorithmic deficit calculations remain strictly disabled (`hasApprovedTarget = false`).  
+> 3. Pediatric clinical guidance alerts remain continuously visible in the UI.  
+> 4. Manual target values entered by the user are user reference numbers, not clinical or medical prescriptions.
+
 ---
 
 ## 3. Execution & Reporting Guidelines
