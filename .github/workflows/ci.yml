@@ -6,12 +6,14 @@ on:
       - main
       - dev/phase-1-foundation
       - dev/phase-2-user-profiles
+      - dev/phase-3-workout-system
       - upgrade/expo-sdk-58
   pull_request:
     branches:
       - main
       - dev/phase-1-foundation
       - dev/phase-2-user-profiles
+      - dev/phase-3-workout-system
       - upgrade/expo-sdk-58
 
 permissions:
