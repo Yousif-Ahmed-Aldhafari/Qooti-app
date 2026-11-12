@@ -468,5 +468,15 @@
     "customTargetsTitle": "Custom Targets",
     "setCustomTargets": "Set Custom Nutrition Targets",
     "cancelEdit": "Cancel"
+  },
+  "targets": {
+    "unconfirmedPrompt": "Confirm your physical attributes in your profile to activate personalized targets.",
+    "unsupportedPrompt": "Adolescent nutrition requires specialist pediatric assessment. Automatic adult deficit calculations are disabled.",
+    "conflictingPrompt": "Your selected dietary preference and deficit conflict. Please adjust them in your profile.",
+    "setupAction": "Set up profile",
+    "caloriesOver": "+{{amount}} kcal over target",
+    "proteinOver": "+{{amount}}g over target",
+    "activeGoal": "Daily Goal",
+    "customTarget": "Custom Goal"
   }
 }

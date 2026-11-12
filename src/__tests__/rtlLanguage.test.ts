@@ -343,8 +343,8 @@ test('Regression RTL 10: Complete translation key parity and fallback behavior',
     return count;
   }
 
-  assert.equal(countLeafKeys(enJson), 422);
-  assert.equal(countLeafKeys(arJson), 422);
+  assert.equal(countLeafKeys(enJson), 430);
+  assert.equal(countLeafKeys(arJson), 430);
 });
 
 test('Regression RTL 11: Latin numeral preservation in Arabic date formatting', () => {

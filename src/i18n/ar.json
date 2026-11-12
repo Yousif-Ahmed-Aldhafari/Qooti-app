@@ -468,5 +468,15 @@
     "customTargetsTitle": "أهداف يدوية",
     "setCustomTargets": "تعيين أهداف تغذية مخصصة",
     "cancelEdit": "إلغاء"
+  },
+  "targets": {
+    "unconfirmedPrompt": "أكّد بياناتك البدنية في ملفك الشخصي لتفعيل الأهداف المخصصة.",
+    "unsupportedPrompt": "تغذية اليافعين تتطلب استشارة طبيب أطفال مختص. الحسابات التلقائية للبالغين معطلة.",
+    "conflictingPrompt": "هناك تعارض بين النظام الغذائي وعجز السعرات. يرجى تعديلهما في ملفك الشخصي.",
+    "setupAction": "إعداد الملف الشخصي",
+    "caloriesOver": "+{{amount}} سعرة إضافية",
+    "proteinOver": "+{{amount}} غرام إضافي",
+    "activeGoal": "الهدف اليومي",
+    "customTarget": "هدف يدوي"
   }
 }
