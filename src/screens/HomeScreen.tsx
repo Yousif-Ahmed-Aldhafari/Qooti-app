@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { CombinedProgressStatsCard } from '../components/home/CombinedProgressStatsCard';
 import { DailyGoalBanner } from '../components/home/DailyGoalBanner';
@@ -12,10 +13,12 @@ import { QuickActionCard } from '../components/home/QuickActionCard';
 import { useBottomNavScrollHandler } from '../context/BottomNavContext';
 import type { Translator } from '../i18n';
 import { themeColors } from '../theme/colors';
+import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import type { Language, Meal, SleepEntry, UserProfile, WaterEntry, Workout } from '../types';
 import { calculateDailyNutrition, estimateWeightGainKg, formatWeightGainKg, progressRatio, workoutMinutes } from '../utils/nutrition';
+import { resolveEffectiveNutritionTargets } from '../utils/nutritionTargets';
 import { activeIsRTL, activeRowStyle, activeTextAlign, activeWritingDirection } from '../utils/rtl';
 
 type HomeScreenProps = {
@@ -74,13 +77,14 @@ export function HomeScreen({
     [workouts, period, selectedDate],
   );
   const totals = calculateDailyNutrition(filteredMeals);
+  const effectiveTargets = useMemo(() => resolveEffectiveNutritionTargets(profile), [profile]);
   const goalDayCount = getGoalDayCount(period);
-  const dailyCaloriesGoal = profile.targetCalories || 2200;
-  const dailyMaintenanceCalories = profile.targetCalories || 2200;
+  const dailyCaloriesGoal = effectiveTargets.calories;
+  const dailyMaintenanceCalories = effectiveTargets.tdee ?? effectiveTargets.calories;
   const dailyMealsGoal = 3;
   const dailyWorkoutGoal = 1;
   const calorieTarget = dailyCaloriesGoal * goalDayCount;
-  const proteinTarget = profile.targetProtein * goalDayCount;
+  const proteinTarget = effectiveTargets.protein * goalDayCount;
   const maintenancePeriodDays = getMaintenancePeriodDayCount(period);
   const expectedWeightGain = estimateWeightGainKg(totals.calories - (dailyMaintenanceCalories * maintenancePeriodDays));
   const expectedWeightGainLabel = getExpectedGainLabel(t, period);
@@ -92,7 +96,7 @@ export function HomeScreen({
   const mealCount = filteredMeals.length;
   const mealTarget = dailyMealsGoal * goalDayCount;
   const workoutTarget = dailyWorkoutGoal * goalDayCount;
-  const caloriesProgress = progressRatio(totals.calories, calorieTarget);
+  const caloriesProgress = effectiveTargets.hasActiveTarget ? progressRatio(totals.calories, calorieTarget) : 0;
   const workoutProgress = progressRatio(filteredWorkouts.length, workoutTarget);
   const mealsProgress = progressRatio(mealCount, mealTarget);
   const overallProgress = (caloriesProgress + workoutProgress + mealsProgress) / 3;
@@ -110,24 +114,39 @@ export function HomeScreen({
     { key: 'week' as const, label: t('home.period.week') },
     { key: 'month' as const, label: t('home.period.month') },
   ];
+  const isOverCalories = totals.calories > calorieTarget;
+  const isOverProtein = totals.protein > proteinTarget;
+
   const goals = [
     {
       id: 'calories',
       title: t('home.goals.calories'),
-      target: t('home.goals.dailyTarget'),
-      progress: progressRatio(totals.calories, calorieTarget),
-      remaining: t('home.goals.caloriesRemaining', { amount: Math.max(0, Math.round(calorieTarget - totals.calories)) }),
+      target: effectiveTargets.hasActiveTarget
+        ? t('home.goals.dailyTarget')
+        : t('personalization.unconfirmedStatus'),
+      progress: caloriesProgress,
+      remaining: effectiveTargets.hasActiveTarget
+        ? isOverCalories
+          ? t('targets.caloriesOver', { amount: Math.round(totals.calories - calorieTarget) })
+          : t('home.goals.caloriesRemaining', { amount: Math.max(0, Math.round(calorieTarget - totals.calories)) })
+        : t('personalization.unconfirmedNotice'),
       accent: colors.limeSoft,
     },
     {
       id: 'protein',
       title: t('home.goals.protein'),
-      target: t('home.goals.dailyTarget'),
-      progress: progressRatio(totals.protein, proteinTarget),
-      remaining: t('home.goals.proteinRemaining', { amount: Math.max(0, Math.round(proteinTarget - totals.protein)) }),
+      target: effectiveTargets.hasActiveTarget
+        ? t('home.goals.dailyTarget')
+        : t('personalization.unconfirmedStatus'),
+      progress: effectiveTargets.hasActiveTarget ? progressRatio(totals.protein, proteinTarget) : 0,
+      remaining: effectiveTargets.hasActiveTarget
+        ? isOverProtein
+          ? t('targets.proteinOver', { amount: Math.round(totals.protein - proteinTarget) })
+          : t('home.goals.proteinRemaining', { amount: Math.max(0, Math.round(proteinTarget - totals.protein)) })
+        : t('personalization.unconfirmedNotice'),
       accent: colors.accent,
     },
-  ].filter((goal) => goal.id === 'calories' ? calorieTarget > 0 : proteinTarget > 0);
+  ];
 
   function handleDateSelect(date: string) {
     setSelectedDateKey(date);
@@ -150,6 +169,26 @@ export function HomeScreen({
         language={language}
       />
 
+      {!effectiveTargets.hasActiveTarget && effectiveTargets.setupPrompt ? (
+        <View style={[styles.setupBanner, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.setupBannerRow, activeRowStyle()]}>
+            <Ionicons
+              name={effectiveTargets.state === 'unsupported' ? 'alert-circle-outline' : 'information-circle-outline'}
+              size={22}
+              color={effectiveTargets.state === 'unsupported' ? colors.warning : colors.accent}
+            />
+            <View style={styles.setupBannerCopy}>
+              <Text style={[styles.setupBannerTitle, directionalText, { color: colors.text }]}>
+                {t(effectiveTargets.setupPrompt.titleKey)}
+              </Text>
+              <Text style={[styles.setupBannerMessage, directionalText, { color: colors.textMuted }]}>
+                {t(effectiveTargets.setupPrompt.messageKey)}
+              </Text>
+            </View>
+          </View>
+        </View>
+      ) : null}
+
       <PeriodSelector options={periodOptions} selected={period} onChange={setPeriod} language={language} />
 
       <CombinedProgressStatsCard
@@ -163,7 +202,9 @@ export function HomeScreen({
         }}
         caloriesStat={{
           title: t('home.metrics.calories'),
-          value: `${Math.round(totals.calories)}/${calorieTarget}`,
+          value: effectiveTargets.hasActiveTarget
+            ? `${Math.round(totals.calories)}/${calorieTarget}`
+            : `${Math.round(totals.calories)}/--`,
           subtitle: t('common.kcal'),
           accent: colors.calories,
           progress: caloriesProgress,
@@ -233,8 +274,16 @@ export function HomeScreen({
 
       <DailyGoalBanner
         title={t('home.dailyGoal.title')}
-        calorieValue={`${Math.round(totals.calories)} / ${calorieTarget} ${t('common.kcal')}`}
-        proteinValue={`${Math.round(totals.protein)} / ${proteinTarget} ${t('common.grams')}`}
+        calorieValue={
+          effectiveTargets.hasActiveTarget
+            ? `${Math.round(totals.calories)} / ${calorieTarget} ${t('common.kcal')}`
+            : `${Math.round(totals.calories)} ${t('common.kcal')}`
+        }
+        proteinValue={
+          effectiveTargets.hasActiveTarget
+            ? `${Math.round(totals.protein)} / ${proteinTarget} ${t('common.grams')}`
+            : `${Math.round(totals.protein)} ${t('common.grams')}`
+        }
         mealsValue={t('home.dailyGoal.meals', { count: mealCount })}
         workoutValue={t('home.dailyGoal.workouts', { count: filteredWorkouts.length })}
         language={language}
@@ -520,5 +569,26 @@ const styles = StyleSheet.create({
   },
   emptyGoalText: {
     ...typography.body,
+  },
+  setupBanner: {
+    borderRadius: radius.md,
+    borderWidth: 1,
+    padding: spacing.md,
+  },
+  setupBannerRow: {
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  setupBannerCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  setupBannerTitle: {
+    ...typography.caption,
+    fontWeight: '700',
+  },
+  setupBannerMessage: {
+    ...typography.caption,
+    fontSize: 12,
   },
 });
