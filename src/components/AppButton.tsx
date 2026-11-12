@@ -14,7 +14,7 @@ type AppButtonProps = {
   title: string;
   onPress: () => void;
   icon?: keyof typeof Ionicons.glyphMap;
-  variant?: 'primary' | 'secondary' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
   children?: ReactNode;
@@ -57,6 +57,12 @@ export function AppButton({ title, onPress, icon, variant = 'primary', disabled 
       text: colors.textSecondary,
       border: colors.cardMuted,
       ripple: `${colors.border}33`,
+    },
+    danger: {
+      background: colors.card,
+      text: colors.danger,
+      border: colors.danger,
+      ripple: `${colors.danger}26`,
     },
   }[variant];
 

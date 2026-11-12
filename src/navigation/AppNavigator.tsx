@@ -71,6 +71,7 @@ export function AppNavigator() {
     addMeal,
     addWorkout,
     updateWorkout,
+    deleteWorkout,
     t,
   } = useApp();
 
@@ -246,6 +247,12 @@ export function AppNavigator() {
     setActiveScreen('workoutDetails');
   }
 
+  async function handleDeleteWorkout(workoutToDelete: Workout) {
+    await deleteWorkout(workoutToDelete.id);
+    setSelectedWorkoutId(null);
+    setActiveScreen('workouts');
+  }
+
   function goBack() {
     if (effectiveScreen === 'editWorkout') {
       setActiveScreen('workoutDetails');
@@ -310,7 +317,15 @@ export function AppNavigator() {
         if (!selectedWorkout) {
           return <WorkoutsScreen key={language} t={t} workouts={workouts} onAddWorkout={() => setActiveScreen('addWorkout')} onWorkoutPress={openWorkoutDetails} />;
         }
-        return <WorkoutDetailsScreen key={language} t={t} workout={selectedWorkout} onEdit={openEditWorkout} />;
+        return (
+          <WorkoutDetailsScreen
+            key={language}
+            t={t}
+            workout={selectedWorkout}
+            onEdit={openEditWorkout}
+            onDelete={handleDeleteWorkout}
+          />
+        );
       case 'editWorkout':
         if (!selectedWorkout) {
           return <WorkoutsScreen key={language} t={t} workouts={workouts} onAddWorkout={() => setActiveScreen('addWorkout')} onWorkoutPress={openWorkoutDetails} />;
