@@ -263,7 +263,16 @@ export function AppNavigator() {
           />
         );
       case 'meals':
-        return <MealsScreen key={language} t={t} meals={meals} onAddMeal={() => setActiveScreen('addMeal')} onMealPress={openMealDetails} />;
+        return (
+          <MealsScreen
+            key={language}
+            t={t}
+            meals={meals}
+            profile={profile}
+            onAddMeal={() => setActiveScreen('addMeal')}
+            onMealPress={openMealDetails}
+          />
+        );
       case 'addMeal':
         return <AddMealScreen key={language} t={t} onSave={saveMeal} />;
       case 'mealDetails':
