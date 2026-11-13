@@ -226,7 +226,19 @@ export const en = {
     "discardChanges": "Discard Changes",
     "retryDeletion": "Retry deletion",
     "dismissError": "Dismiss error",
-    "dismissStorageError": "Dismiss storage error"
+    "dismissStorageError": "Dismiss storage error",
+    "repeatWorkout": "Repeat workout",
+    "useAsTemplate": "Use as template",
+    "totalVolume": "Total volume",
+    "estimatedVolume": "Estimated volume",
+    "bodyweightLabel": "Bodyweight",
+    "filterAll": "All",
+    "filter7d": "7 Days",
+    "filter30d": "30 Days",
+    "filter90d": "90 Days",
+    "targetMuscles": "Target muscles",
+    "volumeUnit": "kg load",
+    "noWorkoutsInPeriod": "No workouts found for this period."
   },
   "progress": {
     "title": "Progress",

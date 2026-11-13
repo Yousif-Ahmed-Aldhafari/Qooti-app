@@ -226,7 +226,19 @@ export const ar = {
     "discardChanges": "تجاهل التعديلات",
     "retryDeletion": "إعادة محاولة الحذف",
     "dismissError": "تجاهل الخطأ",
-    "dismissStorageError": "تجاهل خطأ التخزين"
+    "dismissStorageError": "تجاهل خطأ التخزين",
+    "repeatWorkout": "تكرار التمرين",
+    "useAsTemplate": "استخدام كنموذج",
+    "totalVolume": "إجمالي الحمل",
+    "estimatedVolume": "الحمل التقديري",
+    "bodyweightLabel": "وزن الجسم",
+    "filterAll": "الكل",
+    "filter7d": "٧ أيام",
+    "filter30d": "٣٠ يوم",
+    "filter90d": "٩٠ يوم",
+    "targetMuscles": "العضلات المستهدفة",
+    "volumeUnit": "كجم حمل",
+    "noWorkoutsInPeriod": "لا توجد تمارين مسجلة في هذه الفترة."
   },
   "progress": {
     "title": "التقدم",

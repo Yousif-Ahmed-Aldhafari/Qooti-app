@@ -8,6 +8,7 @@ import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import { rowStyle, textAlign, writingDirection } from '../utils/rtl';
 import { getPressFeedback } from '../utils/touchFeedback';
+import { calculateWorkoutVolumeSummary } from '../utils/workoutAnalytics';
 
 type WorkoutCardProps = {
   workout: Workout;
@@ -15,11 +16,29 @@ type WorkoutCardProps = {
   exerciseLabel: string;
   onPress: () => void;
   language?: Language;
+  volumeUnit?: string;
+  bodyweightLabel?: string;
 };
 
-export function WorkoutCard({ workout, minutesLabel, exerciseLabel, onPress, language }: WorkoutCardProps) {
+export function WorkoutCard({
+  workout,
+  minutesLabel,
+  exerciseLabel,
+  onPress,
+  language,
+  volumeUnit = 'kg',
+  bodyweightLabel = 'Bodyweight',
+}: WorkoutCardProps) {
   const colors = themeColors();
-  const minutes = workout.exercises.reduce((sum, exercise) => sum + exercise.duration, 0);
+  const summary = calculateWorkoutVolumeSummary(workout);
+  const minutes = summary.totalDurationMinutes;
+
+  const volumeText = summary.totalVolumeKg > 0
+    ? `${summary.totalVolumeKg} ${volumeUnit}`
+    : summary.isBodyweightOnly
+      ? bodyweightLabel
+      : null;
+
   const directionalText = {
     textAlign: textAlign(language),
     writingDirection: writingDirection(language),
@@ -30,10 +49,12 @@ export function WorkoutCard({ workout, minutesLabel, exerciseLabel, onPress, lan
     activeOpacity: 0.78,
   });
 
+  const a11yLabel = `${workout.title}, ${workout.date ? `${workout.date}, ` : ''}${workout.time}, ${minutes} ${minutesLabel}${volumeText ? `, ${volumeText}` : ''}`;
+
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${workout.title}, ${workout.time}, ${minutes} ${minutesLabel}`}
+      accessibilityLabel={a11yLabel}
       android_ripple={android_ripple}
       onPress={onPress}
       style={({ pressed }) => [
@@ -51,7 +72,7 @@ export function WorkoutCard({ workout, minutesLabel, exerciseLabel, onPress, lan
           {workout.title}
         </Text>
         <Text style={[styles.meta, directionalText, { color: colors.textMuted }]} numberOfLines={1}>
-          {workout.time} - {workout.exercises.length} {exerciseLabel}
+          {workout.time} - {workout.exercises.length} {exerciseLabel}{volumeText ? ` • ${volumeText}` : ''}
         </Text>
       </View>
       <View style={[styles.pill, { backgroundColor: colors.cardMuted }]}>
