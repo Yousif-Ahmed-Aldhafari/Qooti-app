@@ -240,26 +240,68 @@ export async function detectPreMigrationSessionConflicts(
   }));
 }
 
+export type PreMigrationSessionAction =
+  | 'resume'
+  | 'keep_interrupted'
+  | 'archive'
+  | 'discard';
+
+export type PreMigrationResolution = {
+  resumeSessionId?: string;
+  actionForOthers?: 'keep_interrupted' | 'archive' | 'discard';
+  sessionResolutions?: Record<string, PreMigrationSessionAction>;
+};
+
 /**
  * Reconciles pre-migration session conflicts safely under user direction.
- * Keeps the selected session open while safely archiving or discarding other open sessions.
+ * Keeps at most one selected session open while safely setting other open sessions to
+ * a recoverable non-completed disposition ('keep_interrupted'), archiving as completed
+ * if explicitly chosen ('archive'), or permanently deleting if explicitly chosen ('discard').
  */
 export async function reconcilePreMigrationConflicts(
   db: IDatabase,
-  resolution: {
-    resumeSessionId: string;
-    actionForOthers?: 'archive' | 'discard';
-  }
+  resolution: PreMigrationResolution
 ): Promise<void> {
   await db.withExclusiveTransactionAsync(async (client) => {
     const openSessions = await client.getAllAsync<{ id: string }>(
       `SELECT id FROM workout_sessions WHERE status IN ('active', 'paused');`
     );
 
-    const targetSession = openSessions.find((s) => s.id === resolution.resumeSessionId);
-    if (!targetSession) {
+    if (openSessions.length === 0) {
+      return;
+    }
+
+    if (resolution.resumeSessionId) {
+      const exists = openSessions.some((s) => s.id === resolution.resumeSessionId);
+      if (!exists) {
+        throw new SessionValidationError(
+          `Selected session "${resolution.resumeSessionId}" not found among open sessions.`,
+          'resumeSessionId'
+        );
+      }
+    }
+
+    // Verify at most one session is designated to resume
+    let resumeCount = 0;
+    if (resolution.sessionResolutions) {
+      for (const [id, act] of Object.entries(resolution.sessionResolutions)) {
+        if (act === 'resume') {
+          resumeCount++;
+          if (!openSessions.some((s) => s.id === id)) {
+            throw new SessionValidationError(
+              `Session "${id}" in sessionResolutions not found among open sessions.`,
+              'sessionResolutions'
+            );
+          }
+        }
+      }
+    } else if (resolution.resumeSessionId) {
+      resumeCount = 1;
+    }
+
+    if (resumeCount > 1) {
       throw new SessionValidationError(
-        `Selected session "${resolution.resumeSessionId}" not found among open sessions.`,
+        'At most one session can be resumed simultaneously.',
         'resumeSessionId'
       );
     }
@@ -274,10 +316,20 @@ export async function reconcilePreMigrationConflicts(
     }
 
     const now = new Date().toISOString();
-    const action = resolution.actionForOthers ?? 'archive';
 
     for (const s of openSessions) {
-      if (s.id === resolution.resumeSessionId) {
+      let action: PreMigrationSessionAction;
+      if (resolution.sessionResolutions && resolution.sessionResolutions[s.id]) {
+        action = resolution.sessionResolutions[s.id];
+      } else if (resolution.resumeSessionId) {
+        action = s.id === resolution.resumeSessionId
+          ? 'resume'
+          : (resolution.actionForOthers ?? 'keep_interrupted');
+      } else {
+        action = resolution.actionForOthers ?? 'keep_interrupted';
+      }
+
+      if (action === 'resume') {
         await client.runAsync(
           `UPDATE workout_sessions
            SET status = 'active', recovery_state = 'recovered', last_resumed_at = ?, updated_at = ?
@@ -286,31 +338,52 @@ export async function reconcilePreMigrationConflicts(
           now,
           s.id
         );
-      } else {
-        if (action === 'discard') {
-          await client.runAsync(`DELETE FROM workout_sessions WHERE id = ?;`, s.id);
+      } else if (action === 'discard') {
+        await client.runAsync(`DELETE FROM workout_sessions WHERE id = ?;`, s.id);
+      } else if (action === 'archive') {
+        // User explicitly chose to archive/complete to history
+        if (hasRestTarget) {
+          await client.runAsync(
+            `UPDATE workout_sessions
+             SET status = 'completed', recovery_state = 'archived', ended_at = COALESCE(ended_at, ?),
+                 last_resumed_at = NULL, rest_target_at = NULL, updated_at = ?
+             WHERE id = ?;`,
+            now,
+            now,
+            s.id
+          );
         } else {
-          if (hasRestTarget) {
-            await client.runAsync(
-              `UPDATE workout_sessions
-               SET status = 'completed', recovery_state = 'archived', ended_at = COALESCE(ended_at, ?),
-                   last_resumed_at = NULL, rest_target_at = NULL, updated_at = ?
-               WHERE id = ?;`,
-              now,
-              now,
-              s.id
-            );
-          } else {
-            await client.runAsync(
-              `UPDATE workout_sessions
-               SET status = 'completed', recovery_state = 'archived', ended_at = COALESCE(ended_at, ?),
-                   last_resumed_at = NULL, updated_at = ?
-               WHERE id = ?;`,
-              now,
-              now,
-              s.id
-            );
-          }
+          await client.runAsync(
+            `UPDATE workout_sessions
+             SET status = 'completed', recovery_state = 'archived', ended_at = COALESCE(ended_at, ?),
+                 last_resumed_at = NULL, updated_at = ?
+             WHERE id = ?;`,
+            now,
+            now,
+            s.id
+          );
+        }
+      } else {
+        // action === 'keep_interrupted' (safe default!)
+        // Preserves the session as recoverable without falsely marking it completed
+        if (hasRestTarget) {
+          await client.runAsync(
+            `UPDATE workout_sessions
+             SET status = 'discarded', recovery_state = 'interrupted',
+                 last_resumed_at = NULL, rest_target_at = NULL, updated_at = ?
+             WHERE id = ?;`,
+            now,
+            s.id
+          );
+        } else {
+          await client.runAsync(
+            `UPDATE workout_sessions
+             SET status = 'discarded', recovery_state = 'interrupted',
+                 last_resumed_at = NULL, updated_at = ?
+             WHERE id = ?;`,
+            now,
+            s.id
+          );
         }
       }
     }

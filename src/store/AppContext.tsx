@@ -41,6 +41,7 @@ import {
   getDatabaseConnectionOnly,
   migrateFromAsyncStorage,
   reconcilePreMigrationConflicts,
+  type PreMigrationResolution,
 } from '../db';
 
 export type MigrationConflictInfo = {
@@ -125,12 +126,21 @@ type AppContextValue = AppStateData & {
   updateActiveSessionRestTarget: (restTargetAt: string | null) => Promise<WorkoutSession | null>;
   loadInterruptedSessions: () => Promise<WorkoutSession[]>;
   resolveMigrationConflict: (
-    resumeSessionId: string,
-    actionForOthers?: 'archive' | 'discard'
+    resolution?:
+      | string
+      | {
+          resumeSessionId?: string;
+          actionForOthers?: 'keep_interrupted' | 'archive' | 'discard';
+          sessionResolutions?: Record<
+            string,
+            'resume' | 'keep_interrupted' | 'archive' | 'discard'
+          >;
+        },
+    actionForOthers?: 'keep_interrupted' | 'archive' | 'discard'
   ) => Promise<void>;
   resumeInterruptedSession: (
     sessionId: string,
-    currentSessionAction?: 'archive' | 'discard'
+    currentSessionAction?: 'keep_interrupted' | 'archive' | 'discard'
   ) => Promise<WorkoutSession>;
   archiveInterruptedSession: (sessionId: string, notes?: string) => Promise<WorkoutSession>;
   discardInterruptedSession: (sessionId: string) => Promise<void>;
@@ -451,10 +461,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const resolveMigrationConflict = useCallback(
-    async (resumeSessionId: string, actionForOthers: 'archive' | 'discard' = 'archive') => {
+    async (
+      resolutionArg?:
+        | string
+        | {
+            resumeSessionId?: string;
+            actionForOthers?: 'keep_interrupted' | 'archive' | 'discard';
+            sessionResolutions?: Record<
+              string,
+              'resume' | 'keep_interrupted' | 'archive' | 'discard'
+            >;
+          },
+      actionForOthersArg?: 'keep_interrupted' | 'archive' | 'discard'
+    ) => {
       try {
+        let resolution: PreMigrationResolution;
+        if (typeof resolutionArg === 'string') {
+          resolution = {
+            resumeSessionId: resolutionArg,
+            actionForOthers: actionForOthersArg ?? 'keep_interrupted',
+          };
+        } else if (resolutionArg) {
+          resolution = {
+            ...resolutionArg,
+            actionForOthers: resolutionArg.actionForOthers ?? actionForOthersArg ?? 'keep_interrupted',
+          };
+        } else {
+          resolution = { actionForOthers: actionForOthersArg ?? 'keep_interrupted' };
+        }
+
         const db = await getDatabaseConnectionOnly();
-        await reconcilePreMigrationConflicts(db, { resumeSessionId, actionForOthers });
+        await reconcilePreMigrationConflicts(db, resolution);
         await getDatabase();
         dispatch({ type: 'setMigrationConflict', conflict: null });
         await hydrateRef.current();
@@ -803,7 +840,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           return [];
         }
       },
-      resumeInterruptedSession: async (sessionId: string, currentSessionAction?: 'archive' | 'discard') => {
+      resumeInterruptedSession: async (
+        sessionId: string,
+        currentSessionAction?: 'keep_interrupted' | 'archive' | 'discard'
+      ) => {
         try {
           const resumed = await resumeInterruptedWorkoutSession(sessionId, currentSessionAction);
           const remainingInterrupted = await getInterruptedWorkoutSessions();

@@ -119,7 +119,11 @@ export interface WorkoutSessionRepository {
   listInterruptedSessions(txn?: IDatabase): Promise<WorkoutSession[]>;
   resumeInterruptedSession(
     id: string,
-    options?: { currentSessionAction?: 'archive' | 'discard' } | 'archive' | 'discard',
+    options?:
+      | { currentSessionAction?: 'keep_interrupted' | 'archive' | 'discard' }
+      | 'keep_interrupted'
+      | 'archive'
+      | 'discard',
     txn?: IDatabase
   ): Promise<WorkoutSession>;
   archiveInterruptedSession(

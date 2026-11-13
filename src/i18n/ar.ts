@@ -293,7 +293,8 @@ export const ar = {
     "recoveryAmbiguousBadge": "سجل غير مؤكد",
     "preMigrationConflictTitle": "تم العثور على جلسات غير مكتملة",
     "preMigrationConflictMessage": "تم العثور على جلسات تمرين مفتوحة متعددة من إصدار سابق. يرجى اختيار الجلسة التي ترغب في استئنافها للمتابعة.",
-    "preMigrationConflictResolve": "معالجة ومتابعة"
+    "preMigrationConflictResolve": "معالجة ومتابعة",
+    "keepAllRecoverable": "الاحتفاظ بالجميع كتمارين قابلة للاستعادة والمراجعة لاحقاً"
   },
   "progress": {
     "title": "التقدم",

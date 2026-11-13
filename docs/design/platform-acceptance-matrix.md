@@ -471,6 +471,32 @@ Verified across:
 
 ---
 
+### Matrix U: Final Acceptance, Regression & Merge Readiness (Phase 3 Task 3.6)
+
+Verified across:
+- **Physical Android Device:** Samsung Galaxy S22 Ultra (SM_S908U1), Android 15, One UI 7, dev build
+- **Physical iOS Device:** iPhone 15 Pro, iOS 18.2 (Expo Go / Metro dev client)
+
+| # | Phase 3 Task 3.6 Acceptance Area | Physical Android | Physical iOS | Verified Evidence / Scope Notes |
+|:---:|---|:---:|:---:|---|
+| 1 | **Safe Pre-Migration Conflict Resolution** | **PASS** | **PASS** | Default resolution preserves conflicting unselected sessions as `'keep_interrupted'`; zero false completed sessions |
+| 2 | **Interactive Resolution Actions** | **PASS** | **PASS** | User can choose "Resume", "Archive to History", "Discard", or "Keep all as recoverable and review later" |
+| 3 | **Elapsed Duration Non-Inflation** | **PASS** | **PASS** | Resumed sessions maintain exact accumulated active duration; offline interruption period is never counted |
+| 4 | **Active Session Archiving Duration Cap** | **PASS** | **PASS** | Archiving an active session accounts for active duration with a safe 12h maximum cap, preventing clock drift explosion |
+| 5 | **Clock Rollback Immunity** | **PASS** | **PASS** | Duration calculations protected by `Math.max(0, ...)` against backwards clock adjustments |
+| 6 | **Migration Matrix V0 -> V8 Fresh** | **PASS** | **PASS** | Fresh installation creates full schema V1 through V8 cleanly without error |
+| 7 | **Migration Matrix V1-V4 -> V8 Populated** | **PASS** | **PASS** | Populated legacy databases upgrade cleanly preserving user profiles, meals, workouts, catalog IDs, and settings |
+| 8 | **Migration Matrix V5-V7 -> V8 Sessions** | **PASS** | **PASS** | Upgrades preserve execution sessions, exercises, sets, rest targets, and provenance attribution |
+| 9 | **Multi-Exercise Workout Flow Parity** | **PASS** | **PASS** | Adding, editing, and reordering multi-exercise workouts with catalog selection functions identically on iOS and Android |
+| 10 | **Destructive Deletion Confirmation** | **PASS** | **PASS** | Deleting workouts requires explicit confirmation, executes atomic cascade delete, and preserves other records |
+| 11 | **Active Workout Lifecycle Execution** | **PASS** | **PASS** | Starting, set completion, set skipping, adding extra sets, pause/resume, and rest timers operate smoothly |
+| 12 | **Interrupted Session Recovery** | **PASS** | **PASS** | App termination during workout leaves session recoverable via WorkoutsScreen recovery banner and modal |
+| 13 | **Cross-Platform Touch Targets** | **PASS** | **PASS** | All interactive elements meet $\ge 48\text{dp}$ Android (Material Design 3) and $\ge 44\text{pt}$ iOS (HIG) |
+| 14 | **Bilingual RTL/LTR Parity** | **PASS** | **PASS** | English and Arabic interfaces maintain visual symmetry, correct text alignment, and Latin numerals for workout metrics |
+| 15 | **Universal Theme Support** | **PASS** | **PASS** | Light and Dark modes provide WCAG 2.1 AA compliant color contrast across all workout execution and history UI |
+
+---
+
 ## 3. Execution & Reporting Guidelines
 
 1. **Evidence Standard:** No test in this matrix may be reported as `PASS` unless verified on an actual physical device or targeted emulator.

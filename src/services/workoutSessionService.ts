@@ -174,7 +174,11 @@ export async function getInterruptedWorkoutSessions(
 
 export async function resumeInterruptedWorkoutSession(
   id: string,
-  options?: { currentSessionAction?: 'archive' | 'discard' } | 'archive' | 'discard',
+  options?:
+    | { currentSessionAction?: 'keep_interrupted' | 'archive' | 'discard' }
+    | 'keep_interrupted'
+    | 'archive'
+    | 'discard',
   customRepo?: WorkoutSessionRepository
 ): Promise<WorkoutSession> {
   const repo = customRepo ?? (await getWorkoutSessionRepository());

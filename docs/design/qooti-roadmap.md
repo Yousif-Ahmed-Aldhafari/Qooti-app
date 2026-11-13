@@ -21,10 +21,10 @@
 [ Phase 2: User Profiles & Personalization ] ───► (Complete & Merged into Main)
        │
        ▼
-[ Phase 3: Complete Workout System + Edit/Delete ] (Next)
+[ Phase 3: Complete Workout System + Edit/Delete ] ──► (Complete & Merge-Ready)
        │
        ▼
-[ Phase 4: Nutrition & Meal Planning + Edit/Delete ] (Planned)
+[ Phase 4: Nutrition & Meal Planning + Edit/Delete ] (Next)
        │
        ▼
 [ Phase 5: Body Tracking & Analytics ] (Planned)
@@ -72,8 +72,8 @@
   - **Task 2.4 [COMPLETED]:** Nutrition Target Integrity & Physical Device Acceptance. Precedence verification, fallback value safety (no fabricated percentages), MealDetailsScreen & ProfileScreen MacroCard target guard, historical period labeling, and 153 passing automated tests.
   - **Task 2.5 [COMPLETED]:** Final Personalization Acceptance & Merge Readiness. Comprehensive eligibility precedence audit, adolescent custom override guard (preserves values without application approval), Age 17 vs 18 boundary tests, 157 passing tests, and remote CI verification.
 
-### Phase 3: Complete Workout System [IN PROGRESS]
-- **Core Mission:** Implement full lifecycle management for logged workouts, exercise items, and training progression.
+### Phase 3: Complete Workout System [COMPLETE - MERGE READY]
+- **Core Mission:** Implement full lifecycle management for logged workouts, exercise items, active workout execution, per-set logging, rest timers, and training progression.
 - **Key Deliverables:**
   - **Task 3.1 [COMPLETED]:** Workout Lifecycle Audit & Safe Editing. Atomic `updateWorkout` transactions, strict domain validation (`validateWorkout`), granular `AppContext` persistence (no global `saveAllWorkouts`), and `EditWorkoutScreen` UI.
   - **Task 3.2 [COMPLETED]:** Safe Workout Deletion & History Integrity. Pre-flight ID verification, atomic SQLite deletion with cascade child cleanup and rollback, delete state machine (`idle` -> `confirming` -> `deleting` -> `success` / `error`), localized confirmation dialogs, retryable error handling, navigation safety, and empty state sync.
@@ -85,7 +85,7 @@
   - **Task 3.5A [COMPLETED]:** Active Session Integrity, Set Validation & Recovery. Strict validation for repetitions (finite non-negative integers, reject fractional/negative/NaN), weights, and RPE; terminal session mutation guards on completed/discarded sessions; discard safety policy; skipped set consistency nullifying actuals without data residue; versioned SQLite Migration 6 (`enforce_single_open_workout_session_v6`) with partial unique index ensuring at most one open session at the database level; rest countdown persistence and reload recovery; clock rollback immunity; UI double-submit prevention and localized error recovery; and 324 passing tests.
   - **Task 3.5B [COMPLETED]:** Recovery-Safe Session Migration & Rest Timer Integration. Forward-only versioned SQLite Migration 7 (`recover_conflicted_workout_sessions_v7`) tagging migration-discarded sessions as `interrupted` non-destructively; strict pre-migration conflict detection (`detectPreMigrationSessionConflicts`); end-to-end rest timer persistence wiring across `ActiveWorkoutScreen` $\rightarrow$ `AppNavigator` $\rightarrow$ `AppContext` $\rightarrow$ `WorkoutSessionService` $\rightarrow$ `SQLiteWorkoutSessionRepository`; sequential promise queue debouncing rapid +30s taps and ensuring Skip Rest precedence; AppState background/foreground synchronization without background setInterval drift; interactive WorkoutsScreen conflict recovery banner and review modal (resume, archive, discard); and 342 passing tests.
   - **Task 3.5C [COMPLETED]:** Final Migration Provenance & Session Recovery Safety. Default mandatory pre-migration conflict check (`strictConflictCheck: true`) halting database initialization prior to single-open index enforcement; restored historical Migration 6 definition from commit `463c607`; forward-only versioned SQLite Migration 8 (`clarify_session_recovery_provenance_v8`) attributing unproven historical discarded records to `recovery_state = 'ambiguous'`; hardened recovery repository guards with zero elapsed duration inflation; pre-migration conflict resolution flow with AppContext hydration protection; bilingual conflict resolution UI; and 364 passing tests.
-  - **Task 3.6 [NEXT]:** Training Volume & Progression Insights. Longitudinal progression trends, volume load comparisons across weeks and months, personal records (PRs), and workout frequency charts based on logged execution sessions.
+  - **Task 3.6 [COMPLETED]:** Final Acceptance, Regression & Merge Readiness. Comprehensive pre-migration resolution safety defaulting to `'keep_interrupted'` (preventing false completed-session records), wall-clock duration hardening with 12h max cap and zero offline inflation, full 11-scenario migration compatibility matrix across V0 through V8, 22 end-to-end workout acceptance flows, physical Android & iOS verification, and 380 passing automated tests. All Phase 3 quality gates satisfied; merge-ready for `main`.
 
 ### Phase 4: Nutrition & Meal Planning — Planned
 - **Core Mission:** Implement full lifecycle management for logged meals, food items, and nutrition planning.

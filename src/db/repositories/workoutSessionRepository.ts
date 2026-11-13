@@ -1006,7 +1006,11 @@ export class SQLiteWorkoutSessionRepository implements WorkoutSessionRepository 
 
   async resumeInterruptedSession(
     id: string,
-    options?: { currentSessionAction?: 'archive' | 'discard' } | 'archive' | 'discard',
+    options?:
+      | { currentSessionAction?: 'keep_interrupted' | 'archive' | 'discard' }
+      | 'keep_interrupted'
+      | 'archive'
+      | 'discard',
     txn?: IDatabase
   ): Promise<WorkoutSession> {
     const execute = async (client: IDatabase) => {
@@ -1046,7 +1050,7 @@ export class SQLiteWorkoutSessionRepository implements WorkoutSessionRepository 
 
       if (openSessions.length > 0 && !action) {
         throw new SessionValidationError(
-          'Another workout session is currently active or paused. Specify currentSessionAction (archive or discard) to resume.',
+          'Another workout session is currently active or paused. Specify currentSessionAction (keep_interrupted, archive, or discard) to resume.',
           'currentSessionAction'
         );
       }
@@ -1056,14 +1060,34 @@ export class SQLiteWorkoutSessionRepository implements WorkoutSessionRepository 
       for (const open of openSessions) {
         if (action === 'discard') {
           await client.runAsync(`DELETE FROM workout_sessions WHERE id = ?;`, open.id);
-        } else {
-          // default: archive/complete - preserve elapsed time if active
-          let finalAccumulated = open.accumulated_elapsed_ms;
+        } else if (action === 'keep_interrupted') {
+          let finalAccumulated = Math.max(0, Number(open.accumulated_elapsed_ms) || 0);
           if (open.status === 'active' && open.last_resumed_at) {
             const lastResume = Date.parse(open.last_resumed_at);
             if (!Number.isNaN(lastResume)) {
               const delta = Math.max(0, Date.parse(now) - lastResume);
-              finalAccumulated = Math.max(0, finalAccumulated + delta);
+              const safeDelta = Math.min(delta, 12 * 60 * 60 * 1000);
+              finalAccumulated = Math.max(0, finalAccumulated + safeDelta);
+            }
+          }
+          await client.runAsync(
+            `UPDATE workout_sessions
+             SET status = 'discarded', recovery_state = 'interrupted',
+                 accumulated_elapsed_ms = ?, last_resumed_at = NULL, rest_target_at = NULL, updated_at = ?
+             WHERE id = ?;`,
+            finalAccumulated,
+            now,
+            open.id
+          );
+        } else {
+          // default: archive/complete - preserve elapsed time if active
+          let finalAccumulated = Math.max(0, Number(open.accumulated_elapsed_ms) || 0);
+          if (open.status === 'active' && open.last_resumed_at) {
+            const lastResume = Date.parse(open.last_resumed_at);
+            if (!Number.isNaN(lastResume)) {
+              const delta = Math.max(0, Date.parse(now) - lastResume);
+              const safeDelta = Math.min(delta, 12 * 60 * 60 * 1000);
+              finalAccumulated = Math.max(0, finalAccumulated + safeDelta);
             }
           }
           await client.runAsync(

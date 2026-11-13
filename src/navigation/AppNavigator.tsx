@@ -587,19 +587,51 @@ export function AppNavigator() {
                 <Text style={[styles.conflictSessionMeta, directionalText, { color: palette.textMuted }]}>
                   {session.startedAt}
                 </Text>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t('workouts.preMigrationConflictResolve')}
-                  style={[styles.conflictActionBtn, { backgroundColor: palette.accent }]}
-                  onPress={() => resolveMigrationConflict(session.id, 'archive')}
-                >
-                  <Text style={styles.conflictActionBtnText}>
-                    {t('workouts.resume')}
-                  </Text>
-                </Pressable>
+                <View style={[styles.conflictActionsRow, { flexDirection: 'row', gap: 8, marginTop: 8 }]}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t('workouts.resume')}
+                    style={[styles.conflictActionBtn, { backgroundColor: palette.accent, flex: 1 }]}
+                    onPress={() =>
+                      resolveMigrationConflict({
+                        resumeSessionId: session.id,
+                        actionForOthers: 'keep_interrupted',
+                      })
+                    }
+                  >
+                    <Text style={styles.conflictActionBtnText}>
+                      {t('workouts.resume')}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t('workouts.archiveSession')}
+                    style={[styles.conflictActionBtn, { backgroundColor: palette.cardMuted, flex: 1 }]}
+                    onPress={() =>
+                      resolveMigrationConflict({
+                        sessionResolutions: { [session.id]: 'archive' },
+                        actionForOthers: 'keep_interrupted',
+                      })
+                    }
+                  >
+                    <Text style={[styles.conflictActionBtnText, { color: palette.text }]}>
+                      {t('workouts.archiveSession')}
+                    </Text>
+                  </Pressable>
+                </View>
               </View>
             ))}
           </ScrollView>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('workouts.keepAllRecoverable')}
+            style={styles.conflictKeepAllBtn}
+            onPress={() => resolveMigrationConflict({ actionForOthers: 'keep_interrupted' })}
+          >
+            <Text style={[styles.conflictKeepAllText, { color: palette.accent }]}>
+              {t('workouts.keepAllRecoverable')}
+            </Text>
+          </Pressable>
         </View>
         <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
       </SafeAreaView>
@@ -751,5 +783,18 @@ const styles = StyleSheet.create({
   conflictActionBtnText: {
     color: '#FFFFFF',
     fontWeight: '700',
+  },
+  conflictActionsRow: {
+    gap: spacing.sm,
+  },
+  conflictKeepAllBtn: {
+    minHeight: 44,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  conflictKeepAllText: {
+    ...typography.body,
+    fontWeight: '600',
   },
 });

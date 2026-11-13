@@ -293,7 +293,8 @@ export const en = {
     "recoveryAmbiguousBadge": "Unverified Record",
     "preMigrationConflictTitle": "Unfinished Sessions Found",
     "preMigrationConflictMessage": "Multiple open workout sessions were found from a previous version. Please select which session to resume to continue.",
-    "preMigrationConflictResolve": "Resolve & Continue"
+    "preMigrationConflictResolve": "Resolve & Continue",
+    "keepAllRecoverable": "Keep all as recoverable and review later"
   },
   "progress": {
     "title": "Progress",
