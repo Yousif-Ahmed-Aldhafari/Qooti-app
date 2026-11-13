@@ -145,10 +145,50 @@
 
 ---
 
+### Item 3.4 [RESOLVED] Workout History, Volume Analytics & Quick-Add
+- **Description:** Build a comprehensive workout history and training progression experience on top of the existing Workout, Exercise, Exercise Catalog and SQLite architecture. Enable users to review past training sessions, understand volume trends per muscle group, filter by time horizons, and quickly duplicate/repeat previous workouts as editable templates without mutating historical records.
+- **Resolution:**
+  1. **Explicit Workout Volume Semantics (`src/utils/workoutAnalytics.ts`):**
+     - Defined explicit formula: `exerciseVolume = sets × reps × weight` (kg-reps load).
+     - Bodyweight movements (`weight === 0` or missing) are flagged as bodyweight (`isBodyweight: true`) with `0 kg` load, preventing fabricated load numbers.
+     - Duration-only exercises (e.g. plank, cardio) do not treat duration minutes as repetitions or weight.
+     - Missing, negative, `NaN`, or non-finite parameters neutralize safely to `0` without throwing or corrupting aggregates.
+  2. **Muscle Group Volume Attribution Invariant:**
+     - 100% of an exercise's load volume is attributed strictly to its primary muscle group (resolved from catalog definition or `targetMuscles[0]`).
+     - Secondary muscle groups are tracked for movement frequency/exposure only.
+     - Strict conservation invariant verified: `sum(volumeByMuscle) === totalVolumeKg` (zero volume inflation or double-counting).
+  3. **Date-Based Filtering & Chronological Ordering:**
+     - Implemented `filterWorkoutsByPeriod(workouts, period)` supporting `7d`, `30d`, `90d`, and `all`.
+     - Workouts sorted chronologically descending (newest first) by date and time.
+     - Time window calculation uses UTC midnight boundary relative to the reference date for exact and testable date filtering.
+  4. **Exercise Progression & Catalog Identity Resolution:**
+     - Implemented `getExerciseHistory(workouts, options)` returning performance data points sorted chronologically.
+     - Identity matching policy: exercises with a `catalogId` match by canonical slug ID even if display name was customized; custom exercises without `catalogId` match strictly by case-insensitive trimmed name and never match catalog entries.
+     - Implemented `calculateWorkoutProgressionSummary()` computing total workouts, total volume, average workout duration, muscle group distributions, and period-over-period percentage changes with division-by-zero protection.
+  5. **Quick-Add / Repeat Workout Architecture:**
+     - Built `createQuickAddWorkoutDraft(source, options)` generating a completely new draft workout with unique workout ID and unique exercise IDs (`draft-ex-${Date.now()}-${idx}`).
+     - Populates draft with current date and time while preserving exercise parameters, target muscles, and `catalogId`.
+     - Zero mutation of the source workout: verified immutable via deep comparison.
+     - Wired through `WorkoutDetailsScreen` ("Repeat Workout" / "Use as Template") -> `AppNavigator` -> `AddWorkoutScreen` with `initialWorkout` prop, allowing full review and editing before atomic SQLite insert.
+     - Double-submission guard (`isSaving` flag) rejects concurrent duplicate submissions and rolls back cleanly on simulated database errors.
+  6. **UI & Cross-Platform Parity:**
+     - `WorkoutsScreen`: period filter chips (`All`, `7 Days`, `30 Days`, `90 Days`), summary stats cards (Workouts, Duration, Total Volume), and period-empty recovery state.
+     - `WorkoutCard`: displays duration, exercise count, load volume, and bodyweight tag; updated accessibility labels.
+     - `WorkoutDetailsScreen`: stats header showing Duration and Total Volume, Target Muscles badges, and Repeat Workout action button.
+     - Full English and Arabic localization parity (`en.ts`, `ar.ts`) with Latin numeral formatting in Arabic (`ar-SA-u-nu-latn`).
+     - Theme-token compliance for WCAG 2.1 AA in light and dark modes, and minimum 48dp Android / 44pt iOS touch targets.
+  7. **Testing Evidence:**
+     - 23 new comprehensive automated tests in `src/__tests__/workoutHistoryAnalytics.test.ts`.
+     - Total project test suite: **249 passing tests**, 0 failures.
+     - 91.33% codebase line coverage (91.93% on `workoutAnalytics.ts`).
+     - 20/20 Expo Doctor checks passing.
+
+---
+
 ## 2. Planned Tasks in Phase 3
 
-### Item 3.4 [PLANNED] Workout History, Volume Analytics & Quick-Add
-- **Description:** Workout history views, volume progression analytics per muscle group, and quick-add capability from previous workout sessions with remembered loads.
+### Item 3.5 [PLANNED] Active Workout Logging & Exercise Timers
+- **Description:** Real-time workout execution mode, rest timers between sets, per-set completion toggles, and live duration tracking.
 - **Status:** Next planned task in Phase 3.
 
 ---

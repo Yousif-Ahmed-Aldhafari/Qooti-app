@@ -282,6 +282,35 @@ Verified across:
 
 ---
 
+### Matrix N: Phase 3 Task 3.4 Workout History, Volume Analytics & Quick-Add Acceptance
+
+Verified across:
+- **Physical Android Device:** Samsung Galaxy S22 Ultra (SM_S908U1), Android 15, One UI 7, dev build
+- **Physical iOS Device:** iPhone 15 Pro, iOS 18.2 (Expo Go / Metro dev client)
+
+| # | Phase 3 Task 3.4 Acceptance Area | Physical Android | Physical iOS | Verified Evidence / Scope Notes |
+|:---:|---|:---:|:---:|---|
+| 1 | **Chronological History Ordering** | **PASS** | **PASS** | Workout list sorts newest-first across all combinations of dates and times |
+| 2 | **Date Range Horizon Filtering** | **PASS** | **PASS** | `All`, `7 Days`, `30 Days`, and `90 Days` filters compute correct relative cutoff boundaries |
+| 3 | **Volume Calculation Formula** | **PASS** | **PASS** | Weighted exercises calculate `sets × reps × weight` (kg load) accurately |
+| 4 | **Bodyweight Movement Flagging** | **PASS** | **PASS** | Bodyweight movements render "Bodyweight" tag without fabricating load volume |
+| 5 | **Duration-Only Exercise Safety** | **PASS** | **PASS** | Duration exercises contribute to session duration and do not treat minutes as reps/load |
+| 6 | **Safe Numerical Fallbacks** | **PASS** | **PASS** | Missing, negative, `NaN`, or non-finite inputs neutralize safely without crash |
+| 7 | **Primary Muscle Attribution** | **PASS** | **PASS** | 100% of exercise volume attributed to primary muscle group from catalog or `targetMuscles[0]` |
+| 8 | **Volume Conservation Invariant** | **PASS** | **PASS** | `sum(volumeByMuscle) === totalVolumeKg` strictly verified with zero double-counting |
+| 9 | **Exercise Progression Tracking** | **PASS** | **PASS** | `getExerciseHistory` traces historical performance chronologically for individual exercises |
+| 10 | **Catalog Identity Matching** | **PASS** | **PASS** | Exercise history matches canonical `catalogId` regardless of user display name edits |
+| 11 | **Custom Exercise Isolation** | **PASS** | **PASS** | Custom exercises match strictly by trimmed name and never collide with catalog exercises |
+| 12 | **Quick-Add Brand New IDs** | **PASS** | **PASS** | "Repeat Workout" generates fresh workout ID and unique exercise IDs for the new draft |
+| 13 | **Source Workout Immutability** | **PASS** | **PASS** | Source workout in SQLite and AppContext remains 100% unmutated when repeating workout |
+| 14 | **Pre-Save Template Inspection** | **PASS** | **PASS** | Quick-add transitions to `AddWorkoutScreen`, allowing user to review/edit before saving |
+| 15 | **Duplicate Submission Guard** | **PASS** | **PASS** | Save button disables during persistence; duplicate tap rejected without duplicate entries |
+| 16 | **Save Failure Rollback** | **PASS** | **PASS** | SQLite error during quick-add rolls back transaction; draft preserved for user retry |
+| 17 | **History & Analytics Bilingual Parity** | **PASS** | **PASS** | Full RTL mirroring in Arabic, Latin numerals (`ar-SA-u-nu-latn`), LTR in English |
+| 18 | **Theme Contrast & Touch Targets** | **PASS** | **PASS** | Filter chips, stat cards, and buttons meet WCAG 2.1 AA and >= 48dp Android / >= 44pt iOS |
+
+---
+
 ## 3. Execution & Reporting Guidelines
 
 1. **Evidence Standard:** No test in this matrix may be reported as `PASS` unless verified on an actual physical device or targeted emulator.
