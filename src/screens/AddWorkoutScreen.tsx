@@ -24,8 +24,10 @@ import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import type { Workout } from '../types';
+import { createId } from '../utils/id';
 import { parseInputNumber } from '../utils/nutrition';
 import { activeRowStyle, activeTextAlign, activeWritingDirection } from '../utils/rtl';
+import { toLocalDateString } from '../utils/workoutAnalytics';
 
 type DraftExercise = {
   id: string;
@@ -63,11 +65,12 @@ export function AddWorkoutScreen({
   onCancel,
 }: AddWorkoutScreenProps) {
   const colors = themeColors();
+  const [draftWorkoutId] = useState<string>(() => initialWorkout?.id || createId('workout'));
   const [workoutName, setWorkoutName] = useState(() => initialWorkout?.title || initialWorkout?.name || '');
   const [exercises, setExercises] = useState<DraftExercise[]>(() => {
     if (initialWorkout?.exercises && initialWorkout.exercises.length > 0) {
-      return initialWorkout.exercises.map((ex, idx) => ({
-        id: `draft-ex-${Date.now()}-${idx}`,
+      return initialWorkout.exercises.map((ex) => ({
+        id: ex.id || createId('draft-ex'),
         exerciseName: ex.exerciseName || ex.name || '',
         sets: String(ex.sets ?? 3),
         reps: String(ex.reps ?? 10),
@@ -80,7 +83,7 @@ export function AddWorkoutScreen({
     }
     return [
       {
-        id: 'draft-ex-initial-0',
+        id: createId('draft-ex'),
         exerciseName: '',
         sets: '3',
         reps: '10',
@@ -104,7 +107,7 @@ export function AddWorkoutScreen({
 
   function handleAddEmptyExercise() {
     const newEx: DraftExercise = {
-      id: `draft-ex-${Date.now()}-${exercises.length}`,
+      id: createId('draft-ex'),
       exerciseName: '',
       sets: '3',
       reps: '10',
@@ -150,7 +153,7 @@ export function AddWorkoutScreen({
     } else {
       // Append as new exercise
       const newEx: DraftExercise = {
-        id: `draft-ex-${Date.now()}-${exercises.length}`,
+        id: createId('draft-ex'),
         exerciseName: selectedName,
         sets: '3',
         reps: '10',
@@ -265,9 +268,9 @@ export function AddWorkoutScreen({
     setIsSaving(true);
     try {
       await onSave({
-        id: `workout-${Date.now()}`,
+        id: draftWorkoutId,
         title: workoutName.trim(),
-        date: new Date().toISOString().slice(0, 10),
+        date: toLocalDateString(new Date()),
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         exercises: exercises.map((ex) => ({
           id: ex.id,
@@ -283,7 +286,7 @@ export function AddWorkoutScreen({
         })),
       });
     } catch {
-      // onSave threw - keep isSaving false so user can retry
+      // onSave threw - keep isSaving false so user can retry with preserved inputs
       setIsSaving(false);
     }
   }

@@ -34,6 +34,7 @@ import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import type { Language, Meal, ScreenKey, TabKey, Workout } from '../types';
 import { applyRTL, flexStart, isRTL, rowStyle, textAlign, writingDirection } from '../utils/rtl';
+import { createQuickAddWorkoutDraft } from '../utils/workoutAnalytics';
 
 const mainTabs: TabKey[] = ['home', 'meals', 'workouts', 'progress', 'profile'];
 
@@ -249,7 +250,8 @@ export function AppNavigator() {
   }
 
   function handleRepeatWorkout(workout: Workout) {
-    setQuickAddTemplate(workout);
+    const draft = createQuickAddWorkoutDraft(workout);
+    setQuickAddTemplate(draft);
     setActiveScreen('addWorkout');
   }
 
@@ -269,6 +271,13 @@ export function AppNavigator() {
     if (effectiveScreen === 'editWorkout') {
       setActiveScreen('workoutDetails');
       return;
+    }
+    if (effectiveScreen === 'addWorkout' && quickAddTemplate) {
+      setQuickAddTemplate(null);
+      if (selectedWorkoutId) {
+        setActiveScreen('workoutDetails');
+        return;
+      }
     }
     setActiveScreen(activeTab);
   }

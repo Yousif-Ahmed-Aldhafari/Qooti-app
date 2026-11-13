@@ -1,13 +1,23 @@
 import { getExerciseById } from '../data/exerciseCatalog';
 import type { Exercise, Workout } from '../models/workout';
+import { createId } from './id';
 import { safeNumber } from './nutrition';
 
 export type AnalyticsPeriod = '7d' | '30d' | '90d' | 'all';
 
+export type ExerciseCategoryType =
+  | 'weighted'
+  | 'bodyweight'
+  | 'duration_only'
+  | 'unweighted';
+
 export type ExerciseVolumeBreakdown = {
   volumeKg: number;
+  category: ExerciseCategoryType;
+  isWeighted: boolean;
   isBodyweight: boolean;
   isDurationOnly: boolean;
+  isUnweighted: boolean;
   primaryMuscle: string;
 };
 
@@ -16,6 +26,7 @@ export type WorkoutVolumeSummary = {
   totalDurationMinutes: number;
   exerciseCount: number;
   isBodyweightOnly: boolean;
+  hasUnweightedExercises: boolean;
   targetMuscles: string[];
 };
 
@@ -27,6 +38,14 @@ export type MuscleGroupVolumeAttribution = {
 
 export type WorkoutProgressionSummary = {
   period: AnalyticsPeriod;
+  dateWindow: {
+    startDate: string | null;
+    endDate: string;
+  };
+  previousDateWindow: {
+    startDate: string | null;
+    endDate: string | null;
+  };
   totalWorkouts: number;
   totalExercises: number;
   totalDurationMinutes: number;
@@ -34,6 +53,7 @@ export type WorkoutProgressionSummary = {
   volumeByMuscle: Record<string, number>;
   frequencyByMuscle: Record<string, number>;
   bodyweightExercisesCount: number;
+  unweightedExercisesCount: number;
   percentageChangeVsPreviousPeriod: {
     volume: number | null;
     workouts: number | null;
@@ -54,6 +74,113 @@ export type ExerciseHistoryPoint = {
   notes: string;
   catalogId?: string;
 };
+
+export type FilterWorkoutsOptions = {
+  includeFuture?: boolean;
+};
+
+const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Validates whether a given value is a real calendar date string in YYYY-MM-DD format.
+ * Accurately rejects out-of-range months, invalid days, and non-leap years (e.g. 2026-02-29).
+ */
+export function isValidDateString(dateStr: unknown): boolean {
+  if (typeof dateStr !== 'string' || !ISO_DATE_REGEX.test(dateStr)) {
+    return false;
+  }
+  const parts = dateStr.split('-');
+  const year = Number(parts[0]);
+  const month = Number(parts[1]);
+  const day = Number(parts[2]);
+
+  if (month < 1 || month > 12 || day < 1 || day > 31) {
+    return false;
+  }
+
+  const d = new Date(year, month - 1, day);
+  return (
+    d.getFullYear() === year &&
+    d.getMonth() === month - 1 &&
+    d.getDate() === day
+  );
+}
+
+/**
+ * Formats a Date instance as YYYY-MM-DD using its local calendar components,
+ * preventing unexpected timezone or UTC day-shift defects.
+ */
+export function toLocalDateString(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * Computes the start and end calendar dates (YYYY-MM-DD) for a given analytics period
+ * relative to a reference date. Setting time to 12:00:00 protects against DST boundary shifts.
+ */
+export function getDateWindow(
+  period: AnalyticsPeriod,
+  referenceDate: Date = new Date()
+): { startDate: string | null; endDate: string } {
+  const refLocal = new Date(
+    referenceDate.getFullYear(),
+    referenceDate.getMonth(),
+    referenceDate.getDate(),
+    12,
+    0,
+    0,
+    0
+  );
+  const endDate = toLocalDateString(refLocal);
+
+  if (period === 'all') {
+    return { startDate: null, endDate };
+  }
+
+  const days = period === '7d' ? 7 : period === '30d' ? 30 : 90;
+  const startLocal = new Date(refLocal);
+  startLocal.setDate(startLocal.getDate() - (days - 1));
+  const startDate = toLocalDateString(startLocal);
+
+  return { startDate, endDate };
+}
+
+/**
+ * Computes the start and end calendar dates for the preceding equivalent-length period.
+ * Guarantees that current and previous periods never overlap and have equal day counts.
+ */
+export function getPreviousDateWindow(
+  period: AnalyticsPeriod,
+  referenceDate: Date = new Date()
+): { startDate: string | null; endDate: string | null } {
+  if (period === 'all') {
+    return { startDate: null, endDate: null };
+  }
+
+  const days = period === '7d' ? 7 : period === '30d' ? 30 : 90;
+  const refLocal = new Date(
+    referenceDate.getFullYear(),
+    referenceDate.getMonth(),
+    referenceDate.getDate(),
+    12,
+    0,
+    0,
+    0
+  );
+
+  const prevEndLocal = new Date(refLocal);
+  prevEndLocal.setDate(prevEndLocal.getDate() - days);
+  const endDate = toLocalDateString(prevEndLocal);
+
+  const prevStartLocal = new Date(prevEndLocal);
+  prevStartLocal.setDate(prevStartLocal.getDate() - (days - 1));
+  const startDate = toLocalDateString(prevStartLocal);
+
+  return { startDate, endDate };
+}
 
 /**
  * Muscle-Group Attribution Policy:
@@ -107,15 +234,55 @@ export function resolveAllExerciseMuscles(exercise: Exercise): {
   return { primary, secondary };
 }
 
+const BODYWEIGHT_NAME_PATTERNS = [
+  /bodyweight/i,
+  /calisthenic/i,
+  /push[- ]?up/i,
+  /pull[- ]?up/i,
+  /chin[- ]?up/i,
+  /dip/i,
+  /crunch/i,
+  /sit[- ]?up/i,
+  /plank/i,
+  /air[- ]?squat/i,
+  /jumping[- ]?jack/i,
+  /burpee/i,
+  /وزن الجسم/,
+  /ضغط/,
+  /عقلة/,
+  /متوازي/,
+  /بلانك/,
+  /معدة/,
+];
+
+/**
+ * Distinguishes confirmed bodyweight movements from unknown or zero-weight resistance exercises.
+ * Uses catalog equipment metadata when available, or recognized bodyweight name patterns.
+ */
+export function isConfirmedBodyweightExercise(exercise: Exercise): boolean {
+  if (exercise.catalogId) {
+    const catalogItem = getExerciseById(exercise.catalogId);
+    if (catalogItem) {
+      return catalogItem.equipment === 'bodyweight';
+    }
+  }
+
+  const name = (exercise.exerciseName || exercise.name || '').trim();
+  if (BODYWEIGHT_NAME_PATTERNS.some((pattern) => pattern.test(name))) {
+    return true;
+  }
+
+  return false;
+}
+
 /**
  * Calculates estimated load-volume for an individual exercise.
  *
  * Semantic Rules:
- * - Load-volume = sets * reps * weight (kg-reps).
- * - Zero weight exercises (weight <= 0) with sets > 0 are marked as isBodyweight. Their
- *   weighted volume is 0 kg, but effort is tracked via sets/reps without fabricated numbers.
- * - Duration-only exercises (duration > 0, weight <= 0, reps <= 0) are marked as isDurationOnly.
- *   Duration is NOT coerced into reps or volume.
+ * - Weighted resistance: sets * reps * external weight in kg.
+ * - Confirmed bodyweight: weight === 0, sets > 0, equipment is bodyweight. External load volume = 0 kg.
+ * - Duration-only: duration > 0, weight === 0, reps === 0. Volume = 0 kg.
+ * - Unweighted / unknown-load: weight === 0, sets > 0 on non-bodyweight movement. Volume = 0 kg.
  * - Negative, NaN, or non-finite numbers are safely neutralized to 0.
  */
 export function calculateExerciseVolume(exercise: Exercise): ExerciseVolumeBreakdown {
@@ -124,16 +291,32 @@ export function calculateExerciseVolume(exercise: Exercise): ExerciseVolumeBreak
   const weight = Math.max(0, safeNumber(exercise.weight));
   const duration = Math.max(0, safeNumber(exercise.duration));
 
-  const isBodyweight = weight === 0 && sets > 0;
   const isDurationOnly = duration > 0 && weight === 0 && reps === 0;
+  const isWeighted = weight > 0 && sets > 0 && reps > 0;
 
-  const volumeKg = isDurationOnly ? 0 : Math.round(sets * reps * weight * 10) / 10;
+  let category: ExerciseCategoryType;
+  if (isWeighted) {
+    category = 'weighted';
+  } else if (isDurationOnly) {
+    category = 'duration_only';
+  } else if (weight === 0 && sets > 0) {
+    category = isConfirmedBodyweightExercise(exercise) ? 'bodyweight' : 'unweighted';
+  } else {
+    category = 'unweighted';
+  }
+
+  const isBodyweight = category === 'bodyweight';
+  const isUnweighted = category === 'unweighted';
+  const volumeKg = isWeighted ? Math.round(sets * reps * weight * 10) / 10 : 0;
   const primaryMuscle = resolvePrimaryMuscleGroup(exercise);
 
   return {
     volumeKg,
+    category,
+    isWeighted,
     isBodyweight,
     isDurationOnly,
+    isUnweighted,
     primaryMuscle,
   };
 }
@@ -146,6 +329,8 @@ export function calculateWorkoutVolumeSummary(workout: Workout): WorkoutVolumeSu
   let totalVolumeKg = 0;
   let totalDurationMinutes = 0;
   let hasWeighted = false;
+  let hasBodyweight = false;
+  let hasUnweighted = false;
   const musclesSet = new Set<string>();
 
   for (const ex of exercises) {
@@ -153,9 +338,9 @@ export function calculateWorkoutVolumeSummary(workout: Workout): WorkoutVolumeSu
     totalVolumeKg += breakdown.volumeKg;
     totalDurationMinutes += Math.max(0, safeNumber(ex.duration));
 
-    if (breakdown.volumeKg > 0) {
-      hasWeighted = true;
-    }
+    if (breakdown.isWeighted) hasWeighted = true;
+    if (breakdown.isBodyweight) hasBodyweight = true;
+    if (breakdown.isUnweighted) hasUnweighted = true;
 
     const { primary, secondary } = resolveAllExerciseMuscles(ex);
     if (primary && primary !== 'other') musclesSet.add(primary);
@@ -164,47 +349,60 @@ export function calculateWorkoutVolumeSummary(workout: Workout): WorkoutVolumeSu
     }
   }
 
-  const isBodyweightOnly = exercises.length > 0 && !hasWeighted;
+  // isBodyweightOnly is true strictly when session contains confirmed bodyweight movements
+  // and NO external weighted exercises and NO unweighted/unknown resistance exercises
+  const isBodyweightOnly =
+    exercises.length > 0 && hasBodyweight && !hasWeighted && !hasUnweighted;
 
   return {
     totalVolumeKg: Math.round(totalVolumeKg * 10) / 10,
     totalDurationMinutes,
     exerciseCount: exercises.length,
     isBodyweightOnly,
+    hasUnweightedExercises: hasUnweighted,
     targetMuscles: Array.from(musclesSet),
   };
 }
 
 /**
  * Filters workouts within a given date period (7d, 30d, 90d, all) relative to a reference date.
- * Workouts are sorted chronologically descending (newest first).
+ * Workouts are sorted chronologically descending (newest first) with deterministic tie-breaking.
+ * Excludes future-dated workouts from bounded historical windows.
  */
 export function filterWorkoutsByPeriod(
   workouts: Workout[],
   period: AnalyticsPeriod,
-  referenceDate: Date = new Date()
+  referenceDate: Date = new Date(),
+  options?: FilterWorkoutsOptions
 ): Workout[] {
-  // First sort newest first
+  // Sort newest first; if date and time match, use id as deterministic tie-breaker
   const sorted = [...workouts].sort((a, b) => {
-    const dateComp = (b.date || '').localeCompare(a.date || '');
+    const dateA = a.date || '';
+    const dateB = b.date || '';
+    const dateComp = dateB.localeCompare(dateA);
     if (dateComp !== 0) return dateComp;
-    return (b.time || '').localeCompare(a.time || '');
+    const timeA = a.time || '';
+    const timeB = b.time || '';
+    const timeComp = timeB.localeCompare(timeA);
+    if (timeComp !== 0) return timeComp;
+    return (b.id || '').localeCompare(a.id || '');
   });
 
-  if (period === 'all') {
-    return sorted;
-  }
-
-  const days = period === '7d' ? 7 : period === '30d' ? 30 : 90;
-  const cutoff = new Date(referenceDate);
-  cutoff.setDate(cutoff.getDate() - (days - 1));
-  cutoff.setHours(0, 0, 0, 0);
-
-  const cutoffKey = cutoff.toISOString().slice(0, 10);
+  const { startDate, endDate } = getDateWindow(period, referenceDate);
 
   return sorted.filter((w) => {
-    if (!w.date) return false;
-    return w.date >= cutoffKey;
+    if (!w.date || !isValidDateString(w.date)) {
+      return false;
+    }
+
+    if (period === 'all') {
+      if (options?.includeFuture === false) {
+        return w.date <= endDate;
+      }
+      return true;
+    }
+
+    return startDate !== null && w.date >= startDate && w.date <= endDate;
   });
 }
 
@@ -217,12 +415,19 @@ export function calculateWorkoutProgressionSummary(
   period: AnalyticsPeriod,
   referenceDate: Date = new Date()
 ): WorkoutProgressionSummary {
-  const currentWorkouts = filterWorkoutsByPeriod(workouts, period, referenceDate);
+  const dateWindow = getDateWindow(period, referenceDate);
+  const previousDateWindow = getPreviousDateWindow(period, referenceDate);
+
+  // Current workouts strictly up to reference date (no future workouts)
+  const currentWorkouts = filterWorkoutsByPeriod(workouts, period, referenceDate, {
+    includeFuture: false,
+  });
 
   let totalExercises = 0;
   let totalDurationMinutes = 0;
   let totalVolumeKg = 0;
   let bodyweightExercisesCount = 0;
+  let unweightedExercisesCount = 0;
   const volumeByMuscle: Record<string, number> = {};
   const frequencyByMuscle: Record<string, number> = {};
 
@@ -238,11 +443,14 @@ export function calculateWorkoutProgressionSummary(
 
       if (breakdown.isBodyweight) {
         bodyweightExercisesCount += 1;
+      } else if (breakdown.isUnweighted) {
+        unweightedExercisesCount += 1;
       }
 
       // 1. Primary muscle gets 100% of the volume (no double counting)
       const primary = breakdown.primaryMuscle;
-      volumeByMuscle[primary] = Math.round(((volumeByMuscle[primary] || 0) + breakdown.volumeKg) * 10) / 10;
+      volumeByMuscle[primary] =
+        Math.round(((volumeByMuscle[primary] || 0) + breakdown.volumeKg) * 10) / 10;
 
       // 2. Both primary and secondary contribute to frequency for this workout
       const { primary: p, secondary: s } = resolveAllExerciseMuscles(ex);
@@ -262,12 +470,15 @@ export function calculateWorkoutProgressionSummary(
   let volumeChangePct: number | null = null;
   let workoutsChangePct: number | null = null;
 
-  if (period !== 'all') {
-    const days = period === '7d' ? 7 : period === '30d' ? 30 : 90;
-    const prevRef = new Date(referenceDate);
-    prevRef.setDate(prevRef.getDate() - days);
+  if (period !== 'all' && previousDateWindow.startDate && previousDateWindow.endDate) {
+    const prevWorkouts = workouts.filter((w) => {
+      if (!w.date || !isValidDateString(w.date)) return false;
+      return (
+        w.date >= previousDateWindow.startDate! &&
+        w.date <= previousDateWindow.endDate!
+      );
+    });
 
-    const prevWorkouts = filterWorkoutsByPeriod(workouts, period, prevRef);
     let prevVolume = 0;
     for (const pw of prevWorkouts) {
       for (const ex of pw.exercises || []) {
@@ -288,6 +499,8 @@ export function calculateWorkoutProgressionSummary(
 
   return {
     period,
+    dateWindow,
+    previousDateWindow,
     totalWorkouts: currentWorkouts.length,
     totalExercises,
     totalDurationMinutes,
@@ -295,6 +508,7 @@ export function calculateWorkoutProgressionSummary(
     volumeByMuscle,
     frequencyByMuscle,
     bodyweightExercisesCount,
+    unweightedExercisesCount,
     percentageChangeVsPreviousPeriod: {
       volume: volumeChangePct,
       workouts: workoutsChangePct,
@@ -369,9 +583,9 @@ export function getExerciseHistory(
  * -----------------------------------------------
  * Generates a completely new draft workout based on an existing workout.
  * - Deep-copies exercise structure and parameters.
- * - Assigns fresh workout ID (`workout-${timestamp}`) and exercise IDs (`draft-ex-${timestamp}-${idx}`).
- * - Preserves all catalogId references and targetMuscles.
- * - Sets the date to the current date and time to current local time.
+ * - Assigns fresh collision-resistant workout ID (`createId('workout')`) and exercise IDs (`createId('draft-ex')`).
+ * - Preserves all catalogId references, targetMuscles, and sequence order.
+ * - Sets the date to the current local calendar date and time to current local time.
  * - Original source workout is NOT modified.
  * - Does NOT persist to SQLite directly; returns a draft object for review/editing.
  */
@@ -380,12 +594,21 @@ export function createQuickAddWorkoutDraft(
   customTitle?: string,
   referenceDate: Date = new Date()
 ): Workout {
-  const timestamp = Date.now();
-  const newDate = referenceDate.toISOString().slice(0, 10);
+  const workoutId = createId('workout');
+  const refLocal = new Date(
+    referenceDate.getFullYear(),
+    referenceDate.getMonth(),
+    referenceDate.getDate(),
+    referenceDate.getHours(),
+    referenceDate.getMinutes(),
+    0,
+    0
+  );
+  const newDate = toLocalDateString(refLocal);
   const newTime = referenceDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-  const exercises: Exercise[] = (sourceWorkout.exercises || []).map((ex, idx) => ({
-    id: `draft-ex-${timestamp}-${idx}`,
+  const exercises: Exercise[] = (sourceWorkout.exercises || []).map((ex) => ({
+    id: createId('draft-ex'),
     exerciseName: ex.exerciseName || ex.name || '',
     name: ex.exerciseName || ex.name || '',
     sets: safeNumber(ex.sets),
@@ -398,7 +621,7 @@ export function createQuickAddWorkoutDraft(
   }));
 
   return {
-    id: `workout-${timestamp}`,
+    id: workoutId,
     title: customTitle || sourceWorkout.title || sourceWorkout.name || '',
     name: customTitle || sourceWorkout.title || sourceWorkout.name || '',
     date: newDate,
