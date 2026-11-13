@@ -5,19 +5,24 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { AppButton } from '../components/AppButton';
 import { AppCard } from '../components/AppCard';
 import { AppHeader } from '../components/AppHeader';
 import { AppInput } from '../components/AppInput';
+import { ExercisePickerModal } from '../components/ExercisePickerModal';
 import type { Translator } from '../i18n';
+import type { CatalogExercise } from '../models/exerciseCatalog';
 import { themeColors } from '../theme/colors';
+import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import type { Exercise, Workout } from '../types';
@@ -32,6 +37,7 @@ type ExerciseEditItem = {
   duration: string;
   notes: string;
   targetMuscles?: string[];
+  catalogId?: string;
 };
 
 type ExerciseErrorMap = {
@@ -47,9 +53,10 @@ type EditWorkoutScreenProps = {
   workout: Workout;
   onSave: (workout: Workout) => Promise<void> | void;
   onCancel: () => void;
+  language?: 'en' | 'ar';
 };
 
-export function EditWorkoutScreen({ t, workout, onSave, onCancel }: EditWorkoutScreenProps) {
+export function EditWorkoutScreen({ t, workout, onSave, onCancel, language = 'en' }: EditWorkoutScreenProps) {
   const colors = themeColors();
 
   const [title, setTitle] = useState(workout.title || workout.name || '');
@@ -67,6 +74,7 @@ export function EditWorkoutScreen({ t, workout, onSave, onCancel }: EditWorkoutS
       duration: String(ex.duration ?? 0),
       notes: ex.notes || '',
       targetMuscles: ex.targetMuscles,
+      catalogId: ex.catalogId,
     }))
   );
 
@@ -76,6 +84,8 @@ export function EditWorkoutScreen({ t, workout, onSave, onCancel }: EditWorkoutS
   const [exerciseErrors, setExerciseErrors] = useState<Record<string, ExerciseErrorMap>>({});
   const [saveError, setSaveError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [pickerVisible, setPickerVisible] = useState(false);
+  const [activePickerTargetId, setActivePickerTargetId] = useState<string | null>(null);
 
   const directionalText = {
     textAlign: activeTextAlign(),
@@ -102,6 +112,7 @@ export function EditWorkoutScreen({ t, workout, onSave, onCancel }: EditWorkoutS
       if (cur.weight !== String(orig.weight ?? 0)) return true;
       if (cur.duration !== String(orig.duration ?? 0)) return true;
       if (cur.notes !== (orig.notes || '')) return true;
+      if (cur.catalogId !== orig.catalogId) return true;
     }
     return false;
   }, [date, exercises, notes, time, title, workout]);
@@ -145,6 +156,67 @@ export function EditWorkoutScreen({ t, workout, onSave, onCancel }: EditWorkoutS
       notes: '',
     };
     setExercises((prev) => [...prev, newEx]);
+  }
+
+  function handleOpenPicker(targetId: string | null = null) {
+    setActivePickerTargetId(targetId);
+    setPickerVisible(true);
+  }
+
+  function handleSelectCatalogExercise(catalogEx: CatalogExercise) {
+    const selectedName = language === 'ar' ? catalogEx.nameAr : catalogEx.nameEn;
+    const muscles = [catalogEx.primaryMuscle, ...catalogEx.secondaryMuscles];
+
+    if (activePickerTargetId) {
+      setExercises((prev) =>
+        prev.map((ex) => {
+          if (ex.id === activePickerTargetId) {
+            return {
+              ...ex,
+              exerciseName: selectedName,
+              targetMuscles: muscles,
+              catalogId: catalogEx.id,
+            };
+          }
+          return ex;
+        })
+      );
+      if (exerciseErrors[activePickerTargetId]) {
+        setExerciseErrors((prev) => {
+          const next = { ...prev };
+          delete next[activePickerTargetId]?.exerciseName;
+          return next;
+        });
+      }
+    } else {
+      const newEx: ExerciseEditItem = {
+        id: `exercise-${Date.now()}-${exercises.length}`,
+        exerciseName: selectedName,
+        sets: '3',
+        reps: '10',
+        weight: '0',
+        duration: '15',
+        notes: '',
+        targetMuscles: muscles,
+        catalogId: catalogEx.id,
+      };
+      setExercises((prev) => [...prev, newEx]);
+    }
+    setActivePickerTargetId(null);
+    if (saveError) setSaveError('');
+  }
+
+  function handleMoveExercise(index: number, direction: 'up' | 'down') {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= exercises.length) return;
+
+    setExercises((prev) => {
+      const copy = [...prev];
+      const temp = copy[index];
+      copy[index] = copy[targetIndex];
+      copy[targetIndex] = temp;
+      return copy;
+    });
   }
 
   function handleRemoveExercise(id: string) {
@@ -261,6 +333,7 @@ export function EditWorkoutScreen({ t, workout, onSave, onCancel }: EditWorkoutS
         duration: parsedDuration,
         notes: ex.notes.trim(),
         targetMuscles: ex.targetMuscles,
+        catalogId: ex.catalogId,
       });
     }
 
@@ -381,12 +454,25 @@ export function EditWorkoutScreen({ t, workout, onSave, onCancel }: EditWorkoutS
               <Text style={[styles.sectionTitle, directionalText, { color: colors.text }]}>
                 {t('workouts.exercises')} ({exercises.length})
               </Text>
-              <AppButton
-                title={t('workouts.addExercise')}
-                icon="add"
-                variant="secondary"
-                onPress={handleAddExercise}
-              />
+              <View style={[styles.actionsRow, activeRowStyle()]}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={language === 'ar' ? 'اختيار من الدليل' : 'From Catalog'}
+                  onPress={() => handleOpenPicker(null)}
+                  style={[styles.catalogPill, { backgroundColor: colors.primaryMuted, borderColor: colors.primary }]}
+                >
+                  <Ionicons name="book-outline" size={16} color={colors.primary} />
+                  <Text style={[styles.catalogPillText, { color: colors.primary }]}>
+                    {language === 'ar' ? 'من الدليل' : 'Catalog'}
+                  </Text>
+                </Pressable>
+                <AppButton
+                  title={t('workouts.addExercise')}
+                  icon="add"
+                  variant="secondary"
+                  onPress={handleAddExercise}
+                />
+              </View>
             </View>
 
             {exercises.map((exercise, index) => {
@@ -397,14 +483,44 @@ export function EditWorkoutScreen({ t, workout, onSave, onCancel }: EditWorkoutS
                     <Text style={[styles.exerciseIndex, directionalText, { color: colors.primary }]}>
                       #{index + 1}
                     </Text>
-                    {exercises.length > 0 ? (
-                      <AppButton
-                        title={t('common.remove')}
-                        icon="trash-outline"
-                        variant="ghost"
-                        onPress={() => handleRemoveExercise(exercise.id)}
-                      />
-                    ) : null}
+                    <View style={[styles.headerControls, activeRowStyle()]}>
+                      {index > 0 ? (
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={language === 'ar' ? 'تحريك للأعلى' : 'Move up'}
+                          onPress={() => handleMoveExercise(index, 'up')}
+                          style={styles.iconButton}
+                        >
+                          <Ionicons name="chevron-up" size={18} color={colors.textSecondary} />
+                        </Pressable>
+                      ) : null}
+                      {index < exercises.length - 1 ? (
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={language === 'ar' ? 'تحريك للأسفل' : 'Move down'}
+                          onPress={() => handleMoveExercise(index, 'down')}
+                          style={styles.iconButton}
+                        >
+                          <Ionicons name="chevron-down" size={18} color={colors.textSecondary} />
+                        </Pressable>
+                      ) : null}
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={language === 'ar' ? 'اختيار تمرين بديل من الدليل' : 'Pick from catalog'}
+                        onPress={() => handleOpenPicker(exercise.id)}
+                        style={styles.iconButton}
+                      >
+                        <Ionicons name="book-outline" size={18} color={colors.primary} />
+                      </Pressable>
+                      {exercises.length > 0 ? (
+                        <AppButton
+                          title={t('common.remove')}
+                          icon="trash-outline"
+                          variant="ghost"
+                          onPress={() => handleRemoveExercise(exercise.id)}
+                        />
+                      ) : null}
+                    </View>
                   </View>
 
                   <AppInput
@@ -483,6 +599,15 @@ export function EditWorkoutScreen({ t, workout, onSave, onCancel }: EditWorkoutS
           </View>
         </TouchableWithoutFeedback>
       </ScrollView>
+
+      {/* Catalog Exercise Picker Modal */}
+      <ExercisePickerModal
+        visible={pickerVisible}
+        onClose={() => setPickerVisible(false)}
+        onSelect={handleSelectCatalogExercise}
+        t={t}
+        language={language}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -511,6 +636,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: spacing.md,
   },
+  catalogPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    minHeight: 36,
+  },
+  catalogPillText: {
+    ...typography.caption,
+    fontWeight: '600',
+  },
   exerciseCard: {
     gap: spacing.sm,
   },
@@ -518,6 +657,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: spacing.xs,
+  },
+  headerControls: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  iconButton: {
+    padding: spacing.xs,
+    minHeight: 36,
+    minWidth: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   exerciseIndex: {
     ...typography.h3,

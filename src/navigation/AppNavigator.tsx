@@ -312,7 +312,7 @@ export function AppNavigator() {
       case 'workouts':
         return <WorkoutsScreen key={language} t={t} workouts={workouts} onAddWorkout={() => setActiveScreen('addWorkout')} onWorkoutPress={openWorkoutDetails} />;
       case 'addWorkout':
-        return <AddWorkoutScreen key={language} t={t} onSave={saveWorkout} />;
+        return <AddWorkoutScreen key={language} t={t} language={language} onSave={saveWorkout} />;
       case 'workoutDetails':
         if (!selectedWorkout) {
           return <WorkoutsScreen key={language} t={t} workouts={workouts} onAddWorkout={() => setActiveScreen('addWorkout')} onWorkoutPress={openWorkoutDetails} />;
@@ -334,6 +334,7 @@ export function AppNavigator() {
           <EditWorkoutScreen
             key={`${language}-${selectedWorkout.id}`}
             t={t}
+            language={language}
             workout={selectedWorkout}
             onSave={handleUpdateWorkout}
             onCancel={() => setActiveScreen('workoutDetails')}
