@@ -229,8 +229,8 @@ export function AppNavigator() {
     setActiveScreen('workoutDetails');
   }
 
-  function saveWorkout(workout: Workout) {
-    addWorkout(workout);
+  async function saveWorkout(workout: Workout) {
+    await addWorkout(workout);
     setSelectedWorkoutId(workout.id);
     setActiveTab('workouts');
     setActiveScreen('workoutDetails');

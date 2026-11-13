@@ -49,7 +49,7 @@ type ExerciseErrorMap = {
 
 type AddWorkoutScreenProps = {
   t: Translator;
-  onSave: (workout: Workout) => void;
+  onSave: (workout: Workout) => Promise<void> | void;
   language?: 'en' | 'ar';
 };
 
@@ -72,6 +72,7 @@ export function AddWorkoutScreen({ t, onSave, language = 'en' }: AddWorkoutScree
   const [exerciseErrors, setExerciseErrors] = useState<Record<string, ExerciseErrorMap>>({});
   const [pickerVisible, setPickerVisible] = useState(false);
   const [activePickerTargetId, setActivePickerTargetId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const directionalText = {
     textAlign: activeTextAlign(),
@@ -234,27 +235,34 @@ export function AddWorkoutScreen({ t, onSave, language = 'en' }: AddWorkoutScree
     return isValid;
   }
 
-  function handleSave() {
+  async function handleSave() {
+    if (isSaving) return;
     if (!validate()) return;
 
-    onSave({
-      id: `workout-${Date.now()}`,
-      title: workoutName.trim(),
-      date: new Date().toISOString().slice(0, 10),
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      exercises: exercises.map((ex) => ({
-        id: ex.id,
-        exerciseName: ex.exerciseName.trim(),
-        name: ex.exerciseName.trim(),
-        sets: parseInputNumber(ex.sets),
-        reps: parseInputNumber(ex.reps),
-        weight: parseInputNumber(ex.weight),
-        duration: parseInputNumber(ex.duration),
-        notes: ex.notes.trim(),
-        targetMuscles: ex.targetMuscles,
-        catalogId: ex.catalogId,
-      })),
-    });
+    setIsSaving(true);
+    try {
+      await onSave({
+        id: `workout-${Date.now()}`,
+        title: workoutName.trim(),
+        date: new Date().toISOString().slice(0, 10),
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        exercises: exercises.map((ex) => ({
+          id: ex.id,
+          exerciseName: ex.exerciseName.trim(),
+          name: ex.exerciseName.trim(),
+          sets: parseInputNumber(ex.sets),
+          reps: parseInputNumber(ex.reps),
+          weight: parseInputNumber(ex.weight),
+          duration: parseInputNumber(ex.duration),
+          notes: ex.notes.trim(),
+          targetMuscles: ex.targetMuscles,
+          catalogId: ex.catalogId,
+        })),
+      });
+    } catch {
+      // onSave threw - keep isSaving false so user can retry
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -428,7 +436,7 @@ export function AddWorkoutScreen({ t, onSave, language = 'en' }: AddWorkoutScree
             })}
 
             {/* Bottom Action Bar */}
-            <AppButton title={t('common.save')} icon="save-outline" onPress={handleSave} />
+            <AppButton title={t('common.save')} icon="save-outline" onPress={handleSave} disabled={isSaving} />
           </View>
         </TouchableWithoutFeedback>
       </ScrollView>

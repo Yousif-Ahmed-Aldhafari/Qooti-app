@@ -58,6 +58,15 @@ export const MIGRATIONS: SchemaMigration[] = [
       ]);
     },
   },
+  {
+    version: 4,
+    name: 'add_workout_exercise_catalog_id_v4',
+    up: async (db: IDatabase) => {
+      await addMissingColumns(db, 'workout_exercises', [
+        { name: 'catalog_id', ddl: 'ALTER TABLE workout_exercises ADD COLUMN catalog_id TEXT;' },
+      ]);
+    },
+  },
 ];
 
 /**

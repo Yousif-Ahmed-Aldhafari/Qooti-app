@@ -20,6 +20,7 @@ interface ExerciseRow {
   id: string;
   workout_id: string;
   name: string;
+  catalog_id: string | null;
   target_muscles: string;
   sets: number;
   reps: number;
@@ -59,6 +60,7 @@ export class SQLiteWorkoutRepository implements WorkoutRepository {
       const exercise = normalizeExercise({
         id: ex.id,
         name: ex.name,
+        catalogId: ex.catalog_id ?? undefined,
         targetMuscles,
         sets: ex.sets,
         reps: ex.reps,
@@ -112,6 +114,7 @@ export class SQLiteWorkoutRepository implements WorkoutRepository {
       return normalizeExercise({
         id: ex.id,
         name: ex.name,
+        catalogId: ex.catalog_id ?? undefined,
         targetMuscles,
         sets: ex.sets,
         reps: ex.reps,
@@ -153,11 +156,12 @@ export class SQLiteWorkoutRepository implements WorkoutRepository {
         const ex = normalizeExercise(normalized.exercises[i]);
         await t.runAsync(
           `INSERT INTO workout_exercises (
-             id, workout_id, name, target_muscles, sets, reps, weight, duration, notes, sort_order
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+             id, workout_id, name, catalog_id, target_muscles, sets, reps, weight, duration, notes, sort_order
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
           ex.id,
           normalized.id,
           ex.name,
+          ex.catalogId ?? null,
           JSON.stringify(ex.targetMuscles || []),
           ex.sets,
           ex.reps,
@@ -204,11 +208,12 @@ export class SQLiteWorkoutRepository implements WorkoutRepository {
         const ex = normalizeExercise(normalized.exercises[i]);
         await t.runAsync(
           `INSERT INTO workout_exercises (
-             id, workout_id, name, target_muscles, sets, reps, weight, duration, notes, sort_order
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+             id, workout_id, name, catalog_id, target_muscles, sets, reps, weight, duration, notes, sort_order
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
           ex.id,
           normalized.id,
           ex.name,
+          ex.catalogId ?? null,
           JSON.stringify(ex.targetMuscles || []),
           ex.sets,
           ex.reps,
@@ -267,11 +272,12 @@ export class SQLiteWorkoutRepository implements WorkoutRepository {
           const ex = normalizeExercise(normalized.exercises[i]);
           await t.runAsync(
             `INSERT INTO workout_exercises (
-               id, workout_id, name, target_muscles, sets, reps, weight, duration, notes, sort_order
-             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+               id, workout_id, name, catalog_id, target_muscles, sets, reps, weight, duration, notes, sort_order
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
             ex.id,
             normalized.id,
             ex.name,
+            ex.catalogId ?? null,
             JSON.stringify(ex.targetMuscles || []),
             ex.sets,
             ex.reps,
