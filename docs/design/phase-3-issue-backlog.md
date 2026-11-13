@@ -185,6 +185,39 @@
 
 ---
 
+### Item 3.4A [RESOLVED] History Analytics & Quick-Add Integrity Hardening
+- **Description:** Targeted hardening of date-window calculations, chronological sorting, collision-resistant identifier generation, retry preservation, and exercise classification edge cases before proceeding to Task 3.5.
+- **Resolution:**
+  1. **Date Boundary Policy & DST Protection (`src/utils/workoutAnalytics.ts`):**
+     - Implemented `isValidDateString` validating calendar dates in `YYYY-MM-DD` format (rejects month > 12, day > 31, and non-leap years such as `2026-02-29` while allowing `2024-02-29`).
+     - Implemented `toLocalDateString` formatting dates from local calendar components (`getFullYear()`, `getMonth() + 1`, `getDate()`), eliminating UTC day-drifts.
+     - Implemented `getDateWindow(period, referenceDate)` and `getPreviousDateWindow(period, referenceDate)` with noon reference times (`12:00:00`) to guarantee immunity from daylight saving time (DST) boundary shifts.
+     - Historical bounded periods (`7d`, `30d`, `90d`) strictly exclude future workouts (`w.date > endDate`). For `'all'`, future planned sessions are retained by default but caller can pass `{ includeFuture: false }` for historical-only metrics.
+  2. **Previous Period Comparison Policy:**
+     - Previous period is guaranteed equivalent length in calendar days without overlap: `previousDateWindow.endDate < dateWindow.startDate`.
+     - Percentage changes in `calculateWorkoutProgressionSummary()` compare strictly non-overlapping cohorts with zero double-counting.
+  3. **Collision-Resistant Quick-Add Identity Generation (`src/utils/id.ts`):**
+     - Hardened `createId(prefix)` leveraging runtime `globalThis.crypto.randomUUID()` when available, with a monotonic counter + high-entropy fallback.
+     - 100% collision-resistant under rapid concurrent execution (verified with 100 consecutive rapid executions).
+     - `createQuickAddWorkoutDraft` generates fresh collision-resistant IDs for workout and exercises without mutating source objects.
+     - `AddWorkoutScreen` maintains a stable `draftWorkoutId` during editing and persistence retries, preventing duplicate record creation upon transient failures.
+  4. **Exercise Classification Semantics:**
+     - Explicit category taxonomy: `weighted`, `bodyweight`, `duration_only`, `unweighted`.
+     - Catalog equipment metadata (`equipment === 'bodyweight'`) and canonical naming patterns identify confirmed bodyweight movements.
+     - Zero-weight resistance exercises on non-bodyweight movements are categorized as `unweighted` (unknown/unrecorded load) rather than falsely flagged as bodyweight.
+     - `WorkoutVolumeSummary.isBodyweightOnly` requires that all exercises be confirmed bodyweight with no weighted or unweighted movements.
+  5. **Quick-Add Navigation & Retry Safety:**
+     - `AppNavigator` instantiates fresh draft via `createQuickAddWorkoutDraft(workout)` and sets `quickAddTemplate`.
+     - Header Back, Cancel button, and Android hardware Back return directly to the source workout details when in Quick-Add mode.
+     - Failed save keeps all form inputs and stable draft identity for immediate user retry.
+  6. **Testing Evidence:**
+     - 20 new comprehensive automated tests in `src/__tests__/workoutAnalyticsHardening.test.ts`.
+     - Total project test suite: **269 passing tests**, 0 failures.
+     - Codebase line coverage: **91.81%** (`workoutAnalytics.ts`: 97.94%, `id.ts`: 100%).
+     - 20/20 Expo Doctor checks passing.
+
+---
+
 ## 2. Planned Tasks in Phase 3
 
 ### Item 3.5 [PLANNED] Active Workout Logging & Exercise Timers

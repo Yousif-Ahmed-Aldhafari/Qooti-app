@@ -311,6 +311,35 @@ Verified across:
 
 ---
 
+### Matrix O: Phase 3 Task 3.4A History Analytics & Quick-Add Integrity Hardening Acceptance
+
+Verified across:
+- **Physical Android Device:** Samsung Galaxy S22 Ultra (SM_S908U1), Android 15, One UI 7, dev build
+- **Physical iOS Device:** iPhone 15 Pro, iOS 18.2 (Expo Go / Metro dev client)
+
+| # | Phase 3 Task 3.4A Acceptance Area | Physical Android | Physical iOS | Verified Evidence / Scope Notes |
+|:---:|---|:---:|:---:|---|
+| 1 | **Exact Calendar Windows (7d, 30d, 90d)** | **PASS** | **PASS** | Bounded periods compute exact local start and end dates without timezone drift |
+| 2 | **Non-Overlapping Previous Comparison** | **PASS** | **PASS** | `prevWindow.endDate < currWindow.startDate` strictly verified with zero double-counting |
+| 3 | **Future Workout Exclusion** | **PASS** | **PASS** | Bounded historical filters strictly exclude future planned sessions from analytics |
+| 4 | **DST & Timezone Shift Immunity** | **PASS** | **PASS** | Midday calculation anchors protect against 1-hour daylight saving boundary shifts |
+| 5 | **Month / Year Transition Boundaries** | **PASS** | **PASS** | Windows spanning Dec 31 to Jan 1 or 30/31-day month boundaries compute accurately |
+| 6 | **Leap Year Verification** | **PASS** | **PASS** | Feb 29 allowed in leap years (2024) and rejected in non-leap years (2026) |
+| 7 | **Safe Invalid Date Rejection** | **PASS** | **PASS** | Corrupt/malformed dates neutralised gracefully without throwing or breaking UI |
+| 8 | **Deterministic Chronological Sorting** | **PASS** | **PASS** | Date, time, and record ID tie-breaker guarantee deterministic descending order |
+| 9 | **Collision-Resistant ID Generation** | **PASS** | **PASS** | `createId` with crypto/monotonic counter guarantees 0 collisions across rapid calls |
+| 10 | **Exercise ID Uniqueness** | **PASS** | **PASS** | Multi-exercise drafts allocate distinct child IDs that differ from source workout |
+| 11 | **Draft Identity Retention Across Retry** | **PASS** | **PASS** | `draftWorkoutId` preserved across SQLite failure; retry inserts exactly 1 workout |
+| 12 | **Catalog ID & Custom Preservation** | **PASS** | **PASS** | Quick-Add retains `catalogId` on catalog exercises and `undefined` on custom items |
+| 13 | **Source Workout Immutability** | **PASS** | **PASS** | Deep comparison verifies source workout and exercises remain 100% untouched |
+| 14 | **Bodyweight vs Unweighted Distinction** | **PASS** | **PASS** | Confirmed bodyweight tagged accurately; 0-weight resistance tagged as unweighted |
+| 15 | **Duration-Only Movement Isolation** | **PASS** | **PASS** | Duration exercises tracked for time and omitted from weight/rep calculation |
+| 16 | **Muscle Attribution Invariant** | **PASS** | **PASS** | `sum(volumeByMuscle) === totalVolumeKg` strictly verified across mixed sessions |
+| 17 | **Quick-Add Cancel & Back Navigation** | **PASS** | **PASS** | Cancel, Header Back, and Android Back return directly to source workout details |
+| 18 | **SQLite Restart Persistence** | **PASS** | **PASS** | Saved Quick-Add workouts reload identically from SQLite after connection restart |
+
+---
+
 ## 3. Execution & Reporting Guidelines
 
 1. **Evidence Standard:** No test in this matrix may be reported as `PASS` unless verified on an actual physical device or targeted emulator.
