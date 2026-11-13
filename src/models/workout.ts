@@ -11,6 +11,7 @@ export type Exercise = {
   weight: number;
   duration: number;
   notes: string;
+  catalogId?: string;
 };
 
 export type Workout = {
@@ -51,6 +52,7 @@ export function normalizeExercise(
     weight,
     duration,
     notes,
+    catalogId: exercise.catalogId,
   };
 }
 
