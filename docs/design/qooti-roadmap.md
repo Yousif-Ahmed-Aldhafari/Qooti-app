@@ -21,10 +21,10 @@
 [ Phase 2: User Profiles & Personalization ] ───► (Complete & Merged into Main)
        │
        ▼
-[ Phase 3: Complete Workout System + Edit/Delete ] ──► (Complete & Merge-Ready)
+[ Phase 3: Complete Workout System + Edit/Delete ] ──► (Complete & Merged into Main)
        │
        ▼
-[ Phase 4: Nutrition & Meal Planning + Edit/Delete ] (Next)
+[ Phase 4: Nutrition & Meal Planning + Edit/Delete ] ──► (Active Engineering Epic - In Progress)
        │
        ▼
 [ Phase 5: Body Tracking & Analytics ] (Planned)
@@ -72,8 +72,9 @@
   - **Task 2.4 [COMPLETED]:** Nutrition Target Integrity & Physical Device Acceptance. Precedence verification, fallback value safety (no fabricated percentages), MealDetailsScreen & ProfileScreen MacroCard target guard, historical period labeling, and 153 passing automated tests.
   - **Task 2.5 [COMPLETED]:** Final Personalization Acceptance & Merge Readiness. Comprehensive eligibility precedence audit, adolescent custom override guard (preserves values without application approval), Age 17 vs 18 boundary tests, 157 passing tests, and remote CI verification.
 
-### Phase 3: Complete Workout System [COMPLETE - MERGE READY]
+### Phase 3: Complete Workout System — Complete & Merged into Main
 - **Core Mission:** Implement full lifecycle management for logged workouts, exercise items, active workout execution, per-set logging, rest timers, and training progression.
+- **Merge Commit:** `7ba790621517cafde2847bdd69001b151e1a46ab` (Merged PR #3 into `main` with 388 passing tests).
 - **Key Deliverables:**
   - **Task 3.1 [COMPLETED]:** Workout Lifecycle Audit & Safe Editing. Atomic `updateWorkout` transactions, strict domain validation (`validateWorkout`), granular `AppContext` persistence (no global `saveAllWorkouts`), and `EditWorkoutScreen` UI.
   - **Task 3.2 [COMPLETED]:** Safe Workout Deletion & History Integrity. Pre-flight ID verification, atomic SQLite deletion with cascade child cleanup and rollback, delete state machine (`idle` -> `confirming` -> `deleting` -> `success` / `error`), localized confirmation dialogs, retryable error handling, navigation safety, and empty state sync.
@@ -85,14 +86,19 @@
   - **Task 3.5A [COMPLETED]:** Active Session Integrity, Set Validation & Recovery. Strict validation for repetitions (finite non-negative integers, reject fractional/negative/NaN), weights, and RPE; terminal session mutation guards on completed/discarded sessions; discard safety policy; skipped set consistency nullifying actuals without data residue; versioned SQLite Migration 6 (`enforce_single_open_workout_session_v6`) with partial unique index ensuring at most one open session at the database level; rest countdown persistence and reload recovery; clock rollback immunity; UI double-submit prevention and localized error recovery; and 324 passing tests.
   - **Task 3.5B [COMPLETED]:** Recovery-Safe Session Migration & Rest Timer Integration. Forward-only versioned SQLite Migration 7 (`recover_conflicted_workout_sessions_v7`) tagging migration-discarded sessions as `interrupted` non-destructively; strict pre-migration conflict detection (`detectPreMigrationSessionConflicts`); end-to-end rest timer persistence wiring across `ActiveWorkoutScreen` $\rightarrow$ `AppNavigator` $\rightarrow$ `AppContext` $\rightarrow$ `WorkoutSessionService` $\rightarrow$ `SQLiteWorkoutSessionRepository`; sequential promise queue debouncing rapid +30s taps and ensuring Skip Rest precedence; AppState background/foreground synchronization without background setInterval drift; interactive WorkoutsScreen conflict recovery banner and review modal (resume, archive, discard); and 342 passing tests.
   - **Task 3.5C [COMPLETED]:** Final Migration Provenance & Session Recovery Safety. Default mandatory pre-migration conflict check (`strictConflictCheck: true`) halting database initialization prior to single-open index enforcement; restored historical Migration 6 definition from commit `463c607`; forward-only versioned SQLite Migration 8 (`clarify_session_recovery_provenance_v8`) attributing unproven historical discarded records to `recovery_state = 'ambiguous'`; hardened recovery repository guards with zero elapsed duration inflation; pre-migration conflict resolution flow with AppContext hydration protection; bilingual conflict resolution UI; and 364 passing tests.
-  - **Task 3.6 [COMPLETED]:** Final Acceptance, Regression & Merge Readiness. Comprehensive pre-migration resolution safety defaulting to `'keep_interrupted'` (preventing false completed-session records), wall-clock duration hardening with 12h max cap and zero offline inflation, full 11-scenario migration compatibility matrix across V0 through V8, 22 end-to-end workout acceptance flows, physical Android & iOS verification, and 380 passing automated tests. All Phase 3 quality gates satisfied; merge-ready for `main`.
+  - **Task 3.6 [COMPLETED]:** Final Acceptance, Regression & Merge Readiness. Comprehensive pre-migration resolution safety defaulting to `'keep_interrupted'` (preventing false completed-session records), wall-clock duration hardening with 12h max cap and zero offline inflation, full 11-scenario migration compatibility matrix across V0 through V8, 22 end-to-end workout acceptance flows, physical Android & iOS verification, and 388 passing automated tests. Fully merged into `main`.
 
-### Phase 4: Nutrition & Meal Planning — Planned
-- **Core Mission:** Implement full lifecycle management for logged meals, food items, and nutrition planning.
-- **Target Deliverables:**
-  - **Meal Editing:** Edit meal title, timestamp, and food items (portion sizes, calories, macros) with atomic SQLite update transactions.
-  - **Meal Deletion:** Platform-conforming deletion confirmation with cascade cleanup of child items and real-time calorie balance recalculation.
-  - **Food Catalog & Custom Foods:** Expanded food database, custom recipe creator, and barcode scanning integration.
+### Phase 4: Nutrition & Meal Planning — In Progress
+- **Core Mission:** Implement full lifecycle management for logged meals, food items, nutrition planning, bilingual food catalog, and daily target synchronization.
+- **Key Deliverables:**
+  - **Task 4.0 [COMPLETED]:** Nutrition Architecture Audit & Implementation Blueprint. Comprehensive codebase audit, verification of 388 baseline tests, identification of P0 persistence defect (`saveAllMeals` whole-table wipe), domain model audit (20 questions), local calendar date boundary hardening plan, bilingual food catalog architecture specification, and implementation roadmap.
+  - **Task 4.1 [NEXT]:** Meal Lifecycle Integrity, Granular Persistence & Editing. Eradication of `saveAllMeals` in favor of atomic `insertMeal`, `updateMeal`, `deleteMeal` async service operations; domain validation guards; `EditMealScreen` UI; two-step deletion confirmation with transactional cascade cleanup; local calendar date formatting (`toDateKey`); standardized 24h `HH:mm` time format; and monotonic UUID generation.
+  - **Task 4.2 [PLANNED]:** Bilingual Food Catalog & Portion Scaling Engine. Static bilingual database (~150+ fitness and Middle Eastern staple foods in EN/AR); base 100g nutritional profiles with standard serving multipliers; dynamic reciprocal portion scaling; versioned SQLite Migration 9 (`custom_foods`, `meal_items.catalog_id`, `meals.meal_type`, `meals.notes`).
+  - **Task 4.3 [PLANNED]:** Multi-Food Meal Creation, Search UX & Day Navigation. Multi-food composition draft with reordering and removal; `FoodPickerModal` with instant debounced bilingual search and category pills; day-by-day navigation with date switcher; and meal slot organization (Breakfast, Lunch, Dinner, Snack).
+  - **Task 4.4 [PLANNED]:** Nutrition Analytics, Daily Targets & Macro Distribution. Visual macro percentage split ($4/4/9$ Atwater factors); real-time calorie balance vs effective personalization targets; surplus/deficit calculations; and automatic synchronization of historical progress entries with meal data.
+  - **Task 4.5 [PLANNED]:** Meal Templates, Favorites & Quick-Log. Favorite meal tagging; 1-tap repeat meal flow with brand new unique IDs; quick-add calorie entry for standalone tracking without item breakdown; and calculation normalization.
+  - **Task 4.6 [PLANNED]:** Cross-Platform UI/UX, A11y & Arabic Parity Hardening. Minimum $\ge 48\text{dp}$ Android and $\ge 44\text{pt}$ iOS touch targets; platform feedback (`android_ripple` vs smooth opacity); full TalkBack/VoiceOver accessibility labels; and bidirectional RTL layout symmetry with Latin numerals (`ar-SA-u-nu-latn`).
+  - **Task 4.7 [PLANNED]:** Final Acceptance, Regression & Merge Readiness. Full migration upgrade matrix across V0 through V9; end-to-end regression testing ($\ge 450$ tests target); physical Android and iPhone verification; and PR merge readiness report for `main`.
 
 ### Phase 5: Body Tracking & Analytics — Planned
 - **Core Mission:** Comprehensive biometric progression tracking and historical visualization.
