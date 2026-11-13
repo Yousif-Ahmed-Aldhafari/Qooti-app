@@ -51,22 +51,45 @@ type AddWorkoutScreenProps = {
   t: Translator;
   onSave: (workout: Workout) => Promise<void> | void;
   language?: 'en' | 'ar';
+  initialWorkout?: Workout | null;
+  onCancel?: () => void;
 };
 
-export function AddWorkoutScreen({ t, onSave, language = 'en' }: AddWorkoutScreenProps) {
+export function AddWorkoutScreen({
+  t,
+  onSave,
+  language = 'en',
+  initialWorkout,
+  onCancel,
+}: AddWorkoutScreenProps) {
   const colors = themeColors();
-  const [workoutName, setWorkoutName] = useState('');
-  const [exercises, setExercises] = useState<DraftExercise[]>(() => [
-    {
-      id: 'draft-ex-initial-0',
-      exerciseName: '',
-      sets: '3',
-      reps: '10',
-      weight: '0',
-      duration: '15',
-      notes: '',
-    },
-  ]);
+  const [workoutName, setWorkoutName] = useState(() => initialWorkout?.title || initialWorkout?.name || '');
+  const [exercises, setExercises] = useState<DraftExercise[]>(() => {
+    if (initialWorkout?.exercises && initialWorkout.exercises.length > 0) {
+      return initialWorkout.exercises.map((ex, idx) => ({
+        id: `draft-ex-${Date.now()}-${idx}`,
+        exerciseName: ex.exerciseName || ex.name || '',
+        sets: String(ex.sets ?? 3),
+        reps: String(ex.reps ?? 10),
+        weight: String(ex.weight ?? 0),
+        duration: String(ex.duration ?? 15),
+        notes: ex.notes || '',
+        targetMuscles: ex.targetMuscles ? [...ex.targetMuscles] : [],
+        catalogId: ex.catalogId,
+      }));
+    }
+    return [
+      {
+        id: 'draft-ex-initial-0',
+        exerciseName: '',
+        sets: '3',
+        reps: '10',
+        weight: '0',
+        duration: '15',
+        notes: '',
+      },
+    ];
+  });
 
   const [workoutNameError, setWorkoutNameError] = useState('');
   const [exerciseErrors, setExerciseErrors] = useState<Record<string, ExerciseErrorMap>>({});
@@ -280,7 +303,19 @@ export function AddWorkoutScreen({ t, onSave, language = 'en' }: AddWorkoutScree
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
           <View style={styles.innerForm}>
-            <AppHeader title={t('workouts.addTitle')} subtitle={t('workouts.subtitle')} />
+            <AppHeader
+              title={initialWorkout ? t('workouts.useAsTemplate') : t('workouts.addTitle')}
+              subtitle={t('workouts.subtitle')}
+              action={
+                onCancel ? (
+                  <AppButton
+                    title={t('common.cancel')}
+                    variant="secondary"
+                    onPress={onCancel}
+                  />
+                ) : undefined
+              }
+            />
 
             {/* Workout Details Card */}
             <AppCard>

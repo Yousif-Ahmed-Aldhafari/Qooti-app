@@ -82,6 +82,7 @@ export function AppNavigator() {
   const [activeScreen, setActiveScreen] = useState<ScreenKey>('home');
   const [selectedMealId, setSelectedMealId] = useState<string | null>(null);
   const [selectedWorkoutId, setSelectedWorkoutId] = useState<string | null>(null);
+  const [quickAddTemplate, setQuickAddTemplate] = useState<Workout | null>(null);
 
   const language = settings.selectedLanguage;
   const themePreference: ThemePreference = settings.themeMode;
@@ -126,6 +127,12 @@ export function AppNavigator() {
         setActiveScreen('workoutDetails');
         return true;
       }
+      // 1b. If currently on quick-add draft, back returns to source workout details
+      if (effectiveScreen === 'addWorkout' && quickAddTemplate) {
+        setQuickAddTemplate(null);
+        setActiveScreen('workoutDetails');
+        return true;
+      }
       // 2. If currently on a detail or form screen, back goes to the active tab
       if (!isMainTab(effectiveScreen)) {
         setActiveScreen(activeTab);
@@ -143,7 +150,7 @@ export function AppNavigator() {
 
     const backSubscription = BackHandler.addEventListener('hardwareBackPress', onHardwareBack);
     return () => backSubscription.remove();
-  }, [activeTab, effectiveScreen]);
+  }, [activeTab, effectiveScreen, quickAddTemplate]);
 
   const systemColorScheme = useColorScheme();
   const resolvedTheme = useMemo(
@@ -241,6 +248,11 @@ export function AppNavigator() {
     setActiveScreen('editWorkout');
   }
 
+  function handleRepeatWorkout(workout: Workout) {
+    setQuickAddTemplate(workout);
+    setActiveScreen('addWorkout');
+  }
+
   async function handleUpdateWorkout(updatedWorkout: Workout) {
     await updateWorkout(updatedWorkout);
     setSelectedWorkoutId(updatedWorkout.id);
@@ -310,12 +322,55 @@ export function AppNavigator() {
         }
         return <MealDetailsScreen key={language} t={t} meal={selectedMeal} profile={profile} />;
       case 'workouts':
-        return <WorkoutsScreen key={language} t={t} workouts={workouts} onAddWorkout={() => setActiveScreen('addWorkout')} onWorkoutPress={openWorkoutDetails} />;
+        return (
+          <WorkoutsScreen
+            key={language}
+            t={t}
+            language={language}
+            workouts={workouts}
+            onAddWorkout={() => {
+              setQuickAddTemplate(null);
+              setActiveScreen('addWorkout');
+            }}
+            onWorkoutPress={openWorkoutDetails}
+          />
+        );
       case 'addWorkout':
-        return <AddWorkoutScreen key={language} t={t} language={language} onSave={saveWorkout} />;
+        return (
+          <AddWorkoutScreen
+            key={`${language}-${quickAddTemplate ? quickAddTemplate.id : 'new'}`}
+            t={t}
+            language={language}
+            initialWorkout={quickAddTemplate}
+            onSave={async (workout) => {
+              await saveWorkout(workout);
+              setQuickAddTemplate(null);
+            }}
+            onCancel={() => {
+              setQuickAddTemplate(null);
+              if (selectedWorkoutId) {
+                setActiveScreen('workoutDetails');
+              } else {
+                setActiveScreen('workouts');
+              }
+            }}
+          />
+        );
       case 'workoutDetails':
         if (!selectedWorkout) {
-          return <WorkoutsScreen key={language} t={t} workouts={workouts} onAddWorkout={() => setActiveScreen('addWorkout')} onWorkoutPress={openWorkoutDetails} />;
+          return (
+            <WorkoutsScreen
+              key={language}
+              t={t}
+              language={language}
+              workouts={workouts}
+              onAddWorkout={() => {
+                setQuickAddTemplate(null);
+                setActiveScreen('addWorkout');
+              }}
+              onWorkoutPress={openWorkoutDetails}
+            />
+          );
         }
         return (
           <WorkoutDetailsScreen
@@ -324,6 +379,7 @@ export function AppNavigator() {
             workout={selectedWorkout}
             onEdit={openEditWorkout}
             onDelete={handleDeleteWorkout}
+            onRepeat={handleRepeatWorkout}
           />
         );
       case 'editWorkout':

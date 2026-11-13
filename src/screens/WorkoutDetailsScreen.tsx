@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -13,6 +13,7 @@ import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import type { Workout } from '../types';
 import { activeRowStyle, activeTextAlign, activeWritingDirection } from '../utils/rtl';
+import { calculateExerciseVolume, calculateWorkoutVolumeSummary } from '../utils/workoutAnalytics';
 
 export type DeleteState = 'idle' | 'confirming' | 'deleting' | 'success' | 'error';
 
@@ -21,15 +22,24 @@ type WorkoutDetailsScreenProps = {
   workout: Workout;
   onEdit?: (workout: Workout) => void;
   onDelete?: (workout: Workout) => Promise<void> | void;
+  onRepeat?: (workout: Workout) => void;
 };
 
-export function WorkoutDetailsScreen({ t, workout, onEdit, onDelete }: WorkoutDetailsScreenProps) {
+export function WorkoutDetailsScreen({
+  t,
+  workout,
+  onEdit,
+  onDelete,
+  onRepeat,
+}: WorkoutDetailsScreenProps) {
   const colors = themeColors();
   const [deleteState, setDeleteState] = useState<DeleteState>('idle');
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const isDeleting = deleteState === 'deleting';
-  const totalMinutes = workout.exercises.reduce((sum, exercise) => sum + exercise.duration, 0);
+  const volSummary = useMemo(() => calculateWorkoutVolumeSummary(workout), [workout]);
+  const totalMinutes = volSummary.totalDurationMinutes;
+
   const directionalText = {
     textAlign: activeTextAlign(),
     writingDirection: activeWritingDirection(),
@@ -89,20 +99,35 @@ export function WorkoutDetailsScreen({ t, workout, onEdit, onDelete }: WorkoutDe
   };
 
   return (
-    <ScrollView style={[styles.screen, { backgroundColor: colors.background }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={[styles.screen, { backgroundColor: colors.background }]}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+    >
       <AppHeader
         title={workout.title}
         subtitle={t('workouts.detailsTitle')}
         action={
-          onEdit ? (
-            <AppButton
-              title={t('common.edit')}
-              icon="create-outline"
-              variant="secondary"
-              disabled={isDeleting}
-              onPress={() => onEdit(workout)}
-            />
-          ) : undefined
+          <View style={[styles.headerActions, activeRowStyle()]}>
+            {onRepeat ? (
+              <AppButton
+                title={t('workouts.repeatWorkout')}
+                icon="repeat-outline"
+                variant="secondary"
+                disabled={isDeleting}
+                onPress={() => onRepeat(workout)}
+              />
+            ) : null}
+            {onEdit ? (
+              <AppButton
+                title={t('common.edit')}
+                icon="create-outline"
+                variant="secondary"
+                disabled={isDeleting}
+                onPress={() => onEdit(workout)}
+              />
+            ) : null}
+          </View>
         }
       />
 
@@ -136,17 +161,83 @@ export function WorkoutDetailsScreen({ t, workout, onEdit, onDelete }: WorkoutDe
         </View>
       ) : null}
 
-      <StatCard label={t('workouts.duration')} value={`${totalMinutes} ${t('common.minutes')}`} />
-      {workout.exercises.map((exercise) => (
-        <AppCard key={exercise.id}>
-          <Text style={[styles.exerciseTitle, directionalText, { color: colors.text }]}>{exercise.exerciseName}</Text>
-          <Text style={[styles.exerciseMeta, directionalText, { color: colors.textSecondary }]}>
-            {exercise.sets} {t('workouts.sets')} - {exercise.reps} {t('workouts.reps')} - {exercise.weight} {t('common.kg')}
+      {/* Session Stats (Duration & Volume) */}
+      <View style={[styles.statsRow, activeRowStyle()]}>
+        <StatCard label={t('workouts.duration')} value={`${totalMinutes} ${t('common.minutes')}`} />
+        <StatCard
+          label={t('workouts.totalVolume')}
+          value={
+            volSummary.totalVolumeKg > 0
+              ? `${volSummary.totalVolumeKg} ${t('common.kg')}`
+              : volSummary.isBodyweightOnly
+                ? t('workouts.bodyweightLabel')
+                : `0 ${t('common.kg')}`
+          }
+          accent={colors.accent}
+        />
+      </View>
+
+      {/* Target Muscles Badges */}
+      {volSummary.targetMuscles.length > 0 ? (
+        <View style={styles.musclesSection}>
+          <Text style={[styles.musclesHeader, directionalText, { color: colors.textSecondary }]}>
+            {t('workouts.targetMuscles')}
           </Text>
-          {exercise.notes ? <Text style={[styles.notes, directionalText, { color: colors.textMuted }]}>{exercise.notes}</Text> : null}
-        </AppCard>
-      ))}
-      {workout.exercises.length ? null : <Text style={[styles.notes, directionalText, { color: colors.textMuted }]}>{t('workouts.emptyMessage')}</Text>}
+          <View style={[styles.muscleChipsRow, activeRowStyle()]}>
+            {volSummary.targetMuscles.map((muscle) => (
+              <View
+                key={muscle}
+                style={[styles.muscleChip, { backgroundColor: colors.cardMuted, borderColor: colors.border }]}
+              >
+                <Text style={[styles.muscleChipText, { color: colors.text }]}>{muscle}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      ) : null}
+
+      {/* Exercises List */}
+      {workout.exercises.map((exercise) => {
+        const exVol = calculateExerciseVolume(exercise);
+        return (
+          <AppCard key={exercise.id}>
+            <View style={[styles.exerciseHeaderRow, activeRowStyle()]}>
+              <Text style={[styles.exerciseTitle, directionalText, { color: colors.text }]}>
+                {exercise.exerciseName}
+              </Text>
+              {exercise.catalogId ? (
+                <View style={[styles.catalogBadge, { backgroundColor: colors.primaryMuted }]}>
+                  <Ionicons name="checkmark-circle" size={14} color={colors.primary} />
+                  <Text style={[styles.catalogBadgeText, { color: colors.primary }]}>
+                    {exercise.catalogId}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+
+            <Text style={[styles.exerciseMeta, directionalText, { color: colors.textSecondary }]}>
+              {exercise.sets} {t('workouts.sets')} - {exercise.reps} {t('workouts.reps')} - {exercise.weight} {t('common.kg')}
+              {exVol.volumeKg > 0
+                ? ` • ${exVol.volumeKg} ${t('common.kg')}`
+                : exVol.isBodyweight
+                  ? ` • ${t('workouts.bodyweightLabel')}`
+                  : ''}
+            </Text>
+
+            {exercise.notes ? (
+              <Text style={[styles.notes, directionalText, { color: colors.textMuted }]}>
+                {exercise.notes}
+              </Text>
+            ) : null}
+          </AppCard>
+        );
+      })}
+
+      {workout.exercises.length === 0 ? (
+        <Text style={[styles.notes, directionalText, { color: colors.textMuted }]}>
+          {t('workouts.emptyMessage')}
+        </Text>
+      ) : null}
 
       {onDelete ? (
         <View style={styles.dangerZone}>
@@ -173,8 +264,57 @@ const styles = StyleSheet.create({
     paddingBottom: 120,
     gap: spacing.lg,
   },
+  headerActions: {
+    gap: spacing.sm,
+    alignItems: 'center',
+  },
+  statsRow: {
+    gap: spacing.md,
+  },
+  musclesSection: {
+    gap: spacing.xs,
+  },
+  musclesHeader: {
+    ...typography.caption,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  muscleChipsRow: {
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  muscleChip: {
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+  },
+  muscleChipText: {
+    ...typography.caption,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  exerciseHeaderRow: {
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   exerciseTitle: {
     ...typography.h3,
+    flex: 1,
+  },
+  catalogBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+  },
+  catalogBadgeText: {
+    ...typography.caption,
+    fontSize: 11,
+    fontWeight: '600',
   },
   exerciseMeta: {
     ...typography.body,
