@@ -276,7 +276,20 @@ export const ar = {
     "invalidReps": "يجب أن يكون عدد التكرارات رقماً صحيحاً >= 0.",
     "invalidWeight": "يجب أن يكون الوزن رقماً صالحاً >= 0.",
     "invalidRpe": "يجب أن يكون معدل الجهد بين 1 و 10.",
-    "sessionActionError": "فشل تنفيذ إجراء الجلسة. يرجى المحاولة مرة أخرى."
+    "sessionActionError": "فشل تنفيذ إجراء الجلسة. يرجى المحاولة مرة أخرى.",
+    "interruptedWorkoutsBanner": "تم العثور على تمارين غير مكتملة ({{count}})",
+    "reviewInterrupted": "مراجعة واستعادة",
+    "recoveryModalTitle": "استعادة التمارين",
+    "recoveryModalSubtitle": "لديك جلسات تمارين غير مكتملة من جلسات سابقة. يمكنك مراجعتها واختيار الإجراء المناسب.",
+    "recoverySetsCompleted": "تم إكمال {{completed}} من {{total}} مجموعات",
+    "recoveryDuration": "المدة: {{duration}}",
+    "archiveSession": "أرشفة إلى السجل",
+    "discardInterruptedConfirm": "هل تريد حذف هذا التمرين نهائيًا؟",
+    "discardInterruptedMessage": "سيتم حذف جميع المجموعات المسجلة في هذه الجلسة بشكل دائم.",
+    "resumeInterruptedConflictTitle": "يوجد تمرين نشط قيد التنفيذ",
+    "resumeInterruptedConflictMessage": "توجد جلسة أخرى نشطة حاليًا. هل ترغب في أرشفة الجلسة الحالية إلى السجل، أو حذفها قبل استئناف هذه الجلسة؟",
+    "archiveAndResume": "أرشفة الحالية والاستئناف",
+    "discardAndResume": "حذف الحالية والاستئناف"
   },
   "progress": {
     "title": "التقدم",

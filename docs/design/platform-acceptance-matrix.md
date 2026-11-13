@@ -405,6 +405,39 @@ Verified across:
 
 ---
 
+### Matrix R: Phase 3 Task 3.5B Recovery-Safe Session Migration & Rest Timer Integration Acceptance
+
+Verified across:
+- **Physical Android Device:** Samsung Galaxy S22 Ultra (SM_S908U1), Android 15, One UI 7, dev build
+- **Physical iOS Device:** iPhone 15 Pro, iOS 18.2 (Expo Go / Metro dev client)
+
+| # | Phase 3 Task 3.5B Acceptance Area | Physical Android | Physical iOS | Verified Evidence / Scope Notes |
+|:---:|---|:---:|:---:|---|
+| 1 | **Pre-Migration Conflict Detection** | **PASS** | **PASS** | `detectPreMigrationSessionConflicts()` detects multiple open sessions before migration and surfaces details |
+| 2 | **Migration 7 Session Conflict Recovery** | **PASS** | **PASS** | `recover_conflicted_workout_sessions_v7` tags migration-discarded sessions as `interrupted` non-destructively |
+| 3 | **Exercise & Set Record Preservation** | **PASS** | **PASS** | Child exercises and completed set performance logs preserved completely during conflict recovery |
+| 4 | **Resume Interrupted Session Flow** | **PASS** | **PASS** | Resuming interrupted session resolves existing active session (archive/discard) and restores single open session |
+| 5 | **Archive Interrupted Session Flow** | **PASS** | **PASS** | Interrupted session archived directly to completed history with recorded sets and notes intact |
+| 6 | **Explicit Discard vs Migration Discard** | **PASS** | **PASS** | User explicit discard physically removes row, while migration conflict resolution preserves for recovery |
+| 7 | **End-to-End Rest Timer Persistence** | **PASS** | **PASS** | `ActiveWorkoutScreen` $\rightarrow$ `AppNavigator` $\rightarrow$ `AppContext` $\rightarrow$ `Service` $\rightarrow$ `Repository` persists `rest_target_at` |
+| 8 | **Set Completion Timer Trigger** | **PASS** | **PASS** | Rest timer initiates and persists only after successful set completion; failed set validation does not start timer |
+| 9 | **+30s Rest Extension** | **PASS** | **PASS** | "+30s" button extends target timestamp and immediately persists to SQLite |
+| 10 | **Rapid Tap Concurrency Safety** | **PASS** | **PASS** | Rapid "+30s" taps queue sequentially without timestamp corruption or race conditions |
+| 11 | **Skip Rest Clean Cancellation** | **PASS** | **PASS** | "Skip Rest" clears active countdown and persists `null` to SQLite immediately |
+| 12 | **Skip Rest In-Flight Precedence** | **PASS** | **PASS** | Skip rest takes precedence over in-flight extensions via sequence-checked persistence queue |
+| 13 | **Timer Expiration Normalization** | **PASS** | **PASS** | Countdown reaching 0 clears UI rest state and cleans up persisted `rest_target_at` |
+| 14 | **App Restart Future Target Recovery** | **PASS** | **PASS** | App reload with future target resumes countdown seamlessly with exact remaining seconds |
+| 15 | **App Restart Past Target Normalization** | **PASS** | **PASS** | App reload with past target treats timer as expired without negative display |
+| 16 | **AppState Background/Foreground Sync** | **PASS** | **PASS** | Wall-clock elapsed time calculated from persisted timestamps on foreground return without background ticks |
+| 17 | **Session Completion Rest Cleanup** | **PASS** | **PASS** | Completing active workout sets `rest_target_at = NULL` and cleans up rest countdown |
+| 18 | **Session Discard Rest Cleanup** | **PASS** | **PASS** | Discarding workout deletes session and completely removes rest state |
+| 19 | **WorkoutsScreen Recovery Banner** | **PASS** | **PASS** | Prominent warning banner displayed when interrupted sessions exist with count and action |
+| 20 | **WorkoutsScreen Recovery Modal** | **PASS** | **PASS** | Full inspection modal showing title, completed sets count, total sets, duration, and 3 resolution actions |
+| 21 | **Bilingual Recovery Parity** | **PASS** | **PASS** | All recovery alerts, banners, and buttons fully localized in Arabic and English with Latin digits |
+| 22 | **Accessible Touch Targets** | **PASS** | **PASS** | Rest timer buttons and recovery action buttons meet $\ge 48\text{dp}$ Android / $\ge 44\text{pt}$ iOS touch targets |
+
+---
+
 ## 3. Execution & Reporting Guidelines
 
 1. **Evidence Standard:** No test in this matrix may be reported as `PASS` unless verified on an actual physical device or targeted emulator.

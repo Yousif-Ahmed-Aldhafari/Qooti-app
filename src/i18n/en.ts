@@ -276,7 +276,20 @@ export const en = {
     "invalidReps": "Reps must be a whole number >= 0.",
     "invalidWeight": "Weight must be a valid number >= 0.",
     "invalidRpe": "RPE must be between 1 and 10.",
-    "sessionActionError": "Failed to perform session action. Please try again."
+    "sessionActionError": "Failed to perform session action. Please try again.",
+    "interruptedWorkoutsBanner": "Interrupted workouts detected ({{count}})",
+    "reviewInterrupted": "Review & Recover",
+    "recoveryModalTitle": "Workout Recovery",
+    "recoveryModalSubtitle": "You have unfinished workout sessions from previous app runs. Review and choose how to proceed.",
+    "recoverySetsCompleted": "Completed {{completed}} of {{total}} sets",
+    "recoveryDuration": "Duration: {{duration}}",
+    "archiveSession": "Archive to History",
+    "discardInterruptedConfirm": "Permanently discard this workout?",
+    "discardInterruptedMessage": "All sets recorded during this session will be permanently deleted.",
+    "resumeInterruptedConflictTitle": "Active Workout in Progress",
+    "resumeInterruptedConflictMessage": "Another session is currently active. Would you like to archive the current session to history, or discard it before resuming this one?",
+    "archiveAndResume": "Archive Current & Resume",
+    "discardAndResume": "Discard Current & Resume"
   },
   "progress": {
     "title": "Progress",

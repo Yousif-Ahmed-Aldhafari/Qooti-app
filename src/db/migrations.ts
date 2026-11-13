@@ -1,5 +1,6 @@
 import { IDatabase, SchemaMigration } from './types';
 import { SCHEMA_V1_SQL } from './schema';
+import { MigrationSessionConflictError } from '../models/workoutSession';
 
 type ColumnDefinition = { name: string; ddl: string };
 
@@ -129,6 +130,12 @@ export const MIGRATIONS: SchemaMigration[] = [
           `ALTER TABLE workout_sessions ADD COLUMN rest_target_at TEXT;`
         );
       }
+      const hasRecoveryState = sessionCols.some((c) => c.name === 'recovery_state');
+      if (!hasRecoveryState) {
+        await db.execAsync(
+          `ALTER TABLE workout_sessions ADD COLUMN recovery_state TEXT;`
+        );
+      }
 
       const openSessions = await db.getAllAsync<{
         id: string;
@@ -146,7 +153,7 @@ export const MIGRATIONS: SchemaMigration[] = [
         for (const old of older) {
           await db.runAsync(
             `UPDATE workout_sessions
-             SET status = 'discarded', updated_at = ?
+             SET status = 'discarded', recovery_state = 'interrupted', updated_at = ?
              WHERE id = ?;`,
             now,
             old.id
@@ -160,12 +167,69 @@ export const MIGRATIONS: SchemaMigration[] = [
       );
     },
   },
+  {
+    version: 7,
+    name: 'recover_conflicted_workout_sessions_v7',
+    up: async (db) => {
+      const sessionCols = await db.getAllAsync<{ name: string }>(
+        `PRAGMA table_info(workout_sessions);`
+      );
+      const hasRecoveryState = sessionCols.some((c) => c.name === 'recovery_state');
+      if (!hasRecoveryState) {
+        await db.execAsync(
+          `ALTER TABLE workout_sessions ADD COLUMN recovery_state TEXT;`
+        );
+      }
+
+      // Mark sessions that were transitioned by Migration 6 conflict resolution
+      // (status = 'discarded' with child exercises and no explicit user deletion)
+      // as 'interrupted' so they can be inspected and recovered by the user.
+      await db.runAsync(
+        `UPDATE workout_sessions
+         SET recovery_state = 'interrupted'
+         WHERE status = 'discarded' AND (recovery_state IS NULL OR recovery_state = '');`
+      );
+    },
+  },
 ];
+
+/**
+ * Checks for pre-migration conflicts (multiple open sessions) before enforcing single-open-session constraint.
+ */
+export async function detectPreMigrationSessionConflicts(
+  db: IDatabase
+): Promise<{ id: string; title: string; startedAt: string; status: string }[]> {
+  const tableExists = await db.getFirstAsync<{ count: number }>(
+    `SELECT count(*) as count FROM sqlite_master WHERE type='table' AND name='workout_sessions';`
+  );
+  if (!tableExists || tableExists.count === 0) {
+    return [];
+  }
+  const openSessions = await db.getAllAsync<{
+    id: string;
+    title: string;
+    started_at: string;
+    status: string;
+  }>(
+    `SELECT id, title, started_at, status FROM workout_sessions
+     WHERE status IN ('active', 'paused')
+     ORDER BY started_at DESC, updated_at DESC;`
+  );
+  return openSessions.map((s) => ({
+    id: s.id,
+    title: s.title,
+    startedAt: s.started_at,
+    status: s.status,
+  }));
+}
 
 /**
  * Initializes migration tracking and executes any pending schema migrations in sequence.
  */
-export async function runMigrations(db: IDatabase): Promise<void> {
+export async function runMigrations(
+  db: IDatabase,
+  options?: { strictConflictCheck?: boolean }
+): Promise<void> {
   // Ensure schema_migrations table exists
   await db.execAsync(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -180,6 +244,17 @@ export async function runMigrations(db: IDatabase): Promise<void> {
     'SELECT version FROM schema_migrations ORDER BY version ASC;'
   );
   const appliedVersions = new Set(appliedRows.map((r) => r.version));
+
+  // If strictConflictCheck is requested and migration 6 has not run yet, check for conflicts
+  if (options?.strictConflictCheck && !appliedVersions.has(6)) {
+    const conflicts = await detectPreMigrationSessionConflicts(db);
+    if (conflicts.length > 1) {
+      throw new MigrationSessionConflictError(
+        `Found ${conflicts.length} conflicting open workout sessions. Resolve conflicts before enforcing single-open-session invariant.`,
+        conflicts
+      );
+    }
+  }
 
   // Run pending migrations in ascending order
   for (const migration of MIGRATIONS) {

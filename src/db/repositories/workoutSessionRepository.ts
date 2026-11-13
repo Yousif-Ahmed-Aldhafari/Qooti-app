@@ -21,6 +21,7 @@ interface SessionRow {
   accumulated_elapsed_ms: number;
   last_resumed_at: string | null;
   rest_target_at: string | null;
+  recovery_state: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -111,6 +112,7 @@ export class SQLiteWorkoutSessionRepository implements WorkoutSessionRepository 
       accumulatedElapsedMs: s.accumulated_elapsed_ms,
       lastResumedAt: s.last_resumed_at ?? undefined,
       restTargetAt: s.rest_target_at ?? undefined,
+      recoveryState: (s.recovery_state as WorkoutSession['recoveryState']) ?? undefined,
       notes: s.notes ?? undefined,
       createdAt: s.created_at,
       updatedAt: s.updated_at,
@@ -149,25 +151,53 @@ export class SQLiteWorkoutSessionRepository implements WorkoutSessionRepository 
         }
       }
 
-      // 2. Insert session row
-      await client.runAsync(
-        `INSERT INTO workout_sessions (
-          id, source_workout_id, title, status, started_at, ended_at,
-          accumulated_elapsed_ms, last_resumed_at, rest_target_at, notes, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
-        targetId,
-        resolvedSourceWorkoutId,
-        session.title.trim() || 'Workout Session',
-        session.status,
-        startedAt,
-        session.endedAt ?? null,
-        session.accumulatedElapsedMs || 0,
-        lastResumedAt,
-        session.restTargetAt ?? null,
-        session.notes ?? null,
-        session.createdAt || now,
-        session.updatedAt || now
+      const sessionCols = await client.getAllAsync<{ name: string }>(
+        `PRAGMA table_info(workout_sessions);`
       );
+      const colNames = new Set(sessionCols.map((c) => c.name));
+      const hasRecovery = colNames.has('recovery_state');
+
+      // 2. Insert session row
+      if (hasRecovery) {
+        await client.runAsync(
+          `INSERT INTO workout_sessions (
+            id, source_workout_id, title, status, started_at, ended_at,
+            accumulated_elapsed_ms, last_resumed_at, rest_target_at, recovery_state, notes, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+          targetId,
+          resolvedSourceWorkoutId,
+          session.title.trim() || 'Workout Session',
+          session.status,
+          startedAt,
+          session.endedAt ?? null,
+          session.accumulatedElapsedMs || 0,
+          lastResumedAt,
+          session.restTargetAt ?? null,
+          session.recoveryState ?? null,
+          session.notes ?? null,
+          session.createdAt || now,
+          session.updatedAt || now
+        );
+      } else {
+        await client.runAsync(
+          `INSERT INTO workout_sessions (
+            id, source_workout_id, title, status, started_at, ended_at,
+            accumulated_elapsed_ms, last_resumed_at, rest_target_at, notes, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+          targetId,
+          resolvedSourceWorkoutId,
+          session.title.trim() || 'Workout Session',
+          session.status,
+          startedAt,
+          session.endedAt ?? null,
+          session.accumulatedElapsedMs || 0,
+          lastResumedAt,
+          session.restTargetAt ?? null,
+          session.notes ?? null,
+          session.createdAt || now,
+          session.updatedAt || now
+        );
+      }
 
       // 3. Insert exercises and sets
       for (let i = 0; i < (session.exercises || []).length; i++) {
@@ -889,11 +919,6 @@ export class SQLiteWorkoutSessionRepository implements WorkoutSessionRepository 
         );
       }
 
-      if (session.status === 'discarded') {
-        // Idempotent: already marked discarded
-        return;
-      }
-
       // Deleting the session cascades and cleans up exercises and sets
       await client.runAsync(`DELETE FROM workout_sessions WHERE id = ?;`, id);
     };
@@ -935,6 +960,147 @@ export class SQLiteWorkoutSessionRepository implements WorkoutSessionRepository 
       const updated = await this.getSessionById(sessionId, client);
       if (!updated) throw new Error('Failed to retrieve updated session.');
       return updated;
+    };
+
+    if (txn) return execute(txn);
+    return this.db.withExclusiveTransactionAsync(execute);
+  }
+
+  async listInterruptedSessions(txn?: IDatabase): Promise<WorkoutSession[]> {
+    const execute = async (client: IDatabase) => {
+      const sessionCols = await client.getAllAsync<{ name: string }>(
+        `PRAGMA table_info(workout_sessions);`
+      );
+      const hasRecoveryState = sessionCols.some((c) => c.name === 'recovery_state');
+      if (!hasRecoveryState) {
+        return [];
+      }
+
+      const sessions = await client.getAllAsync<SessionRow>(
+        `SELECT * FROM workout_sessions
+         WHERE recovery_state = 'interrupted'
+         ORDER BY started_at DESC, updated_at DESC;`
+      );
+
+      const results: WorkoutSession[] = [];
+      for (const s of sessions) {
+        const exercises = await client.getAllAsync<SessionExerciseRow>(
+          `SELECT * FROM workout_session_exercises WHERE session_id = ? ORDER BY sort_order ASC;`,
+          s.id
+        );
+        const sets = await client.getAllAsync<SetRow>(
+          `SELECT ws.* FROM workout_sets ws
+           JOIN workout_session_exercises wse ON ws.session_exercise_id = wse.id
+           WHERE wse.session_id = ?
+           ORDER BY ws.set_number ASC;`,
+          s.id
+        );
+        results.push(this.mapSession(s, exercises, sets));
+      }
+      return results;
+    };
+
+    if (txn) return execute(txn);
+    return this.db.withExclusiveTransactionAsync(execute);
+  }
+
+  async resumeInterruptedSession(
+    id: string,
+    currentSessionAction: 'archive' | 'discard' = 'archive',
+    txn?: IDatabase
+  ): Promise<WorkoutSession> {
+    const execute = async (client: IDatabase) => {
+      const session = await client.getFirstAsync<SessionRow>(
+        `SELECT * FROM workout_sessions WHERE id = ?;`,
+        id
+      );
+      if (!session) {
+        throw new SessionValidationError(`Workout session "${id}" not found.`, 'id');
+      }
+
+      if (session.status === 'completed') {
+        throw new SessionValidationError('Cannot resume a completed session.', 'status');
+      }
+
+      const now = new Date().toISOString();
+
+      // Maintain single-open-session invariant:
+      // If there is currently another active or paused session, resolve it first.
+      const openSessions = await client.getAllAsync<SessionRow>(
+        `SELECT * FROM workout_sessions WHERE status IN ('active', 'paused') AND id != ?;`,
+        id
+      );
+
+      for (const open of openSessions) {
+        if (currentSessionAction === 'discard') {
+          await client.runAsync(`DELETE FROM workout_sessions WHERE id = ?;`, open.id);
+        } else {
+          // default: archive/complete
+          await client.runAsync(
+            `UPDATE workout_sessions
+             SET status = 'completed', recovery_state = 'archived', ended_at = COALESCE(ended_at, ?),
+                 last_resumed_at = NULL, rest_target_at = NULL, updated_at = ?
+             WHERE id = ?;`,
+            now,
+            now,
+            open.id
+          );
+        }
+      }
+
+      await client.runAsync(
+        `UPDATE workout_sessions
+         SET status = 'active', recovery_state = 'recovered', last_resumed_at = ?, rest_target_at = NULL, updated_at = ?
+         WHERE id = ?;`,
+        now,
+        now,
+        id
+      );
+
+      const resumed = await this.getSessionById(id, client);
+      if (!resumed) throw new Error('Failed to retrieve resumed session.');
+      return resumed;
+    };
+
+    if (txn) return execute(txn);
+    return this.db.withExclusiveTransactionAsync(execute);
+  }
+
+  async archiveInterruptedSession(
+    id: string,
+    notes?: string,
+    txn?: IDatabase
+  ): Promise<WorkoutSession> {
+    const execute = async (client: IDatabase) => {
+      const session = await client.getFirstAsync<SessionRow>(
+        `SELECT * FROM workout_sessions WHERE id = ?;`,
+        id
+      );
+      if (!session) {
+        throw new SessionValidationError(`Workout session "${id}" not found.`, 'id');
+      }
+
+      if (session.status === 'completed') {
+        throw new SessionValidationError('Session is already completed.', 'status');
+      }
+
+      const now = new Date().toISOString();
+      const finalNotes = notes ?? session.notes;
+
+      await client.runAsync(
+        `UPDATE workout_sessions
+         SET status = 'completed', recovery_state = 'archived', ended_at = COALESCE(ended_at, ?),
+             last_resumed_at = NULL, rest_target_at = NULL, notes = ?, updated_at = ?
+         WHERE id = ?;`,
+        now,
+        finalNotes,
+        now,
+        id
+      );
+
+      const archived = await this.getSessionById(id, client);
+      if (!archived) throw new Error('Failed to retrieve archived session.');
+      return archived;
     };
 
     if (txn) return execute(txn);

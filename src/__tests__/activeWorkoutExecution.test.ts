@@ -107,16 +107,18 @@ test('Task 3.5 - Test 1: Migration 4 -> 5 upgrade creates session tables preserv
 });
 
 // 2. V0 -> 5 fresh migration
-test('Task 3.5 - Test 2: V0 -> 5 fresh migration runs cleanly and records 5 schema migrations', async () => {
+test('Task 3.5 - Test 2: V0 -> 7 fresh migration runs cleanly and records schema migrations', async () => {
   const db = await createTestDb();
   const rows = await db.getAllAsync<{ version: number; name: string }>(
     'SELECT version, name FROM schema_migrations ORDER BY version ASC;'
   );
-  assert.equal(rows.length, 6);
+  assert.equal(rows.length, 7);
   assert.equal(rows[4].version, 5);
   assert.equal(rows[4].name, 'add_workout_execution_sessions_v5');
   assert.equal(rows[5].version, 6);
   assert.equal(rows[5].name, 'enforce_single_open_workout_session_v6');
+  assert.equal(rows[6].version, 7);
+  assert.equal(rows[6].name, 'recover_conflicted_workout_sessions_v7');
 });
 
 // 3. Migration idempotence
@@ -128,7 +130,7 @@ test('Task 3.5 - Test 3: Running migrations multiple times does not fail or dupl
   const rows = await db.getAllAsync<{ version: number }>(
     'SELECT version FROM schema_migrations;'
   );
-  assert.equal(rows.length, 6);
+  assert.equal(rows.length, 7);
 });
 
 // 4. Legacy workouts preservation

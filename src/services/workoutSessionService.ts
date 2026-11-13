@@ -164,3 +164,28 @@ export async function setSessionRestTarget(
   const repo = customRepo ?? (await getWorkoutSessionRepository());
   return repo.setRestTarget(id, restTargetAt);
 }
+
+export async function getInterruptedWorkoutSessions(
+  customRepo?: WorkoutSessionRepository
+): Promise<WorkoutSession[]> {
+  const repo = customRepo ?? (await getWorkoutSessionRepository());
+  return repo.listInterruptedSessions();
+}
+
+export async function resumeInterruptedWorkoutSession(
+  id: string,
+  currentSessionAction?: 'archive' | 'discard',
+  customRepo?: WorkoutSessionRepository
+): Promise<WorkoutSession> {
+  const repo = customRepo ?? (await getWorkoutSessionRepository());
+  return repo.resumeInterruptedSession(id, currentSessionAction);
+}
+
+export async function archiveInterruptedWorkoutSession(
+  id: string,
+  notes?: string,
+  customRepo?: WorkoutSessionRepository
+): Promise<WorkoutSession> {
+  const repo = customRepo ?? (await getWorkoutSessionRepository());
+  return repo.archiveInterruptedSession(id, notes);
+}

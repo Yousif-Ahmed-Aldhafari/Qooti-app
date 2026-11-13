@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  AppState,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -40,6 +41,7 @@ type ActiveWorkoutScreenProps = {
   ) => Promise<void> | void;
   onSkipSet: (setId: string, notes?: string) => Promise<void> | void;
   onAddSet: (sessionExerciseId: string, reps: number, weight: number) => Promise<void> | void;
+  onSetRestTarget?: (targetAt: string | null) => Promise<WorkoutSession | null> | void;
   onFinish: (notes?: string) => Promise<void> | void;
   onDiscard: () => Promise<void> | void;
   onLeave: () => void;
@@ -66,6 +68,7 @@ export function ActiveWorkoutScreen({
   onCompleteSet,
   onSkipSet,
   onAddSet,
+  onSetRestTarget,
   onFinish,
   onDiscard,
   onLeave,
@@ -81,6 +84,68 @@ export function ActiveWorkoutScreen({
     }
     return null;
   });
+  const restTargetMsRef = useRef<number | null>(restTargetMs);
+  restTargetMsRef.current = restTargetMs;
+
+  const persistenceQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const restSeqRef = useRef<number>(0);
+
+  const persistRestTarget = useCallback(
+    (targetMs: number | null) => {
+      const seq = ++restSeqRef.current;
+      const isoString = targetMs !== null ? new Date(targetMs).toISOString() : null;
+
+      persistenceQueueRef.current = persistenceQueueRef.current
+        .then(async () => {
+          if (seq !== restSeqRef.current) {
+            return;
+          }
+          if (onSetRestTarget) {
+            await onSetRestTarget(isoString);
+          }
+        })
+        .catch((err) => {
+          if (seq === restSeqRef.current) {
+            console.warn('[ActiveWorkoutScreen] Failed to persist rest target:', err);
+          }
+        });
+    },
+    [onSetRestTarget]
+  );
+
+  // Sync if session.restTargetAt changes externally, or cleanup if already expired
+  useEffect(() => {
+    if (session.restTargetAt) {
+      const parsed = Date.parse(session.restTargetAt);
+      if (!Number.isNaN(parsed)) {
+        if (parsed > Date.now()) {
+          restTargetMsRef.current = parsed;
+          setRestTargetMs(parsed);
+        } else {
+          restTargetMsRef.current = null;
+          setRestTargetMs(null);
+          persistRestTarget(null);
+        }
+      }
+    }
+  }, [session.restTargetAt, persistRestTarget]);
+
+  // Recalculate remaining time and expire target on app foregrounding without setInterval reliance
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        const currentTime = Date.now();
+        setNow(currentTime);
+        if (restTargetMsRef.current !== null && restTargetMsRef.current <= currentTime) {
+          restTargetMsRef.current = null;
+          setRestTargetMs(null);
+          persistRestTarget(null);
+        }
+      }
+    });
+    return () => subscription.remove();
+  }, [persistRestTarget]);
+
   const [restDurationSec] = useState<number>(90);
   const [summaryModalVisible, setSummaryModalVisible] = useState(false);
   const [sessionNotes, setSessionNotes] = useState(session.notes || '');
@@ -112,6 +177,32 @@ export function ActiveWorkoutScreen({
     if (!restTargetMs) return 0;
     return Math.max(0, Math.ceil((restTargetMs - now) / 1000));
   }, [restTargetMs, now]);
+
+  // Timer expiration: clear active rest state and clean up persisted state
+  useEffect(() => {
+    if (restTargetMs !== null && restRemainingSec === 0) {
+      restTargetMsRef.current = null;
+      setRestTargetMs(null);
+      persistRestTarget(null);
+    }
+  }, [restTargetMs, restRemainingSec, persistRestTarget]);
+
+  const handleAdd30s = useCallback(() => {
+    const currentBase =
+      restTargetMsRef.current && restTargetMsRef.current > Date.now()
+        ? restTargetMsRef.current
+        : Date.now();
+    const nextTarget = currentBase + 30000;
+    restTargetMsRef.current = nextTarget;
+    setRestTargetMs(nextTarget);
+    persistRestTarget(nextTarget);
+  }, [persistRestTarget]);
+
+  const handleSkipRest = useCallback(() => {
+    restTargetMsRef.current = null;
+    setRestTargetMs(null);
+    persistRestTarget(null);
+  }, [persistRestTarget]);
 
   // Ticking effect for elapsed time and rest countdown
   useEffect(() => {
@@ -219,8 +310,11 @@ export function ActiveWorkoutScreen({
     setSubmittingSetId(st.id);
     try {
       await onCompleteSet(st.id, repsNum, weightNum, rpeNum);
-      // Trigger rest countdown ONLY after onCompleteSet resolves successfully
-      setRestTargetMs(Date.now() + restDurationSec * 1000);
+      // Trigger rest countdown and persist ONLY after onCompleteSet resolves successfully
+      const nextTarget = Date.now() + restDurationSec * 1000;
+      restTargetMsRef.current = nextTarget;
+      setRestTargetMs(nextTarget);
+      persistRestTarget(nextTarget);
     } catch (err) {
       // Draft inputs are preserved in setInputs
       setSetErrors((prev) => ({
@@ -431,7 +525,8 @@ export function ActiveWorkoutScreen({
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={t('workouts.add30s')}
-                  onPress={() => setRestTargetMs((prev) => (prev ? prev + 30000 : Date.now() + 30000))}
+                  onPress={handleAdd30s}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   style={[styles.restActionButton, { backgroundColor: colors.cardMuted }]}
                 >
                   <Text style={[styles.restActionText, { color: colors.text }]}>
@@ -441,7 +536,8 @@ export function ActiveWorkoutScreen({
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={t('workouts.skipRest')}
-                  onPress={() => setRestTargetMs(null)}
+                  onPress={handleSkipRest}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   style={[styles.restActionButton, { backgroundColor: colors.cardMuted }]}
                 >
                   <Text style={[styles.restActionText, { color: colors.textMuted }]}>
@@ -862,10 +958,12 @@ const styles = StyleSheet.create({
   },
   restActionButton: {
     paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
+    paddingVertical: 8,
     borderRadius: radius.sm,
-    minHeight: 36,
+    minHeight: 44,
+    minWidth: 48,
     justifyContent: 'center',
+    alignItems: 'center',
   },
   restActionText: {
     ...typography.caption,

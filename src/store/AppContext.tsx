@@ -30,6 +30,10 @@ import {
   addSessionSet,
   finishWorkoutSession,
   discardWorkoutSession,
+  setSessionRestTarget,
+  getInterruptedWorkoutSessions,
+  resumeInterruptedWorkoutSession,
+  archiveInterruptedWorkoutSession,
 } from '../services/workoutSessionService';
 import { applyAppDirection, isRTLLanguage } from '../utils/languageDirection';
 import { getDatabase, migrateFromAsyncStorage } from '../db';
@@ -43,6 +47,7 @@ export type AppStateData = {
   progressEntries: ProgressEntry[];
   settings: Settings;
   activeSession: WorkoutSession | null;
+  interruptedSessions: WorkoutSession[];
 };
 
 export type AppAction =
@@ -54,9 +59,11 @@ export type AppAction =
       progressEntries: ProgressEntry[];
       settings: Settings;
       activeSession: WorkoutSession | null;
+      interruptedSessions?: WorkoutSession[];
     }
   | { type: 'setPersistenceError'; error: string | null }
   | { type: 'setActiveSession'; session: WorkoutSession | null }
+  | { type: 'setInterruptedSessions'; sessions: WorkoutSession[] }
   | { type: 'addMeal'; meal: Meal }
   | { type: 'updateMeal'; meal: Meal }
   | { type: 'deleteMeal'; mealId: string }
@@ -103,6 +110,14 @@ type AppContextValue = AppStateData & {
   finishActiveWorkout: (notes?: string) => Promise<WorkoutSession>;
   discardActiveWorkout: () => Promise<void>;
   refreshActiveSession: () => Promise<void>;
+  updateActiveSessionRestTarget: (restTargetAt: string | null) => Promise<WorkoutSession | null>;
+  loadInterruptedSessions: () => Promise<WorkoutSession[]>;
+  resumeInterruptedSession: (
+    sessionId: string,
+    currentSessionAction?: 'archive' | 'discard'
+  ) => Promise<WorkoutSession>;
+  archiveInterruptedSession: (sessionId: string, notes?: string) => Promise<WorkoutSession>;
+  discardInterruptedSession: (sessionId: string) => Promise<void>;
 };
 
 const initialState: AppStateData = {
@@ -114,6 +129,7 @@ const initialState: AppStateData = {
   progressEntries: [],
   settings: defaultSettings,
   activeSession: null,
+  interruptedSessions: [],
 };
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
@@ -130,12 +146,19 @@ export function appReducer(state: AppStateData, action: AppAction): AppStateData
         progressEntries: action.progressEntries.map(normalizeProgressEntry),
         settings: action.settings,
         activeSession: action.activeSession,
+        interruptedSessions: action.interruptedSessions ?? [],
       };
 
     case 'setActiveSession':
       return {
         ...state,
         activeSession: action.session,
+      };
+
+    case 'setInterruptedSessions':
+      return {
+        ...state,
+        interruptedSessions: action.sessions,
       };
 
     case 'setPersistenceError':
@@ -246,33 +269,44 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           console.warn('[AppContext] SQLite initialization or migration notice:', dbErr);
         }
 
-        const [savedMeals, savedWorkouts, savedProfile, savedProgressEntries, savedSettings, savedActiveSession] =
-          await Promise.all([
-            loadMeals().catch((e) => {
-              console.warn('[AppContext] Failed to load meals:', e);
-              return null;
-            }),
-            loadWorkouts().catch((e) => {
-              console.warn('[AppContext] Failed to load workouts:', e);
-              return null;
-            }),
-            loadProfile().catch((e) => {
-              console.warn('[AppContext] Failed to load profile:', e);
-              return null;
-            }),
-            loadProgressEntries().catch((e) => {
-              console.warn('[AppContext] Failed to load progress entries:', e);
-              return null;
-            }),
-            loadSettings().catch((e) => {
-              console.warn('[AppContext] Failed to load settings:', e);
-              return null;
-            }),
-            getActiveWorkoutSession().catch((e) => {
-              console.warn('[AppContext] Failed to load active workout session:', e);
-              return null;
-            }),
-          ]);
+        const [
+          savedMeals,
+          savedWorkouts,
+          savedProfile,
+          savedProgressEntries,
+          savedSettings,
+          savedActiveSession,
+          savedInterruptedSessions,
+        ] = await Promise.all([
+          loadMeals().catch((e) => {
+            console.warn('[AppContext] Failed to load meals:', e);
+            return null;
+          }),
+          loadWorkouts().catch((e) => {
+            console.warn('[AppContext] Failed to load workouts:', e);
+            return null;
+          }),
+          loadProfile().catch((e) => {
+            console.warn('[AppContext] Failed to load profile:', e);
+            return null;
+          }),
+          loadProgressEntries().catch((e) => {
+            console.warn('[AppContext] Failed to load progress entries:', e);
+            return null;
+          }),
+          loadSettings().catch((e) => {
+            console.warn('[AppContext] Failed to load settings:', e);
+            return null;
+          }),
+          getActiveWorkoutSession().catch((e) => {
+            console.warn('[AppContext] Failed to load active workout session:', e);
+            return null;
+          }),
+          getInterruptedWorkoutSessions().catch((e) => {
+            console.warn('[AppContext] Failed to load interrupted workout sessions:', e);
+            return [];
+          }),
+        ]);
 
         if (!active) {
           return;
@@ -311,6 +345,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           progressEntries: initialProgress,
           settings: hydratedSettings,
           activeSession: savedActiveSession,
+          interruptedSessions: savedInterruptedSessions,
         });
 
         // If first launch, persist the initial seed state so subsequent loads recognize existing user data
@@ -357,6 +392,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           progressEntries: [],
           settings: defaultSettings,
           activeSession: null,
+          interruptedSessions: [],
         });
 
         dispatch({
@@ -683,6 +719,75 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           dispatch({ type: 'setActiveSession', session });
         } catch (err) {
           console.warn('[AppContext] Failed to refresh active workout session:', err);
+        }
+      },
+      updateActiveSessionRestTarget: async (restTargetAt: string | null) => {
+        if (!state.activeSession) return null;
+        try {
+          const updated = await setSessionRestTarget(state.activeSession.id, restTargetAt);
+          dispatch({ type: 'setActiveSession', session: updated });
+          return updated;
+        } catch (err) {
+          console.warn('[AppContext] Failed to update rest target:', err);
+          throw err;
+        }
+      },
+      loadInterruptedSessions: async () => {
+        try {
+          const sessions = await getInterruptedWorkoutSessions();
+          dispatch({ type: 'setInterruptedSessions', sessions });
+          return sessions;
+        } catch (err) {
+          console.warn('[AppContext] Failed to load interrupted sessions:', err);
+          return [];
+        }
+      },
+      resumeInterruptedSession: async (sessionId: string, currentSessionAction?: 'archive' | 'discard') => {
+        try {
+          const resumed = await resumeInterruptedWorkoutSession(sessionId, currentSessionAction);
+          const remainingInterrupted = await getInterruptedWorkoutSessions();
+          dispatch({ type: 'setInterruptedSessions', sessions: remainingInterrupted });
+          dispatch({ type: 'setActiveSession', session: resumed });
+          dispatch({ type: 'setPersistenceError', error: null });
+          return resumed;
+        } catch (err) {
+          console.error('[AppContext] Failed to resume interrupted session:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to resume interrupted session',
+          });
+          throw err;
+        }
+      },
+      archiveInterruptedSession: async (sessionId: string, notes?: string) => {
+        try {
+          const archived = await archiveInterruptedWorkoutSession(sessionId, notes);
+          const remainingInterrupted = await getInterruptedWorkoutSessions();
+          dispatch({ type: 'setInterruptedSessions', sessions: remainingInterrupted });
+          dispatch({ type: 'setPersistenceError', error: null });
+          return archived;
+        } catch (err) {
+          console.error('[AppContext] Failed to archive interrupted session:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to archive interrupted session',
+          });
+          throw err;
+        }
+      },
+      discardInterruptedSession: async (sessionId: string) => {
+        try {
+          await discardWorkoutSession(sessionId);
+          const remainingInterrupted = await getInterruptedWorkoutSessions();
+          dispatch({ type: 'setInterruptedSessions', sessions: remainingInterrupted });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to discard interrupted session:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to discard interrupted session',
+          });
+          throw err;
         }
       },
     }),

@@ -1,5 +1,7 @@
 export type SessionStatus = 'active' | 'paused' | 'completed' | 'discarded';
 
+export type SessionRecoveryState = 'interrupted' | 'recovered' | 'archived';
+
 export type SetStatus = 'pending' | 'completed' | 'skipped';
 
 export type WorkoutSet = {
@@ -37,6 +39,7 @@ export type WorkoutSession = {
   accumulatedElapsedMs: number;
   lastResumedAt?: string | null;
   restTargetAt?: string | null;
+  recoveryState?: SessionRecoveryState | null;
   createdAt: string;
   updatedAt: string;
   exercises: WorkoutSessionExercise[];
@@ -47,6 +50,16 @@ export class SessionValidationError extends Error {
   constructor(message: string, public readonly field?: string) {
     super(message);
     this.name = 'SessionValidationError';
+  }
+}
+
+export class MigrationSessionConflictError extends Error {
+  constructor(
+    message: string,
+    public readonly conflictingSessions: { id: string; title: string; startedAt: string }[] = []
+  ) {
+    super(message);
+    this.name = 'MigrationSessionConflictError';
   }
 }
 

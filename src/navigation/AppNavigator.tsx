@@ -75,6 +75,7 @@ export function AppNavigator() {
     updateWorkout,
     deleteWorkout,
     activeSession,
+    interruptedSessions,
     startActiveWorkout,
     pauseActiveWorkout,
     resumeActiveWorkout,
@@ -83,6 +84,10 @@ export function AppNavigator() {
     addSetToSession,
     finishActiveWorkout,
     discardActiveWorkout,
+    updateActiveSessionRestTarget,
+    resumeInterruptedSession,
+    archiveInterruptedSession,
+    discardInterruptedSession,
     t,
   } = useApp();
 
@@ -392,6 +397,13 @@ export function AppNavigator() {
             workouts={workouts}
             activeSession={activeSession}
             onResumeSession={() => setActiveScreen('activeWorkout')}
+            interruptedSessions={interruptedSessions}
+            onResumeInterruptedSession={async (sessionId, currentAction) => {
+              await resumeInterruptedSession(sessionId, currentAction);
+              setActiveScreen('activeWorkout');
+            }}
+            onArchiveInterruptedSession={archiveInterruptedSession}
+            onDiscardInterruptedSession={discardInterruptedSession}
             onAddWorkout={() => {
               setQuickAddTemplate(null);
               setActiveScreen('addWorkout');
@@ -474,6 +486,7 @@ export function AppNavigator() {
             onCompleteSet={completeSetInSession}
             onSkipSet={skipSetInSession}
             onAddSet={addSetToSession}
+            onSetRestTarget={updateActiveSessionRestTarget}
             onFinish={async (notes) => {
               await finishActiveWorkout(notes);
               setActiveTab('workouts');

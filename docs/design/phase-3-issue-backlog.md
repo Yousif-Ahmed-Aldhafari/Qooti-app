@@ -301,6 +301,46 @@
 
 ---
 
+### Item 3.5B [RESOLVED] Recovery-Safe Session Migration & Rest Timer Integration
+- **Description:** Eliminate silent loss of access to unfinished workout sessions during Migration 6 conflict resolution; implement forward-only Migration 7 (`recover_conflicted_workout_sessions_v7`) and strict pre-migration conflict detection; wire complete end-to-end rest timer persistence; resolve race conditions and concurrency during rapid +30s taps, skip rest, and app lifecycle state transitions; surface interactive conflict recovery UI in `WorkoutsScreen`.
+- **Resolution:**
+  1. **Migration 6 & 7 Conflict Safety (`src/db/migrations.ts`):**
+     - Introduced `detectPreMigrationSessionConflicts(db)` to detect multiple open sessions before applying the unique index constraint.
+     - Added optional `strictConflictCheck` to `runMigrations()` throwing typed `MigrationSessionConflictError` with conflict details if unmigrated conflicts exist.
+     - Updated Migration 6 to add `recovery_state TEXT` and set `recovery_state = 'interrupted'` on older conflicting sessions instead of silent discard.
+     - Added versioned Migration 7 (`recover_conflicted_workout_sessions_v7`) for databases where Migration 6 has already executed: tags any sessions previously transitioned by Migration 6 automatic resolution (`status = 'discarded'` where child records remain) as `recovery_state = 'interrupted'`.
+     - Preserves all session rows, child exercises, and completed set performance logs.
+  2. **Domain Model & Repository Recovery (`src/models/workoutSession.ts`, `src/db/repositories/workoutSessionRepository.ts`):**
+     - Defined `SessionRecoveryState = 'interrupted' | 'recovered' | 'archived'`.
+     - Added `listInterruptedSessions()`, `resumeInterruptedSession()`, and `archiveInterruptedSession()` to repository interface and implementation.
+     - `resumeInterruptedSession()` maintains single open session constraint: automatically completes/archives (or discards if specified) any existing active session before resuming.
+     - `archiveInterruptedSession()` sets `status = 'completed'` and `recovery_state = 'archived'` with notes intact.
+     - Distinguished intentional user discard (`DELETE FROM workout_sessions WHERE id = ?`) from migration conflict resolution.
+  3. **End-to-End Rest Timer Wiring (`src/screens/ActiveWorkoutScreen.tsx`, `src/navigation/AppNavigator.tsx`, `src/store/AppContext.tsx`, `src/services/workoutSessionService.ts`):**
+     - Completing a set starts rest countdown and persists `rest_target_at` only after set write succeeds.
+     - "+30s" extends rest target and immediately persists updated ISO timestamp.
+     - "Skip Rest" clears active countdown and immediately writes `null` to SQLite.
+     - Timer expiration at 0 seconds cleans up persisted `rest_target_at`.
+     - App reload resumes remaining seconds if target is in the future; safely expires if target is in the past.
+     - AppState background/foreground transition recalculates remaining seconds directly from persisted timestamps without background setInterval drift.
+  4. **Rest Timer Concurrency & Race Condition Protection:**
+     - Sequential promise queue (`persistenceQueueRef`) guarantees SQLite writes execute in strict chronological sequence.
+     - Sequence tracking (`restSeqRef`) drops stale intermediate writes during rapid "+30s" taps.
+     - Skip rest cancellation takes precedence over in-flight extensions.
+  5. **WorkoutsScreen Conflict Recovery Workflow (`src/screens/WorkoutsScreen.tsx`):**
+     - Warning banner rendered when interrupted sessions exist.
+     - Modal provides detailed inspection: title, completed vs total sets, elapsed duration.
+     - Actionable options for Resume (with active session conflict alert), Archive to history, or Discard with confirmation.
+     - Localized in English and Arabic with Latin numerals.
+     - Interactive elements adhere to touch target criteria ($\ge 48\text{dp}$ Android, $\ge 44\text{pt}$ iOS).
+  6. **Testing Evidence:**
+     - 18 comprehensive regression and lifecycle tests in `src/__tests__/recoverySessionRestTimer.test.ts`.
+     - Total project test suite: **342 passing tests**, 0 failures.
+     - Codebase line coverage: **90.48%**.
+     - 20/20 Expo Doctor checks passing.
+
+---
+
 ## 2. Planned Tasks in Phase 3
 
 ### Item 3.6 [PLANNED] Training Volume & Progression Insights

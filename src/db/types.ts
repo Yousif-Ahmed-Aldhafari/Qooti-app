@@ -116,4 +116,15 @@ export interface WorkoutSessionRepository {
   completeSession(id: string, notes?: string, completedAt?: string, txn?: IDatabase): Promise<WorkoutSession>;
   discardSession(id: string, txn?: IDatabase): Promise<void>;
   setRestTarget(sessionId: string, restTargetAt: string | null, txn?: IDatabase): Promise<WorkoutSession>;
+  listInterruptedSessions(txn?: IDatabase): Promise<WorkoutSession[]>;
+  resumeInterruptedSession(
+    id: string,
+    currentSessionAction?: 'archive' | 'discard',
+    txn?: IDatabase
+  ): Promise<WorkoutSession>;
+  archiveInterruptedSession(
+    id: string,
+    notes?: string,
+    txn?: IDatabase
+  ): Promise<WorkoutSession>;
 }
