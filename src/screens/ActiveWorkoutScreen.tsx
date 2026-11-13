@@ -72,12 +72,23 @@ export function ActiveWorkoutScreen({
 }: ActiveWorkoutScreenProps) {
   const colors = themeColors();
   const [now, setNow] = useState(() => Date.now());
-  const [restTargetMs, setRestTargetMs] = useState<number | null>(null);
+  const [restTargetMs, setRestTargetMs] = useState<number | null>(() => {
+    if (session.restTargetAt) {
+      const parsed = Date.parse(session.restTargetAt);
+      if (!Number.isNaN(parsed) && parsed > Date.now()) {
+        return parsed;
+      }
+    }
+    return null;
+  });
   const [restDurationSec] = useState<number>(90);
   const [summaryModalVisible, setSummaryModalVisible] = useState(false);
   const [sessionNotes, setSessionNotes] = useState(session.notes || '');
   const [isFinishing, setIsFinishing] = useState(false);
   const [isDiscarding, setIsDiscarding] = useState(false);
+  const [submittingSetId, setSubmittingSetId] = useState<string | null>(null);
+  const [setErrors, setSetErrors] = useState<Record<string, string>>({});
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // Set-level editable draft inputs: key = setId
   const [setInputs, setSetInputs] = useState<
@@ -131,30 +142,121 @@ export function ActiveWorkoutScreen({
 
   const summary = useMemo(() => calculateSessionPerformanceSummary(session), [session]);
 
+  const handlePauseResumeAction = async () => {
+    setActionError(null);
+    try {
+      if (session.status === 'active') {
+        await onPause();
+      } else {
+        await onResume();
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : t('workouts.sessionActionError');
+      setActionError(msg);
+      Alert.alert(t('common.error'), msg);
+    }
+  };
+
   const handleCompleteSetAction = async (st: WorkoutSet) => {
+    if (submittingSetId) return;
+
     const inputs = setInputs[st.id] || {
       weight: String(st.plannedWeightKg),
       reps: String(st.plannedReps),
       rpe: '',
     };
-    const weightNum = Math.max(0, parseFloat(inputs.weight) || 0);
-    const repsNum = Math.max(0, parseInt(inputs.reps, 10) || 0);
-    const rpeNum = inputs.rpe.trim() ? parseFloat(inputs.rpe) : null;
 
-    await onCompleteSet(st.id, repsNum, weightNum, rpeNum);
+    const trimmedReps = inputs.reps.trim();
+    const trimmedWeight = inputs.weight.trim();
+    const trimmedRpe = inputs.rpe.trim();
 
-    // Trigger rest countdown
-    setRestTargetMs(Date.now() + restDurationSec * 1000);
+    // Validate reps: non-negative integer
+    if (!/^\d+$/.test(trimmedReps)) {
+      setSetErrors((prev) => ({
+        ...prev,
+        [st.id]: t('workouts.invalidReps'),
+      }));
+      return;
+    }
+
+    // Validate weight: non-negative finite number
+    const weightNum = parseFloat(trimmedWeight);
+    if (
+      isNaN(weightNum) ||
+      !Number.isFinite(weightNum) ||
+      weightNum < 0 ||
+      !/^\d+(\.\d+)?$/.test(trimmedWeight)
+    ) {
+      setSetErrors((prev) => ({
+        ...prev,
+        [st.id]: t('workouts.invalidWeight'),
+      }));
+      return;
+    }
+
+    // Validate rpe if provided
+    let rpeNum: number | null = null;
+    if (trimmedRpe) {
+      rpeNum = parseFloat(trimmedRpe);
+      if (isNaN(rpeNum) || !Number.isFinite(rpeNum) || rpeNum < 1 || rpeNum > 10) {
+        setSetErrors((prev) => ({
+          ...prev,
+          [st.id]: t('workouts.invalidRpe'),
+        }));
+        return;
+      }
+    }
+
+    const repsNum = parseInt(trimmedReps, 10);
+
+    // Clear previous error for this set
+    setSetErrors((prev) => {
+      const next = { ...prev };
+      delete next[st.id];
+      return next;
+    });
+
+    setSubmittingSetId(st.id);
+    try {
+      await onCompleteSet(st.id, repsNum, weightNum, rpeNum);
+      // Trigger rest countdown ONLY after onCompleteSet resolves successfully
+      setRestTargetMs(Date.now() + restDurationSec * 1000);
+    } catch (err) {
+      // Draft inputs are preserved in setInputs
+      setSetErrors((prev) => ({
+        ...prev,
+        [st.id]: err instanceof Error ? err.message : t('workouts.sessionActionError'),
+      }));
+    } finally {
+      setSubmittingSetId(null);
+    }
   };
 
   const handleSkipSetAction = async (st: WorkoutSet) => {
-    await onSkipSet(st.id);
+    if (submittingSetId) return;
+    try {
+      await onSkipSet(st.id);
+      setSetErrors((prev) => {
+        const next = { ...prev };
+        delete next[st.id];
+        return next;
+      });
+    } catch (err) {
+      setSetErrors((prev) => ({
+        ...prev,
+        [st.id]: err instanceof Error ? err.message : t('workouts.sessionActionError'),
+      }));
+    }
   };
 
   const handleAddSetAction = async (sessionExerciseId: string, lastSet?: WorkoutSet) => {
     const plannedReps = lastSet ? lastSet.plannedReps : 10;
     const plannedWeight = lastSet ? lastSet.plannedWeightKg : 0;
-    await onAddSet(sessionExerciseId, plannedReps, plannedWeight);
+    try {
+      await onAddSet(sessionExerciseId, plannedReps, plannedWeight);
+    } catch (err) {
+      Alert.alert(t('common.error'), err instanceof Error ? err.message : t('workouts.sessionActionError'));
+    }
   };
 
   const confirmLeave = () => {
@@ -183,6 +285,11 @@ export function ActiveWorkoutScreen({
             setIsDiscarding(true);
             try {
               await onDiscard();
+            } catch (err) {
+              Alert.alert(
+                t('common.error'),
+                err instanceof Error ? err.message : t('workouts.sessionActionError')
+              );
             } finally {
               setIsDiscarding(false);
             }
@@ -199,6 +306,11 @@ export function ActiveWorkoutScreen({
     try {
       await onFinish(sessionNotes.trim());
       setSummaryModalVisible(false);
+    } catch (err) {
+      Alert.alert(
+        t('common.error'),
+        err instanceof Error ? err.message : t('workouts.sessionActionError')
+      );
     } finally {
       setIsFinishing(false);
     }
@@ -266,9 +378,39 @@ export function ActiveWorkoutScreen({
             title={session.status === 'active' ? t('workouts.pauseWorkout') : t('workouts.resume')}
             icon={session.status === 'active' ? 'pause-outline' : 'play-outline'}
             variant="secondary"
-            onPress={session.status === 'active' ? onPause : onResume}
+            onPress={handlePauseResumeAction}
           />
         </View>
+
+        {/* Recoverable Action Error Banner */}
+        {actionError ? (
+          <View
+            style={[
+              styles.errorBanner,
+              activeRowStyle(),
+              { backgroundColor: `${colors.danger}18`, borderColor: colors.danger },
+            ]}
+          >
+            <Ionicons name="alert-circle" size={20} color={colors.danger} />
+            <Text
+              style={[
+                styles.errorBannerText,
+                directionalText,
+                { color: colors.danger },
+              ]}
+            >
+              {actionError}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('common.close')}
+              onPress={() => setActionError(null)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="close" size={18} color={colors.danger} />
+            </Pressable>
+          </View>
+        ) : null}
 
         {/* Floating Rest Timer Card */}
         {restRemainingSec > 0 ? (
@@ -382,100 +524,122 @@ export function ActiveWorkoutScreen({
                   const isSkipped = st.status === 'skipped';
 
                   return (
-                    <View
-                      key={st.id}
-                      style={[
-                        styles.setRow,
-                        activeRowStyle(),
-                        isCompleted && { backgroundColor: `${colors.accent}12` },
-                        isSkipped && { opacity: 0.5 },
-                      ]}
-                    >
-                      <Text style={[styles.colSetText, { color: colors.text }]}>
-                        {st.setNumber}
-                      </Text>
-
-                      <Text style={[styles.colTargetText, { color: colors.textMuted }]}>
-                        {st.plannedWeightKg > 0 ? `${st.plannedWeightKg}kg × ` : ''}
-                        {st.plannedReps}
-                      </Text>
-
-                      <TextInput
+                    <View key={st.id} style={styles.setRowWrapper}>
+                      <View
                         style={[
-                          styles.inputField,
-                          {
-                            color: colors.text,
-                            backgroundColor: colors.cardMuted,
-                            borderColor: isCompleted ? colors.accent : colors.border,
-                          },
+                          styles.setRow,
+                          activeRowStyle(),
+                          isCompleted && { backgroundColor: `${colors.accent}12` },
+                          isSkipped && { opacity: 0.5 },
                         ]}
-                        keyboardType="decimal-pad"
-                        value={inputs.weight}
-                        editable={!isCompleted}
-                        onChangeText={(val) =>
-                          setSetInputs((prev) => ({
-                            ...prev,
-                            [st.id]: { ...(prev[st.id] || inputs), weight: val },
-                          }))
-                        }
-                      />
+                      >
+                        <Text style={[styles.colSetText, { color: colors.text }]}>
+                          {st.setNumber}
+                        </Text>
 
-                      <TextInput
-                        style={[
-                          styles.inputField,
-                          {
-                            color: colors.text,
-                            backgroundColor: colors.cardMuted,
-                            borderColor: isCompleted ? colors.accent : colors.border,
-                          },
-                        ]}
-                        keyboardType="number-pad"
-                        value={inputs.reps}
-                        editable={!isCompleted}
-                        onChangeText={(val) =>
-                          setSetInputs((prev) => ({
-                            ...prev,
-                            [st.id]: { ...(prev[st.id] || inputs), reps: val },
-                          }))
-                        }
-                      />
+                        <Text style={[styles.colTargetText, { color: colors.textMuted }]}>
+                          {st.plannedWeightKg > 0 ? `${st.plannedWeightKg}kg × ` : ''}
+                          {st.plannedReps}
+                        </Text>
 
-                      <View style={[styles.colActionWrap, activeRowStyle()]}>
-                        {isCompleted ? (
-                          <Ionicons
-                            name="checkmark-circle"
-                            size={28}
-                            color={colors.accent}
-                            accessibilityLabel={t('workouts.completed')}
-                          />
-                        ) : (
-                          <>
-                            <Pressable
-                              accessibilityRole="button"
+                        <TextInput
+                          style={[
+                            styles.inputField,
+                            {
+                              color: colors.text,
+                              backgroundColor: colors.cardMuted,
+                              borderColor: isCompleted ? colors.accent : colors.border,
+                            },
+                          ]}
+                          keyboardType="decimal-pad"
+                          value={inputs.weight}
+                          editable={!isCompleted}
+                          onChangeText={(val) =>
+                            setSetInputs((prev) => ({
+                              ...prev,
+                              [st.id]: { ...(prev[st.id] || inputs), weight: val },
+                            }))
+                          }
+                        />
+
+                        <TextInput
+                          style={[
+                            styles.inputField,
+                            {
+                              color: colors.text,
+                              backgroundColor: colors.cardMuted,
+                              borderColor: isCompleted ? colors.accent : colors.border,
+                            },
+                          ]}
+                          keyboardType="number-pad"
+                          value={inputs.reps}
+                          editable={!isCompleted}
+                          onChangeText={(val) =>
+                            setSetInputs((prev) => ({
+                              ...prev,
+                              [st.id]: { ...(prev[st.id] || inputs), reps: val },
+                            }))
+                          }
+                        />
+
+                        <View style={[styles.colActionWrap, activeRowStyle()]}>
+                          {isCompleted ? (
+                            <Ionicons
+                              name="checkmark-circle"
+                              size={28}
+                              color={colors.accent}
                               accessibilityLabel={t('workouts.completed')}
-                              onPress={() => handleCompleteSetAction(st)}
-                              style={[
-                                styles.checkButton,
-                                { backgroundColor: colors.accent },
-                              ]}
-                            >
-                              <Ionicons name="checkmark" size={18} color="#FFFFFF" />
-                            </Pressable>
-                            <Pressable
-                              accessibilityRole="button"
-                              accessibilityLabel={t('workouts.skipped')}
-                              onPress={() => handleSkipSetAction(st)}
-                              style={styles.skipButton}
-                            >
-                              <Ionicons
-                                name="play-skip-forward-outline"
-                                size={18}
-                                color={colors.textMuted}
-                              />
-                            </Pressable>
-                          </>
-                        )}
+                            />
+                          ) : (
+                            <>
+                              <Pressable
+                                accessibilityRole="button"
+                                accessibilityLabel={t('workouts.completed')}
+                                disabled={submittingSetId !== null}
+                                onPress={() => handleCompleteSetAction(st)}
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                style={[
+                                  styles.checkButton,
+                                  {
+                                    backgroundColor: colors.accent,
+                                    opacity: submittingSetId !== null ? 0.6 : 1,
+                                  },
+                                ]}
+                              >
+                                <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+                              </Pressable>
+                              <Pressable
+                                accessibilityRole="button"
+                                accessibilityLabel={t('workouts.skipped')}
+                                disabled={submittingSetId !== null}
+                                onPress={() => handleSkipSetAction(st)}
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                style={[
+                                  styles.skipButton,
+                                  { opacity: submittingSetId !== null ? 0.5 : 1 },
+                                ]}
+                              >
+                                <Ionicons
+                                  name="play-skip-forward-outline"
+                                  size={18}
+                                  color={colors.textMuted}
+                                />
+                              </Pressable>
+                            </>
+                          )}
+                        </View>
                       </View>
+                      {setErrors[st.id] ? (
+                        <Text
+                          style={[
+                            styles.inlineErrorText,
+                            directionalText,
+                            { color: colors.danger },
+                          ]}
+                        >
+                          {setErrors[st.id]}
+                        </Text>
+                      ) : null}
                     </View>
                   );
                 })}
@@ -630,6 +794,19 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingVertical: spacing.xs,
   },
+  errorBanner: {
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    padding: spacing.sm,
+    marginVertical: spacing.xs,
+    gap: spacing.xs,
+  },
+  errorBannerText: {
+    ...typography.caption,
+    flex: 1,
+  },
   backButton: {
     width: 44,
     height: 44,
@@ -760,6 +937,15 @@ const styles = StyleSheet.create({
   },
   colAction: {
     width: 64,
+  },
+  setRowWrapper: {
+    width: '100%',
+  },
+  inlineErrorText: {
+    ...typography.caption,
+    marginTop: 2,
+    marginBottom: spacing.xs,
+    paddingHorizontal: spacing.xs,
   },
   setRow: {
     alignItems: 'center',

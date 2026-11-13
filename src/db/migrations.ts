@@ -116,6 +116,50 @@ export const MIGRATIONS: SchemaMigration[] = [
       `);
     },
   },
+  {
+    version: 6,
+    name: 'enforce_single_open_workout_session_v6',
+    up: async (db) => {
+      const sessionCols = await db.getAllAsync<{ name: string }>(
+        `PRAGMA table_info(workout_sessions);`
+      );
+      const hasRestTarget = sessionCols.some((c) => c.name === 'rest_target_at');
+      if (!hasRestTarget) {
+        await db.execAsync(
+          `ALTER TABLE workout_sessions ADD COLUMN rest_target_at TEXT;`
+        );
+      }
+
+      const openSessions = await db.getAllAsync<{
+        id: string;
+        started_at: string;
+        updated_at: string;
+      }>(
+        `SELECT id, started_at, updated_at FROM workout_sessions
+         WHERE status IN ('active', 'paused')
+         ORDER BY started_at DESC, updated_at DESC;`
+      );
+
+      if (openSessions.length > 1) {
+        const [, ...older] = openSessions;
+        const now = new Date().toISOString();
+        for (const old of older) {
+          await db.runAsync(
+            `UPDATE workout_sessions
+             SET status = 'discarded', updated_at = ?
+             WHERE id = ?;`,
+            now,
+            old.id
+          );
+        }
+      }
+
+      await db.execAsync(
+        `CREATE UNIQUE INDEX IF NOT EXISTS idx_workout_sessions_single_open
+         ON workout_sessions((1)) WHERE status IN ('active', 'paused');`
+      );
+    },
+  },
 ];
 
 /**

@@ -115,4 +115,5 @@ export interface WorkoutSessionRepository {
   ): Promise<WorkoutSet>;
   completeSession(id: string, notes?: string, completedAt?: string, txn?: IDatabase): Promise<WorkoutSession>;
   discardSession(id: string, txn?: IDatabase): Promise<void>;
+  setRestTarget(sessionId: string, restTargetAt: string | null, txn?: IDatabase): Promise<WorkoutSession>;
 }

@@ -36,6 +36,7 @@ export type WorkoutSession = {
   endedAt?: string | null;
   accumulatedElapsedMs: number;
   lastResumedAt?: string | null;
+  restTargetAt?: string | null;
   createdAt: string;
   updatedAt: string;
   exercises: WorkoutSessionExercise[];
@@ -109,10 +110,13 @@ export function validateWorkoutSet(set: WorkoutSet): void {
 
   if (
     typeof set.plannedReps !== 'number' ||
-    !Number.isFinite(set.plannedReps) ||
+    !Number.isInteger(set.plannedReps) ||
     set.plannedReps < 0
   ) {
-    throw new SessionValidationError('Planned reps must be a non-negative number.', 'plannedReps');
+    throw new SessionValidationError(
+      'Planned reps must be a non-negative integer.',
+      'plannedReps'
+    );
   }
 
   if (
@@ -130,10 +134,13 @@ export function validateWorkoutSet(set: WorkoutSet): void {
     if (set.actualReps !== undefined && set.actualReps !== null) {
       if (
         typeof set.actualReps !== 'number' ||
-        !Number.isFinite(set.actualReps) ||
+        !Number.isInteger(set.actualReps) ||
         set.actualReps < 0
       ) {
-        throw new SessionValidationError('Actual reps must be a non-negative number.', 'actualReps');
+        throw new SessionValidationError(
+          'Actual reps must be a non-negative integer.',
+          'actualReps'
+        );
       }
     }
     if (set.actualWeightKg !== undefined && set.actualWeightKg !== null) {
@@ -147,6 +154,18 @@ export function validateWorkoutSet(set: WorkoutSet): void {
           'actualWeightKg'
         );
       }
+    }
+    if (set.actualReps === undefined || set.actualReps === null) {
+      throw new SessionValidationError(
+        'Actual reps must be provided for completed sets.',
+        'actualReps'
+      );
+    }
+    if (set.actualWeightKg === undefined || set.actualWeightKg === null) {
+      throw new SessionValidationError(
+        'Actual weight must be provided for completed sets.',
+        'actualWeightKg'
+      );
     }
   }
 

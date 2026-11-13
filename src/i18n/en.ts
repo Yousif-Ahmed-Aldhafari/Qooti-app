@@ -272,7 +272,11 @@ export const en = {
     "sessionConflictTitle": "Active Session in Progress",
     "sessionConflictMessage": "You already have an active session for \"{{title}}\". Would you like to resume it, or discard it to start a new one?",
     "discardAndStartNew": "Discard & Start New",
-    "resumeActive": "Resume Active"
+    "resumeActive": "Resume Active",
+    "invalidReps": "Reps must be a whole number >= 0.",
+    "invalidWeight": "Weight must be a valid number >= 0.",
+    "invalidRpe": "RPE must be between 1 and 10.",
+    "sessionActionError": "Failed to perform session action. Please try again."
   },
   "progress": {
     "title": "Progress",

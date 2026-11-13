@@ -20,6 +20,7 @@ interface SessionRow {
   ended_at: string | null;
   accumulated_elapsed_ms: number;
   last_resumed_at: string | null;
+  rest_target_at: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -109,6 +110,7 @@ export class SQLiteWorkoutSessionRepository implements WorkoutSessionRepository 
       endedAt: s.ended_at ?? undefined,
       accumulatedElapsedMs: s.accumulated_elapsed_ms,
       lastResumedAt: s.last_resumed_at ?? undefined,
+      restTargetAt: s.rest_target_at ?? undefined,
       notes: s.notes ?? undefined,
       createdAt: s.created_at,
       updatedAt: s.updated_at,
@@ -151,8 +153,8 @@ export class SQLiteWorkoutSessionRepository implements WorkoutSessionRepository 
       await client.runAsync(
         `INSERT INTO workout_sessions (
           id, source_workout_id, title, status, started_at, ended_at,
-          accumulated_elapsed_ms, last_resumed_at, notes, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+          accumulated_elapsed_ms, last_resumed_at, rest_target_at, notes, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
         targetId,
         resolvedSourceWorkoutId,
         session.title.trim() || 'Workout Session',
@@ -161,6 +163,7 @@ export class SQLiteWorkoutSessionRepository implements WorkoutSessionRepository 
         session.endedAt ?? null,
         session.accumulatedElapsedMs || 0,
         lastResumedAt,
+        session.restTargetAt ?? null,
         session.notes ?? null,
         session.createdAt || now,
         session.updatedAt || now
@@ -322,7 +325,7 @@ export class SQLiteWorkoutSessionRepository implements WorkoutSessionRepository 
         if (!Number.isNaN(lastResume)) {
           const pauseTime = pausedAt ? Date.parse(pausedAt) : Date.now();
           const delta = Math.max(0, pauseTime - lastResume);
-          newAccumulated += delta;
+          newAccumulated = Math.max(0, newAccumulated + delta);
         }
       }
 
@@ -394,6 +397,59 @@ export class SQLiteWorkoutSessionRepository implements WorkoutSessionRepository 
     txn?: IDatabase
   ): Promise<WorkoutSet> {
     const execute = async (client: IDatabase) => {
+      // 1. Check parent session status
+      const parentSession = await client.getFirstAsync<{ id: string; status: string }>(
+        `SELECT s.id, s.status FROM workout_sessions s
+         JOIN workout_session_exercises e ON e.session_id = s.id
+         JOIN workout_sets st ON st.session_exercise_id = e.id
+         WHERE st.id = ?;`,
+        setId
+      );
+      if (!parentSession) {
+        throw new SessionValidationError(`Set with id "${setId}" not found.`, 'id');
+      }
+
+      if (parentSession.status === 'completed' || parentSession.status === 'discarded') {
+        throw new SessionValidationError(
+          `Cannot modify sets of a ${parentSession.status} workout session.`,
+          'status'
+        );
+      }
+
+      // 2. Strict validation of actual performance values
+      if (
+        typeof updates.actualReps !== 'number' ||
+        !Number.isInteger(updates.actualReps) ||
+        updates.actualReps < 0
+      ) {
+        throw new SessionValidationError(
+          'Actual reps must be a non-negative integer.',
+          'actualReps'
+        );
+      }
+
+      if (
+        typeof updates.actualWeightKg !== 'number' ||
+        !Number.isFinite(updates.actualWeightKg) ||
+        updates.actualWeightKg < 0
+      ) {
+        throw new SessionValidationError(
+          'Actual weight must be a non-negative number.',
+          'actualWeightKg'
+        );
+      }
+
+      if (updates.rpe !== undefined && updates.rpe !== null) {
+        if (
+          typeof updates.rpe !== 'number' ||
+          !Number.isFinite(updates.rpe) ||
+          updates.rpe < 1 ||
+          updates.rpe > 10
+        ) {
+          throw new SessionValidationError('RPE must be a number between 1 and 10.', 'rpe');
+        }
+      }
+
       const existing = await client.getFirstAsync<SetRow>(
         `SELECT * FROM workout_sets WHERE id = ?;`,
         setId
@@ -402,16 +458,14 @@ export class SQLiteWorkoutSessionRepository implements WorkoutSessionRepository 
         throw new SessionValidationError(`Set with id "${setId}" not found.`, 'id');
       }
 
-      const actualReps = Math.max(0, Math.round(updates.actualReps));
-      const actualWeight = Math.max(0, Math.round(updates.actualWeightKg * 10) / 10);
       const now = new Date().toISOString();
 
       await client.runAsync(
         `UPDATE workout_sets
          SET status = 'completed', actual_reps = ?, actual_weight_kg = ?, completed_at = ?, rpe = ?, notes = ?
          WHERE id = ?;`,
-        actualReps,
-        actualWeight,
+        updates.actualReps,
+        updates.actualWeightKg,
         now,
         updates.rpe ?? null,
         updates.notes ?? existing.notes,
@@ -449,6 +503,89 @@ export class SQLiteWorkoutSessionRepository implements WorkoutSessionRepository 
     txn?: IDatabase
   ): Promise<WorkoutSet> {
     const execute = async (client: IDatabase) => {
+      // 1. Check parent session status
+      const parentSession = await client.getFirstAsync<{ id: string; status: string }>(
+        `SELECT s.id, s.status FROM workout_sessions s
+         JOIN workout_session_exercises e ON e.session_id = s.id
+         JOIN workout_sets st ON st.session_exercise_id = e.id
+         WHERE st.id = ?;`,
+        setId
+      );
+      if (!parentSession) {
+        throw new SessionValidationError(`Set with id "${setId}" not found.`, 'id');
+      }
+
+      if (parentSession.status === 'completed' || parentSession.status === 'discarded') {
+        throw new SessionValidationError(
+          `Cannot modify sets of a ${parentSession.status} workout session.`,
+          'status'
+        );
+      }
+
+      // 2. Strict validation of provided fields
+      if (updates.plannedReps !== undefined) {
+        if (
+          typeof updates.plannedReps !== 'number' ||
+          !Number.isInteger(updates.plannedReps) ||
+          updates.plannedReps < 0
+        ) {
+          throw new SessionValidationError(
+            'Planned reps must be a non-negative integer.',
+            'plannedReps'
+          );
+        }
+      }
+
+      if (updates.plannedWeightKg !== undefined) {
+        if (
+          typeof updates.plannedWeightKg !== 'number' ||
+          !Number.isFinite(updates.plannedWeightKg) ||
+          updates.plannedWeightKg < 0
+        ) {
+          throw new SessionValidationError(
+            'Planned weight must be a non-negative number.',
+            'plannedWeightKg'
+          );
+        }
+      }
+
+      if (updates.actualReps !== undefined && updates.actualReps !== null) {
+        if (
+          typeof updates.actualReps !== 'number' ||
+          !Number.isInteger(updates.actualReps) ||
+          updates.actualReps < 0
+        ) {
+          throw new SessionValidationError(
+            'Actual reps must be a non-negative integer.',
+            'actualReps'
+          );
+        }
+      }
+
+      if (updates.actualWeightKg !== undefined && updates.actualWeightKg !== null) {
+        if (
+          typeof updates.actualWeightKg !== 'number' ||
+          !Number.isFinite(updates.actualWeightKg) ||
+          updates.actualWeightKg < 0
+        ) {
+          throw new SessionValidationError(
+            'Actual weight must be a non-negative number.',
+            'actualWeightKg'
+          );
+        }
+      }
+
+      if (updates.rpe !== undefined && updates.rpe !== null) {
+        if (
+          typeof updates.rpe !== 'number' ||
+          !Number.isFinite(updates.rpe) ||
+          updates.rpe < 1 ||
+          updates.rpe > 10
+        ) {
+          throw new SessionValidationError('RPE must be a number between 1 and 10.', 'rpe');
+        }
+      }
+
       const existing = await client.getFirstAsync<SetRow>(
         `SELECT * FROM workout_sets WHERE id = ?;`,
         setId
@@ -465,10 +602,39 @@ export class SQLiteWorkoutSessionRepository implements WorkoutSessionRepository 
         updates.completedAt !== undefined ? updates.completedAt : existing.completed_at;
       const rpe = updates.rpe !== undefined ? updates.rpe : existing.rpe;
       const notes = updates.notes !== undefined ? updates.notes : existing.notes;
+      const plannedReps =
+        updates.plannedReps !== undefined ? updates.plannedReps : existing.planned_reps;
+      const plannedWeightKg =
+        updates.plannedWeightKg !== undefined ? updates.plannedWeightKg : existing.planned_weight_kg;
+
+      if (status === 'completed') {
+        if (
+          actualReps === null ||
+          typeof actualReps !== 'number' ||
+          !Number.isInteger(actualReps) ||
+          actualReps < 0
+        ) {
+          throw new SessionValidationError(
+            'Actual reps must be a non-negative integer for completed sets.',
+            'actualReps'
+          );
+        }
+        if (
+          actualWeightKg === null ||
+          typeof actualWeightKg !== 'number' ||
+          !Number.isFinite(actualWeightKg) ||
+          actualWeightKg < 0
+        ) {
+          throw new SessionValidationError(
+            'Actual weight must be a non-negative number for completed sets.',
+            'actualWeightKg'
+          );
+        }
+      }
 
       await client.runAsync(
         `UPDATE workout_sets
-         SET status = ?, actual_reps = ?, actual_weight_kg = ?, completed_at = ?, rpe = ?, notes = ?
+         SET status = ?, actual_reps = ?, actual_weight_kg = ?, completed_at = ?, rpe = ?, notes = ?, planned_reps = ?, planned_weight_kg = ?
          WHERE id = ?;`,
         status,
         actualReps,
@@ -476,6 +642,8 @@ export class SQLiteWorkoutSessionRepository implements WorkoutSessionRepository 
         completedAt,
         rpe,
         notes,
+        plannedReps,
+        plannedWeightKg,
         setId
       );
 
@@ -506,6 +674,25 @@ export class SQLiteWorkoutSessionRepository implements WorkoutSessionRepository 
 
   async skipSet(setId: string, notes?: string, txn?: IDatabase): Promise<WorkoutSet> {
     const execute = async (client: IDatabase) => {
+      // 1. Check parent session status
+      const parentSession = await client.getFirstAsync<{ id: string; status: string }>(
+        `SELECT s.id, s.status FROM workout_sessions s
+         JOIN workout_session_exercises e ON e.session_id = s.id
+         JOIN workout_sets st ON st.session_exercise_id = e.id
+         WHERE st.id = ?;`,
+        setId
+      );
+      if (!parentSession) {
+        throw new SessionValidationError(`Set with id "${setId}" not found.`, 'id');
+      }
+
+      if (parentSession.status === 'completed' || parentSession.status === 'discarded') {
+        throw new SessionValidationError(
+          `Cannot modify sets of a ${parentSession.status} workout session.`,
+          'status'
+        );
+      }
+
       const existing = await client.getFirstAsync<SetRow>(
         `SELECT * FROM workout_sets WHERE id = ?;`,
         setId
@@ -514,9 +701,10 @@ export class SQLiteWorkoutSessionRepository implements WorkoutSessionRepository 
         throw new SessionValidationError(`Set with id "${setId}" not found.`, 'id');
       }
 
+      // Reset actual values to NULL when skipped, preserving planned parameters and notes
       await client.runAsync(
         `UPDATE workout_sets
-         SET status = 'skipped', completed_at = NULL, notes = ?
+         SET status = 'skipped', actual_reps = NULL, actual_weight_kg = NULL, completed_at = NULL, rpe = NULL, notes = ?
          WHERE id = ?;`,
         notes ?? existing.notes,
         setId
@@ -554,14 +742,47 @@ export class SQLiteWorkoutSessionRepository implements WorkoutSessionRepository 
     txn?: IDatabase
   ): Promise<WorkoutSet> {
     const execute = async (client: IDatabase) => {
-      const ex = await client.getFirstAsync<SessionExerciseRow>(
-        `SELECT * FROM workout_session_exercises WHERE id = ?;`,
+      // 1. Check parent session status
+      const parentSession = await client.getFirstAsync<{ id: string; status: string }>(
+        `SELECT s.id, s.status FROM workout_sessions s
+         JOIN workout_session_exercises e ON e.session_id = s.id
+         WHERE e.id = ?;`,
         sessionExerciseId
       );
-      if (!ex) {
+      if (!parentSession) {
         throw new SessionValidationError(
           `Session exercise with id "${sessionExerciseId}" not found.`,
           'sessionExerciseId'
+        );
+      }
+
+      if (parentSession.status === 'completed' || parentSession.status === 'discarded') {
+        throw new SessionValidationError(
+          `Cannot modify sets of a ${parentSession.status} workout session.`,
+          'status'
+        );
+      }
+
+      // 2. Strict validation of planned values
+      if (
+        typeof plannedReps !== 'number' ||
+        !Number.isInteger(plannedReps) ||
+        plannedReps < 0
+      ) {
+        throw new SessionValidationError(
+          'Planned reps must be a non-negative integer.',
+          'plannedReps'
+        );
+      }
+
+      if (
+        typeof plannedWeightKg !== 'number' ||
+        !Number.isFinite(plannedWeightKg) ||
+        plannedWeightKg < 0
+      ) {
+        throw new SessionValidationError(
+          'Planned weight must be a non-negative number.',
+          'plannedWeightKg'
         );
       }
 
@@ -580,16 +801,16 @@ export class SQLiteWorkoutSessionRepository implements WorkoutSessionRepository 
         newSetId,
         sessionExerciseId,
         nextSetNumber,
-        Math.max(0, Math.round(plannedReps)),
-        Math.max(0, Math.round(plannedWeightKg * 10) / 10)
+        plannedReps,
+        plannedWeightKg
       );
 
       return {
         id: newSetId,
         sessionExerciseId,
         setNumber: nextSetNumber,
-        plannedReps: Math.max(0, Math.round(plannedReps)),
-        plannedWeightKg: Math.max(0, Math.round(plannedWeightKg * 10) / 10),
+        plannedReps,
+        plannedWeightKg,
         status: 'pending' as const,
       };
     };
@@ -625,14 +846,14 @@ export class SQLiteWorkoutSessionRepository implements WorkoutSessionRepository 
         if (!Number.isNaN(lastResume)) {
           const finishTime = Date.parse(now);
           const delta = Math.max(0, finishTime - lastResume);
-          newAccumulated += delta;
+          newAccumulated = Math.max(0, newAccumulated + delta);
         }
       }
 
       await client.runAsync(
         `UPDATE workout_sessions
          SET status = 'completed', ended_at = ?, accumulated_elapsed_ms = ?,
-             last_resumed_at = NULL, notes = ?, updated_at = ?
+             last_resumed_at = NULL, rest_target_at = NULL, notes = ?, updated_at = ?
          WHERE id = ?;`,
         now,
         newAccumulated,
@@ -661,8 +882,59 @@ export class SQLiteWorkoutSessionRepository implements WorkoutSessionRepository 
         return;
       }
 
+      if (session.status === 'completed') {
+        throw new SessionValidationError(
+          'Cannot discard a completed workout session.',
+          'status'
+        );
+      }
+
+      if (session.status === 'discarded') {
+        // Idempotent: already marked discarded
+        return;
+      }
+
       // Deleting the session cascades and cleans up exercises and sets
       await client.runAsync(`DELETE FROM workout_sessions WHERE id = ?;`, id);
+    };
+
+    if (txn) return execute(txn);
+    return this.db.withExclusiveTransactionAsync(execute);
+  }
+
+  async setRestTarget(
+    sessionId: string,
+    restTargetAt: string | null,
+    txn?: IDatabase
+  ): Promise<WorkoutSession> {
+    const execute = async (client: IDatabase) => {
+      const session = await client.getFirstAsync<SessionRow>(
+        `SELECT * FROM workout_sessions WHERE id = ?;`,
+        sessionId
+      );
+      if (!session) {
+        throw new SessionValidationError(`Workout session "${sessionId}" not found.`, 'id');
+      }
+
+      if (session.status === 'completed' || session.status === 'discarded') {
+        throw new SessionValidationError(
+          `Cannot update rest target of a ${session.status} workout session.`,
+          'status'
+        );
+      }
+
+      await client.runAsync(
+        `UPDATE workout_sessions
+         SET rest_target_at = ?, updated_at = ?
+         WHERE id = ?;`,
+        restTargetAt,
+        new Date().toISOString(),
+        sessionId
+      );
+
+      const updated = await this.getSessionById(sessionId, client);
+      if (!updated) throw new Error('Failed to retrieve updated session.');
+      return updated;
     };
 
     if (txn) return execute(txn);

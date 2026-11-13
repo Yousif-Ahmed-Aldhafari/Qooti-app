@@ -155,3 +155,12 @@ export async function discardWorkoutSession(
   const repo = customRepo ?? (await getWorkoutSessionRepository());
   return repo.discardSession(id);
 }
+
+export async function setSessionRestTarget(
+  id: string,
+  restTargetAt: string | null,
+  customRepo?: WorkoutSessionRepository
+): Promise<WorkoutSession> {
+  const repo = customRepo ?? (await getWorkoutSessionRepository());
+  return repo.setRestTarget(id, restTargetAt);
+}

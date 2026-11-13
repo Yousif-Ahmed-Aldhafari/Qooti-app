@@ -258,6 +258,49 @@
 
 ---
 
+### Item 3.5A [RESOLVED] Active Session Integrity, Set Validation & Recovery
+- **Description:** Resolve active workout session integrity defects prior to device acceptance: enforce strict set validation (reject NaN, Infinity, negative reps/weights, fractional reps, out-of-range RPE without silent rounding or clamping), implement terminal session mutation protection, guarantee discard safety, enforce clean skipped set consistency, establish database-level single active session guarantee via Migration 6 partial unique index, ensure rest timer persistence and clock rollback immunity, and provide resilient UI error recovery.
+- **Resolution:**
+  1. **Strict Set Validation (`src/models/workoutSession.ts`, `src/db/repositories/workoutSessionRepository.ts`):**
+     - `validateWorkoutSet()` strictly validates planned and actual values.
+     - Actual repetitions require non-negative integers (rejects fractional actual repetitions such as 8.5, negative values, NaN, and Infinity without silent rounding or clamping).
+     - Actual weights require finite non-negative numbers (rejects negative numbers, NaN, and Infinity without clamping to 0).
+     - RPE requires finite numbers between 1 and 10.
+     - `completeSet()`, `updateSet()`, and `addSet()` validate inputs before SQLite write within transactional boundaries.
+  2. **Terminal Session Protection (`src/db/repositories/workoutSessionRepository.ts`):**
+     - Inside transactions, queries parent session status.
+     - Mutations (`completeSet`, `skipSet`, `updateSet`, `addSet`) strictly rejected with `SessionValidationError` if parent session status is `'completed'` or `'discarded'`.
+     - Explicit policy documented and tested for `'paused'` sessions: paused sessions are open in-progress sessions and permitted to log or edit sets.
+  3. **Discard Safety (`src/db/repositories/workoutSessionRepository.ts`):**
+     - Restricts `discardSession()` to open sessions (`status IN ('active', 'paused')`).
+     - Rejects discarding `'completed'` sessions with `SessionValidationError` and keeps session intact.
+     - Deterministic no-op for non-existent or already discarded sessions.
+  4. **Skipped Set Consistency (`src/db/repositories/workoutSessionRepository.ts`):**
+     - When marking a set skipped, resets `actual_reps = NULL`, `actual_weight_kg = NULL`, `completed_at = NULL`, `rpe = NULL`, and sets `status = 'skipped'`, while preserving `planned_reps`, `planned_weight_kg`, set ID, exercise ID, set number, and notes.
+     - Explicitly handles `completed` -> `skipped` transitions without stale performance residue.
+  5. **SQLite Migration 6 & Database-Level Single Open Session Guarantee (`src/db/migrations.ts`):**
+     - Versioned migration `enforce_single_open_workout_session_v6`.
+     - Adds `rest_target_at TEXT` column to `workout_sessions`.
+     - Checks pre-existing data: keeps newest open session and marks older conflicting open sessions as `'discarded'` without data loss.
+     - Partial unique index: `CREATE UNIQUE INDEX IF NOT EXISTS idx_workout_sessions_single_open ON workout_sessions((1)) WHERE status IN ('active', 'paused');` guaranteeing single open session invariant at the database engine level.
+  6. **Timer & Rest Recovery (`src/models/workoutSession.ts`, `src/db/repositories/workoutSessionRepository.ts`, `src/services/workoutSessionService.ts`):**
+     - Persists `rest_target_at` in SQLite on `setRestTarget()`, clearing on session finish.
+     - Recovers rest countdown on app restart if `restTargetAt` is in the future; safely expires if elapsed.
+     - Elapsed time calculations hardened against system clock rollbacks via `Math.max(0, eventTime - lastResume)` and non-negative accumulated duration clamping.
+  7. **UI Error Recovery (`src/screens/ActiveWorkoutScreen.tsx`):**
+     - Double-submission lock (`submittingSetId`) prevents concurrent set submissions.
+     - Set-level inline validation error display in English and Arabic.
+     - Draft inputs preserved in component state upon persistence failure.
+     - Recoverable error banners and alerts for pause, resume, finish, and discard operations.
+     - Touch targets satisfy $\ge 48\text{dp}$ Android / $\ge 44\text{pt}$ iOS guidelines.
+  8. **Testing Evidence:**
+     - 25 comprehensive automated tests in `src/__tests__/activeSessionIntegrity.test.ts`.
+     - Total project test suite: **324 passing tests**, 0 failures.
+     - Codebase line coverage: **90.76%**.
+     - 20/20 Expo Doctor checks passing.
+
+---
+
 ## 2. Planned Tasks in Phase 3
 
 ### Item 3.6 [PLANNED] Training Volume & Progression Insights

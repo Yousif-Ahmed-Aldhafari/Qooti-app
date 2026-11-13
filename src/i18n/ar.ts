@@ -272,7 +272,11 @@ export const ar = {
     "sessionConflictTitle": "جلسة تمرين نشطة حالياً",
     "sessionConflictMessage": "لديك بالفعل جلسة تمرين نشطة لـ \"{{title}}\". هل ترغب في استئنافها، أو إلغائها لبدء تمرين جديد؟",
     "discardAndStartNew": "إلغاء وبدء جديد",
-    "resumeActive": "استئناف النشط"
+    "resumeActive": "استئناف النشط",
+    "invalidReps": "يجب أن يكون عدد التكرارات رقماً صحيحاً >= 0.",
+    "invalidWeight": "يجب أن يكون الوزن رقماً صالحاً >= 0.",
+    "invalidRpe": "يجب أن يكون معدل الجهد بين 1 و 10.",
+    "sessionActionError": "فشل تنفيذ إجراء الجلسة. يرجى المحاولة مرة أخرى."
   },
   "progress": {
     "title": "التقدم",

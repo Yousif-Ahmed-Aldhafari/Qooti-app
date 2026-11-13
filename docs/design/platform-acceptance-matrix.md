@@ -370,6 +370,41 @@ Verified across:
 
 ---
 
+### Matrix Q: Phase 3 Task 3.5A Active Session Integrity, Set Validation & Recovery Acceptance
+
+Verified across:
+- **Physical Android Device:** Samsung Galaxy S22 Ultra (SM_S908U1), Android 15, One UI 7, dev build
+- **Physical iOS Device:** iPhone 15 Pro, iOS 18.2 (Expo Go / Metro dev client)
+
+| # | Phase 3 Task 3.5A Acceptance Area | Physical Android | Physical iOS | Verified Evidence / Scope Notes |
+|:---:|---|:---:|:---:|---|
+| 1 | **Strict Set Validation: Reps Integers** | **PASS** | **PASS** | Fractional reps (e.g. 8.5) and negative reps strictly rejected; no silent rounding or clamping |
+| 2 | **Strict Set Validation: Non-Negative Weights** | **PASS** | **PASS** | Negative weights, NaN, and Infinity rejected with `SessionValidationError` without silent zeroing |
+| 3 | **Strict Set Validation: Finite Values** | **PASS** | **PASS** | NaN and Infinity rejected on planned and actual reps/weight fields |
+| 4 | **Strict Set Validation: RPE Bounds** | **PASS** | **PASS** | RPE strictly validated within [1, 10]; out-of-bounds or non-finite values rejected |
+| 5 | **Strict Set Validation: Completed Requirements** | **PASS** | **PASS** | Completed sets require actual reps and weight; null values throw validation error |
+| 6 | **Terminal Mutation Protection: Completed** | **PASS** | **PASS** | `completeSet`, `skipSet`, `updateSet`, `addSet` rejected inside transaction on completed sessions |
+| 7 | **Terminal Mutation Protection: Discarded** | **PASS** | **PASS** | `completeSet`, `skipSet`, `updateSet`, `addSet` rejected inside transaction on discarded sessions |
+| 8 | **Paused Session Allowance Policy** | **PASS** | **PASS** | Paused sessions verified as open in-progress sessions; all set logging/edits succeed normally |
+| 9 | **Discard Protection on Completed** | **PASS** | **PASS** | `discardSession` on completed session throws `SessionValidationError` and leaves record intact |
+| 10 | **Deterministic Discard No-Op** | **PASS** | **PASS** | `discardSession` on missing or already discarded session resolves cleanly without error |
+| 11 | **Active/Paused Discard Cascade** | **PASS** | **PASS** | Discarding open session removes parent session and cascades to exercises and sets |
+| 12 | **Skipped Set Consistency: Null Actuals** | **PASS** | **PASS** | `skipSet` resets `actual_reps`, `actual_weight_kg`, `completed_at`, and `rpe` to NULL |
+| 13 | **Skipped Set Consistency: Parameter Retention** | **PASS** | **PASS** | Planned reps, planned weight, set number, set ID, and notes preserved during skip |
+| 14 | **Completed -> Skipped Transition** | **PASS** | **PASS** | Transitioning completed set to skipped nullifies previous actual values cleanly in SQLite |
+| 15 | **Migration 6: Engine-Level Partial Index** | **PASS** | **PASS** | `idx_workout_sessions_single_open` rejects second open session at SQLite engine level |
+| 16 | **Migration 6: Open Conflict Resolution** | **PASS** | **PASS** | Upgrading with multiple open sessions keeps newest active and marks older discarded without data loss |
+| 17 | **Rest Target Persistence (`restTargetAt`)** | **PASS** | **PASS** | Rest timer countdown target persisted in SQLite and survives app restart / repository reload |
+| 18 | **Clock Rollback Immunity** | **PASS** | **PASS** | Clock rollback clamped via `Math.max(0, delta)`; elapsed time never decreases or becomes negative |
+| 19 | **Set Submit Lock (`submittingSetId`)** | **PASS** | **PASS** | Checkmark button disabled during submission preventing duplicate rapid taps |
+| 20 | **Inline Localized Validation Display** | **PASS** | **PASS** | Clear, contextual inline error messages rendered below inputs in English and Arabic |
+| 21 | **Draft Input Retention on Error** | **PASS** | **PASS** | Form inputs retained in local state on persistence failure allowing user correction |
+| 22 | **Recoverable Action Banners & Alerts** | **PASS** | **PASS** | Dismissible banners and alerts for pause, resume, finish, and discard errors |
+| 23 | **Bilingual Error Strings & Numbers** | **PASS** | **PASS** | Arabic translations with Latin numbers (`1 و 10`) adhering to `ar-SA-u-nu-latn` standard |
+| 24 | **Touch Targets & WCAG Compliance** | **PASS** | **PASS** | All interactive buttons meet $\ge 48\text{dp}$ Android / $\ge 44\text{pt}$ iOS touch target criteria |
+
+---
+
 ## 3. Execution & Reporting Guidelines
 
 1. **Evidence Standard:** No test in this matrix may be reported as `PASS` unless verified on an actual physical device or targeted emulator.
