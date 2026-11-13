@@ -259,6 +259,29 @@ Verified across:
 
 ---
 
+### Matrix M: Phase 3 Task 3.3A Exercise Catalog Identity Persistence & Data Integrity Acceptance
+
+Verified across:
+- **Physical Android Device:** Samsung Galaxy S22 Ultra (SM_S908U1), Android 15, One UI 7, dev build
+- **Physical iOS Device:** iPhone 15 Pro, iOS 18.2 (Expo Go / Metro dev client)
+
+| # | Phase 3 Task 3.3A Acceptance Area | Physical Android | Physical iOS | Verified Evidence / Scope Notes |
+|:---:|---|:---:|:---:|---|
+| 1 | **Migration 4 Execution & Idempotence** | **PASS** | **PASS** | `add_workout_exercise_catalog_id_v4` executes cleanly without error; re-running is idempotent |
+| 2 | **Legacy Row Preservation** | **PASS** | **PASS** | Existing pre-migration workout exercises retain data with `null` `catalog_id` without crash |
+| 3 | **Catalog ID Insert Roundtrip** | **PASS** | **PASS** | Adding exercise from catalog writes `catalog_id` to SQLite and restores `catalogId` upon reload |
+| 4 | **Catalog ID Update Roundtrip** | **PASS** | **PASS** | Editing exercise parameters or replacing with another catalog entry updates SQLite `catalog_id` |
+| 5 | **Catalog ID Preservation on Reorder** | **PASS** | **PASS** | Moving exercises Up/Down retains their respective `catalog_id` mappings across SQLite reload |
+| 6 | **Mixed Catalog & Custom Workouts** | **PASS** | **PASS** | Workout containing both catalog items and custom items stores and retrieves both accurately |
+| 7 | **No Auto-Matching by Name** | **PASS** | **PASS** | Custom exercise named identically to catalog item retains `catalogId: undefined` (never auto-inferred) |
+| 8 | **Unknown / Future Catalog ID Safety** | **PASS** | **PASS** | Exercises with arbitrary or future catalog IDs persist as-is without database or UI failure |
+| 9 | **Add Screen Duplicate-Save Guard** | **PASS** | **PASS** | Rapid double-tapping Save button disables during persistence; exactly one workout created |
+| 10 | **Failure Recovery & Draft Preservation** | **PASS** | **PASS** | SQLite save failure halts navigation; draft inputs remain populated for user inspection and retry |
+| 11 | **Async Navigation Handshake** | **PASS** | **PASS** | `AppNavigator` awaits SQLite persistence completion before transitioning to `workoutDetails` |
+| 12 | **Cold Restart Verification** | **PASS** | **PASS** | Terminating and reopening app confirms all catalog-linked workouts load with correct catalog IDs |
+
+---
+
 ## 3. Execution & Reporting Guidelines
 
 1. **Evidence Standard:** No test in this matrix may be reported as `PASS` unless verified on an actual physical device or targeted emulator.

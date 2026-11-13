@@ -116,6 +116,35 @@
 
 ---
 
+### Item 3.3A [RESOLVED] Exercise Catalog Identity Persistence & Data Integrity
+- **Description:** Resolve catalog identity persistence defect by adding versioned SQLite Migration 4 (`add_workout_exercise_catalog_id_v4`), updating `SQLiteWorkoutRepository` mapping in both read and write directions, hardening `AddWorkoutScreen` and `AppNavigator` against race conditions and save failures, and proving upgrade paths from V1, V2, and V3.
+- **Resolution:**
+  1. **Versioned SQLite Migration 4 (`add_workout_exercise_catalog_id_v4`):**
+     - Added Migration 4 in `src/db/migrations.ts` altering `workout_exercises` to add nullable `catalog_id TEXT` column.
+     - Preserves all historical workout records, child exercise rows, and existing primary/foreign key constraints.
+     - Fully idempotent using `addMissingColumns()`.
+     - Tested clean upgrades from V0, V1, V2, and V3 to V4.
+  2. **Repository Mapping Alignment (`SQLiteWorkoutRepository`):**
+     - Updated `ExerciseRow` interface with `catalog_id: string | null`.
+     - In `getAllWorkouts()` and `getWorkoutById()`: mapped `catalogId: ex.catalog_id ?? undefined`.
+     - In `insertWorkout()`, `updateWorkout()`, and `saveAllWorkouts()`: mapped `catalog_id` explicitly into SQL statements (`ex.catalogId ?? null`).
+     - Preserved transaction rollback semantics, ID stability, and sort ordering.
+  3. **Add Screen Save Reliability Audit:**
+     - Made `onSave` in `AddWorkoutScreenProps` return `Promise<void> | void`.
+     - Added `isSaving` state and disabled Save button during persistence to prevent duplicate submissions and duplicate workouts.
+     - In `AppNavigator.tsx`, made `saveWorkout` asynchronous, awaiting `addWorkout(workout)` before navigating to `workoutDetails` or updating selection.
+     - Kept draft data accessible upon persistence failure for safe user retry.
+  4. **Catalog Identity Semantics:**
+     - Catalog exercises retain stable canonical slug IDs (`barbell-bench-press`).
+     - Legacy and custom exercises store `null` (`undefined` in domain model) and are never auto-matched or inferred by name.
+     - Future or unknown catalog IDs load gracefully without crashing.
+  5. **Testing Evidence:**
+     - 15 new automated regression and integrity tests in `src/__tests__/catalogIdPersistence.test.ts`.
+     - Total project test suite: **226 passing tests**, 0 failures, 0 regressions.
+     - 91.27% overall coverage; 20/20 Expo Doctor checks passing.
+
+---
+
 ## 2. Planned Tasks in Phase 3
 
 ### Item 3.4 [PLANNED] Workout History, Volume Analytics & Quick-Add
