@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, BackHandler, I18nManager, Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
+import { Alert, BackHandler, I18nManager, Pressable, ScrollView, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -88,6 +88,8 @@ export function AppNavigator() {
     resumeInterruptedSession,
     archiveInterruptedSession,
     discardInterruptedSession,
+    migrationConflict,
+    resolveMigrationConflict,
     t,
   } = useApp();
 
@@ -556,6 +558,54 @@ export function AppNavigator() {
     writingDirection: writingDirection(language),
   } as const;
 
+  if (migrationConflict) {
+    return (
+      <SafeAreaView style={[styles.root, { backgroundColor: palette.background }]} edges={['top', 'bottom']}>
+        <View style={styles.conflictContainer}>
+          <Ionicons name="alert-circle" size={48} color={palette.warning} />
+          <Text style={[styles.conflictTitle, directionalText, { color: palette.text }]}>
+            {t('workouts.preMigrationConflictTitle')}
+          </Text>
+          <Text style={[styles.conflictSubtitle, directionalText, { color: palette.textMuted }]}>
+            {t('workouts.preMigrationConflictMessage')}
+          </Text>
+          <ScrollView style={styles.conflictScroll} contentContainerStyle={styles.conflictScrollContent}>
+            {migrationConflict.conflicts.map((session) => (
+              <View
+                key={session.id}
+                style={[
+                  styles.conflictCard,
+                  {
+                    backgroundColor: palette.card,
+                    borderColor: palette.border,
+                  },
+                ]}
+              >
+                <Text style={[styles.conflictSessionTitle, directionalText, { color: palette.text }]}>
+                  {session.title || 'Untitled Workout'}
+                </Text>
+                <Text style={[styles.conflictSessionMeta, directionalText, { color: palette.textMuted }]}>
+                  {session.startedAt}
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('workouts.preMigrationConflictResolve')}
+                  style={[styles.conflictActionBtn, { backgroundColor: palette.accent }]}
+                  onPress={() => resolveMigrationConflict(session.id, 'archive')}
+                >
+                  <Text style={styles.conflictActionBtnText}>
+                    {t('workouts.resume')}
+                  </Text>
+                </Pressable>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+        <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
+      </SafeAreaView>
+    );
+  }
+
   if (!isAppReady || showSplash || isSwitchingLanguage) {
     return (
       <View style={[styles.root, { backgroundColor: palette.background }]}>
@@ -652,5 +702,54 @@ const styles = StyleSheet.create({
   },
   errorDismiss: {
     padding: spacing.xs,
+  },
+  conflictContainer: {
+    flex: 1,
+    padding: spacing.xl,
+    alignItems: 'center',
+    gap: spacing.md,
+    justifyContent: 'center',
+  },
+  conflictTitle: {
+    ...typography.h2,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  conflictSubtitle: {
+    ...typography.body,
+    textAlign: 'center',
+  },
+  conflictScroll: {
+    width: '100%',
+    maxHeight: 320,
+    marginTop: spacing.md,
+  },
+  conflictScrollContent: {
+    gap: spacing.md,
+  },
+  conflictCard: {
+    padding: spacing.lg,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    gap: spacing.xs,
+  },
+  conflictSessionTitle: {
+    ...typography.h3,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  conflictSessionMeta: {
+    ...typography.caption,
+  },
+  conflictActionBtn: {
+    marginTop: spacing.sm,
+    minHeight: 44,
+    borderRadius: radius.sm,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  conflictActionBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
 });

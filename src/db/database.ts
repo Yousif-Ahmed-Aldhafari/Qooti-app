@@ -60,10 +60,30 @@ function wrapDatabase(rawDb: any): IDatabase {
 }
 
 /**
+ * Opens a raw native database connection without running migrations.
+ * Foreign keys and WAL pragmas are enabled.
+ */
+export async function getDatabaseConnectionOnly(): Promise<IDatabase> {
+  const rawDb = await SQLite.openDatabaseAsync(DATABASE_NAME);
+  const dbAdapter = wrapDatabase(rawDb);
+  await dbAdapter.execAsync('PRAGMA foreign_keys = ON;');
+  if (Platform?.OS !== 'web') {
+    try {
+      await dbAdapter.execAsync('PRAGMA journal_mode = WAL;');
+    } catch (err) {
+      console.warn('[db] WAL pragma skipped:', err);
+    }
+  }
+  return dbAdapter;
+}
+
+/**
  * Opens or returns the active database connection.
  * Configures PRAGMAs (foreign keys and WAL) and runs pending migrations.
  */
-export async function getDatabase(): Promise<IDatabase> {
+export async function getDatabase(
+  options: { strictConflictCheck?: boolean } = { strictConflictCheck: true }
+): Promise<IDatabase> {
   if (dbInstance) {
     return dbInstance;
   }
@@ -73,23 +93,10 @@ export async function getDatabase(): Promise<IDatabase> {
 
   initPromise = (async () => {
     try {
-      const rawDb = await SQLite.openDatabaseAsync(DATABASE_NAME);
-      const dbAdapter = wrapDatabase(rawDb);
-
-      // Enable foreign keys
-      await dbAdapter.execAsync('PRAGMA foreign_keys = ON;');
-
-      // Enable WAL mode where supported
-      if (Platform?.OS !== 'web') {
-        try {
-          await dbAdapter.execAsync('PRAGMA journal_mode = WAL;');
-        } catch (err) {
-          console.warn('[db] WAL pragma skipped:', err);
-        }
-      }
+      const dbAdapter = await getDatabaseConnectionOnly();
 
       // Run versioned schema migrations
-      await runMigrations(dbAdapter);
+      await runMigrations(dbAdapter, options);
 
       dbInstance = dbAdapter;
       return dbAdapter;

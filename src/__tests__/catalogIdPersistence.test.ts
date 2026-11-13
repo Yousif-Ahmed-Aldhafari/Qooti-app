@@ -50,7 +50,7 @@ test('CatalogId - Test 2: Fresh database installation runs all 4 migrations clea
   const migrations = await db.getAllAsync<{ version: number; name: string }>(
     'SELECT version, name FROM schema_migrations ORDER BY version ASC;'
   );
-  assert.equal(migrations.length, 7);
+  assert.equal(migrations.length, 8);
   assert.equal(migrations[3].version, 4);
   assert.equal(migrations[3].name, 'add_workout_exercise_catalog_id_v4');
   assert.equal(migrations[4].version, 5);
@@ -59,6 +59,8 @@ test('CatalogId - Test 2: Fresh database installation runs all 4 migrations clea
   assert.equal(migrations[5].name, 'enforce_single_open_workout_session_v6');
   assert.equal(migrations[6].version, 7);
   assert.equal(migrations[6].name, 'recover_conflicted_workout_sessions_v7');
+  assert.equal(migrations[7].version, 8);
+  assert.equal(migrations[7].name, 'clarify_session_recovery_provenance_v8');
 
   const cols = await db.getAllAsync<{ name: string }>('PRAGMA table_info(workout_exercises);');
   assert.ok(cols.some(c => c.name === 'catalog_id'), 'catalog_id column must exist');
@@ -70,7 +72,7 @@ test('CatalogId - Test 3: Running migrations twice does not duplicate Migration 
   await runMigrations(db);
 
   const migrations = await db.getAllAsync<{ version: number }>('SELECT version FROM schema_migrations;');
-  assert.equal(migrations.length, 7, 'Must not re-apply migrations on second run');
+  assert.equal(migrations.length, 8, 'Must not re-apply migrations on second run');
 });
 
 // Test 4: Existing legacy exercises after migration have NULL catalog_id

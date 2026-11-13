@@ -19,7 +19,7 @@ import {
   updateWorkout as updateWorkoutService,
   deleteWorkout as deleteWorkoutService,
 } from '../services/workoutService';
-import type { WorkoutSession } from '../models/workoutSession';
+import { MigrationSessionConflictError, type WorkoutSession } from '../models/workoutSession';
 import {
   getActiveWorkoutSession,
   startWorkoutSession,
@@ -36,11 +36,22 @@ import {
   archiveInterruptedWorkoutSession,
 } from '../services/workoutSessionService';
 import { applyAppDirection, isRTLLanguage } from '../utils/languageDirection';
-import { getDatabase, migrateFromAsyncStorage } from '../db';
+import {
+  getDatabase,
+  getDatabaseConnectionOnly,
+  migrateFromAsyncStorage,
+  reconcilePreMigrationConflicts,
+} from '../db';
+
+export type MigrationConflictInfo = {
+  conflicts: { id: string; title: string; startedAt: string; status?: string }[];
+  error: string;
+};
 
 export type AppStateData = {
   isReady: boolean;
   persistenceError: string | null;
+  migrationConflict: MigrationConflictInfo | null;
   meals: Meal[];
   workouts: Workout[];
   profile: UserProfile;
@@ -62,6 +73,7 @@ export type AppAction =
       interruptedSessions?: WorkoutSession[];
     }
   | { type: 'setPersistenceError'; error: string | null }
+  | { type: 'setMigrationConflict'; conflict: MigrationConflictInfo | null }
   | { type: 'setActiveSession'; session: WorkoutSession | null }
   | { type: 'setInterruptedSessions'; sessions: WorkoutSession[] }
   | { type: 'addMeal'; meal: Meal }
@@ -112,6 +124,10 @@ type AppContextValue = AppStateData & {
   refreshActiveSession: () => Promise<void>;
   updateActiveSessionRestTarget: (restTargetAt: string | null) => Promise<WorkoutSession | null>;
   loadInterruptedSessions: () => Promise<WorkoutSession[]>;
+  resolveMigrationConflict: (
+    resumeSessionId: string,
+    actionForOthers?: 'archive' | 'discard'
+  ) => Promise<void>;
   resumeInterruptedSession: (
     sessionId: string,
     currentSessionAction?: 'archive' | 'discard'
@@ -123,6 +139,7 @@ type AppContextValue = AppStateData & {
 const initialState: AppStateData = {
   isReady: false,
   persistenceError: null,
+  migrationConflict: null,
   meals: [],
   workouts: [],
   profile: getSeedProfile(),
@@ -165,6 +182,12 @@ export function appReducer(state: AppStateData, action: AppAction): AppStateData
       return {
         ...state,
         persistenceError: action.error,
+      };
+
+    case 'setMigrationConflict':
+      return {
+        ...state,
+        migrationConflict: action.conflict,
       };
 
     case 'addMeal': {
@@ -251,6 +274,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Tracks whether state has been initialized from storage to prevent overwriting during hydration
   const isHydratedRef = useRef(false);
+  const hydrateRef = useRef<() => Promise<void>>(() => Promise.resolve());
 
   const applyLanguageDirection = useCallback((language: Language) => {
     applyAppDirection(language);
@@ -265,7 +289,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         try {
           const db = await getDatabase();
           await migrateFromAsyncStorage(db);
-        } catch (dbErr) {
+        } catch (dbErr: any) {
+          if (
+            dbErr instanceof MigrationSessionConflictError ||
+            dbErr?.name === 'MigrationSessionConflictError'
+          ) {
+            console.warn('[AppContext] Pre-migration session conflict detected:', dbErr);
+            if (active) {
+              dispatch({
+                type: 'setMigrationConflict',
+                conflict: {
+                  conflicts: dbErr.conflictingSessions || [],
+                  error: dbErr.message,
+                },
+              });
+            }
+            return;
+          }
           console.warn('[AppContext] SQLite initialization or migration notice:', dbErr);
         }
 
@@ -402,12 +442,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
+    hydrateRef.current = hydrate;
     hydrate();
 
     return () => {
       active = false;
     };
   }, []);
+
+  const resolveMigrationConflict = useCallback(
+    async (resumeSessionId: string, actionForOthers: 'archive' | 'discard' = 'archive') => {
+      try {
+        const db = await getDatabaseConnectionOnly();
+        await reconcilePreMigrationConflicts(db, { resumeSessionId, actionForOthers });
+        await getDatabase();
+        dispatch({ type: 'setMigrationConflict', conflict: null });
+        await hydrateRef.current();
+      } catch (err: any) {
+        console.error('[AppContext] Failed to resolve migration conflict:', err);
+        dispatch({
+          type: 'setPersistenceError',
+          error: err?.message || 'Failed to resolve session conflict.',
+        });
+        throw err;
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     if (!state.isReady) {
@@ -790,8 +851,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           throw err;
         }
       },
+      resolveMigrationConflict,
     }),
-    [setLanguage, state, t],
+    [resolveMigrationConflict, setLanguage, state, t],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

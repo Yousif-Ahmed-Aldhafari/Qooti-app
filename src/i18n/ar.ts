@@ -289,7 +289,11 @@ export const ar = {
     "resumeInterruptedConflictTitle": "يوجد تمرين نشط قيد التنفيذ",
     "resumeInterruptedConflictMessage": "توجد جلسة أخرى نشطة حاليًا. هل ترغب في أرشفة الجلسة الحالية إلى السجل، أو حذفها قبل استئناف هذه الجلسة؟",
     "archiveAndResume": "أرشفة الحالية والاستئناف",
-    "discardAndResume": "حذف الحالية والاستئناف"
+    "discardAndResume": "حذف الحالية والاستئناف",
+    "recoveryAmbiguousBadge": "سجل غير مؤكد",
+    "preMigrationConflictTitle": "تم العثور على جلسات غير مكتملة",
+    "preMigrationConflictMessage": "تم العثور على جلسات تمرين مفتوحة متعددة من إصدار سابق. يرجى اختيار الجلسة التي ترغب في استئنافها للمتابعة.",
+    "preMigrationConflictResolve": "معالجة ومتابعة"
   },
   "progress": {
     "title": "التقدم",

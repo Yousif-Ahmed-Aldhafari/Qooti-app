@@ -1,6 +1,6 @@
 import { IDatabase, SchemaMigration } from './types';
 import { SCHEMA_V1_SQL } from './schema';
-import { MigrationSessionConflictError } from '../models/workoutSession';
+import { MigrationSessionConflictError, SessionValidationError } from '../models/workoutSession';
 
 type ColumnDefinition = { name: string; ddl: string };
 
@@ -130,12 +130,6 @@ export const MIGRATIONS: SchemaMigration[] = [
           `ALTER TABLE workout_sessions ADD COLUMN rest_target_at TEXT;`
         );
       }
-      const hasRecoveryState = sessionCols.some((c) => c.name === 'recovery_state');
-      if (!hasRecoveryState) {
-        await db.execAsync(
-          `ALTER TABLE workout_sessions ADD COLUMN recovery_state TEXT;`
-        );
-      }
 
       const openSessions = await db.getAllAsync<{
         id: string;
@@ -153,7 +147,7 @@ export const MIGRATIONS: SchemaMigration[] = [
         for (const old of older) {
           await db.runAsync(
             `UPDATE workout_sessions
-             SET status = 'discarded', recovery_state = 'interrupted', updated_at = ?
+             SET status = 'discarded', updated_at = ?
              WHERE id = ?;`,
             now,
             old.id
@@ -191,6 +185,29 @@ export const MIGRATIONS: SchemaMigration[] = [
       );
     },
   },
+  {
+    version: 8,
+    name: 'clarify_session_recovery_provenance_v8',
+    up: async (db) => {
+      const sessionCols = await db.getAllAsync<{ name: string }>(
+        `PRAGMA table_info(workout_sessions);`
+      );
+      const hasRecoveryState = sessionCols.some((c) => c.name === 'recovery_state');
+      if (!hasRecoveryState) {
+        await db.execAsync(
+          `ALTER TABLE workout_sessions ADD COLUMN recovery_state TEXT;`
+        );
+      }
+
+      // Mark older retained discarded sessions whose origin is unproven (e.g. from historical Migration 6/7)
+      // as 'ambiguous' so they are not falsely represented as confirmed interrupted sessions.
+      await db.runAsync(
+        `UPDATE workout_sessions
+         SET recovery_state = 'ambiguous'
+         WHERE status = 'discarded' AND (recovery_state = 'interrupted' OR recovery_state IS NULL OR recovery_state = '');`
+      );
+    },
+  },
 ];
 
 /**
@@ -224,11 +241,88 @@ export async function detectPreMigrationSessionConflicts(
 }
 
 /**
+ * Reconciles pre-migration session conflicts safely under user direction.
+ * Keeps the selected session open while safely archiving or discarding other open sessions.
+ */
+export async function reconcilePreMigrationConflicts(
+  db: IDatabase,
+  resolution: {
+    resumeSessionId: string;
+    actionForOthers?: 'archive' | 'discard';
+  }
+): Promise<void> {
+  await db.withExclusiveTransactionAsync(async (client) => {
+    const openSessions = await client.getAllAsync<{ id: string }>(
+      `SELECT id FROM workout_sessions WHERE status IN ('active', 'paused');`
+    );
+
+    const targetSession = openSessions.find((s) => s.id === resolution.resumeSessionId);
+    if (!targetSession) {
+      throw new SessionValidationError(
+        `Selected session "${resolution.resumeSessionId}" not found among open sessions.`,
+        'resumeSessionId'
+      );
+    }
+
+    const sessionCols = await client.getAllAsync<{ name: string }>(
+      `PRAGMA table_info(workout_sessions);`
+    );
+    const hasRestTarget = sessionCols.some((c) => c.name === 'rest_target_at');
+    const hasRecoveryState = sessionCols.some((c) => c.name === 'recovery_state');
+    if (!hasRecoveryState) {
+      await client.execAsync(`ALTER TABLE workout_sessions ADD COLUMN recovery_state TEXT;`);
+    }
+
+    const now = new Date().toISOString();
+    const action = resolution.actionForOthers ?? 'archive';
+
+    for (const s of openSessions) {
+      if (s.id === resolution.resumeSessionId) {
+        await client.runAsync(
+          `UPDATE workout_sessions
+           SET status = 'active', recovery_state = 'recovered', last_resumed_at = ?, updated_at = ?
+           WHERE id = ?;`,
+          now,
+          now,
+          s.id
+        );
+      } else {
+        if (action === 'discard') {
+          await client.runAsync(`DELETE FROM workout_sessions WHERE id = ?;`, s.id);
+        } else {
+          if (hasRestTarget) {
+            await client.runAsync(
+              `UPDATE workout_sessions
+               SET status = 'completed', recovery_state = 'archived', ended_at = COALESCE(ended_at, ?),
+                   last_resumed_at = NULL, rest_target_at = NULL, updated_at = ?
+               WHERE id = ?;`,
+              now,
+              now,
+              s.id
+            );
+          } else {
+            await client.runAsync(
+              `UPDATE workout_sessions
+               SET status = 'completed', recovery_state = 'archived', ended_at = COALESCE(ended_at, ?),
+                   last_resumed_at = NULL, updated_at = ?
+               WHERE id = ?;`,
+              now,
+              now,
+              s.id
+            );
+          }
+        }
+      }
+    }
+  });
+}
+
+/**
  * Initializes migration tracking and executes any pending schema migrations in sequence.
  */
 export async function runMigrations(
   db: IDatabase,
-  options?: { strictConflictCheck?: boolean }
+  options: { strictConflictCheck?: boolean } = { strictConflictCheck: true }
 ): Promise<void> {
   // Ensure schema_migrations table exists
   await db.execAsync(`
@@ -245,8 +339,9 @@ export async function runMigrations(
   );
   const appliedVersions = new Set(appliedRows.map((r) => r.version));
 
-  // If strictConflictCheck is requested and migration 6 has not run yet, check for conflicts
-  if (options?.strictConflictCheck && !appliedVersions.has(6)) {
+  // If strictConflictCheck is active (default true) and migration 6 has not run yet, check for conflicts
+  const shouldCheckStrict = options.strictConflictCheck !== false;
+  if (shouldCheckStrict && !appliedVersions.has(6)) {
     const conflicts = await detectPreMigrationSessionConflicts(db);
     if (conflicts.length > 1) {
       throw new MigrationSessionConflictError(

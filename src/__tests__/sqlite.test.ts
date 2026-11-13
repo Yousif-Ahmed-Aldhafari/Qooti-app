@@ -30,7 +30,7 @@ test('SQLite: Empty database initialization', async () => {
   const migrations = await db.getAllAsync<{ version: number; name: string }>(
     'SELECT version, name FROM schema_migrations ORDER BY version ASC;'
   );
-  assert.equal(migrations.length, 7);
+  assert.equal(migrations.length, 8);
   assert.equal(migrations[0].version, 1);
   assert.equal(migrations[0].name, 'initial_schema_v1');
   assert.equal(migrations[1].version, 2);
@@ -45,6 +45,8 @@ test('SQLite: Empty database initialization', async () => {
   assert.equal(migrations[5].name, 'enforce_single_open_workout_session_v6');
   assert.equal(migrations[6].version, 7);
   assert.equal(migrations[6].name, 'recover_conflicted_workout_sessions_v7');
+  assert.equal(migrations[7].version, 8);
+  assert.equal(migrations[7].name, 'clarify_session_recovery_provenance_v8');
 
   // Verify core tables exist
   const tables = await db.getAllAsync<{ name: string }>(
@@ -72,7 +74,7 @@ test('SQLite: Schema migration idempotency and repeat initialization', async () 
   const migrations = await db.getAllAsync<{ version: number }>(
     'SELECT version FROM schema_migrations;'
   );
-  assert.equal(migrations.length, 7, 'Migrations should not be re-applied or duplicated');
+  assert.equal(migrations.length, 8, 'Migrations should not be re-applied or duplicated');
 });
 
 test('SQLite: CRUD operations for Meals and parent/child relationship integrity', async () => {

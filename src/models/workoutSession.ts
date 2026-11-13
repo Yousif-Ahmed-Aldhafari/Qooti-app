@@ -1,6 +1,6 @@
 export type SessionStatus = 'active' | 'paused' | 'completed' | 'discarded';
 
-export type SessionRecoveryState = 'interrupted' | 'recovered' | 'archived';
+export type SessionRecoveryState = 'interrupted' | 'recovered' | 'archived' | 'ambiguous';
 
 export type SetStatus = 'pending' | 'completed' | 'skipped';
 
@@ -56,7 +56,7 @@ export class SessionValidationError extends Error {
 export class MigrationSessionConflictError extends Error {
   constructor(
     message: string,
-    public readonly conflictingSessions: { id: string; title: string; startedAt: string }[] = []
+    public readonly conflictingSessions: { id: string; title: string; startedAt: string; status?: string }[] = []
   ) {
     super(message);
     this.name = 'MigrationSessionConflictError';

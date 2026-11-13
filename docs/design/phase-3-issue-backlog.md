@@ -307,8 +307,6 @@
   1. **Migration 6 & 7 Conflict Safety (`src/db/migrations.ts`):**
      - Introduced `detectPreMigrationSessionConflicts(db)` to detect multiple open sessions before applying the unique index constraint.
      - Added optional `strictConflictCheck` to `runMigrations()` throwing typed `MigrationSessionConflictError` with conflict details if unmigrated conflicts exist.
-     - Updated Migration 6 to add `recovery_state TEXT` and set `recovery_state = 'interrupted'` on older conflicting sessions instead of silent discard.
-     - Added versioned Migration 7 (`recover_conflicted_workout_sessions_v7`) for databases where Migration 6 has already executed: tags any sessions previously transitioned by Migration 6 automatic resolution (`status = 'discarded'` where child records remain) as `recovery_state = 'interrupted'`.
      - Preserves all session rows, child exercises, and completed set performance logs.
   2. **Domain Model & Repository Recovery (`src/models/workoutSession.ts`, `src/db/repositories/workoutSessionRepository.ts`):**
      - Defined `SessionRecoveryState = 'interrupted' | 'recovered' | 'archived'`.
@@ -337,6 +335,39 @@
      - 18 comprehensive regression and lifecycle tests in `src/__tests__/recoverySessionRestTimer.test.ts`.
      - Total project test suite: **342 passing tests**, 0 failures.
      - Codebase line coverage: **90.48%**.
+     - 20/20 Expo Doctor checks passing.
+
+---
+
+### Item 3.5C [RESOLVED] Final Migration Provenance & Session Recovery Safety
+- **Description:** Eliminate unsafe migration and interrupted-session recovery behavior. Make production database initialization safe by default with mandatory pre-migration conflict detection; restore historical Migration 6 definition from commit `463c607`; implement forward-only Migration 8 (`clarify_session_recovery_provenance_v8`) distinguishing confirmed interrupted sessions from ambiguous historical records (`recovery_state = 'ambiguous'`); harden repository recovery guards with strict elapsed duration preservation; provide interactive pre-migration conflict resolution in `AppContext` and `AppNavigator`.
+- **Resolution:**
+  1. **Safe Production Startup by Default (`src/db/database.ts`, `src/db/migrations.ts`):**
+     - `runMigrations()` and `getDatabase()` mandate `strictConflictCheck: true` by default.
+     - Normal app startup never silently discards unfinished sessions.
+     - If migration conflicts exist (>1 open session prior to Migration 6), initialization throws `MigrationSessionConflictError` and halts before altering data.
+     - Provided `getDatabaseConnectionOnly()` to allow conflict inspection and resolution without running migrations prematurely.
+     - Added `reconcilePreMigrationConflicts(db, resolution)` allowing users to designate which session to resume while safely archiving or discarding other open sessions.
+  2. **Migration History Integrity & Forward-Only Migration 8 (`src/db/migrations.ts`):**
+     - Restored Migration 6 (`enforce_single_open_workout_session_v6`) to its exact historical definition from commit `463c607`.
+     - Maintained Migration 7 (`recover_conflicted_workout_sessions_v7`).
+     - Added forward-only Migration 8 (`clarify_session_recovery_provenance_v8`, version: 8): tags older retained discarded sessions whose origin is unproven as `recovery_state = 'ambiguous'` without falsifying provenance.
+     - Cleanly supports all database lineages: V0 fresh install, V5 with conflicts, historical V6, V7, and V8.
+  3. **Repository Recovery Hardening (`src/db/repositories/workoutSessionRepository.ts`):**
+     - `listInterruptedSessions()` returns recoverable sessions with `recovery_state IN ('interrupted', 'ambiguous') AND status != 'completed'`.
+     - `resumeInterruptedSession()` enforces single-open-session invariant: requires explicit `currentSessionAction` ('archive' | 'discard') if another active session exists, preventing silent overwrites or concurrent open sessions.
+     - Resuming interrupted sessions preserves exact original `started_at` and `accumulated_elapsed_ms`, completely preventing interruption duration from falsely inflating workout duration.
+     - `archiveInterruptedSession()` rejects active/paused sessions and moves interrupted/ambiguous records to completed with notes and timestamps intact.
+     - `discardSession()` rejects deletion of completed sessions and executes clean cascading physical deletion of uncompleted sessions.
+  4. **UI & State Machine Protection (`src/store/AppContext.tsx`, `src/navigation/AppNavigator.tsx`, `src/screens/WorkoutsScreen.tsx`):**
+     - Hydration catches `MigrationSessionConflictError` and sets `migrationConflict` state, aborting data load to prevent overwriting user database with sample seed data.
+     - `AppNavigator` presents dedicated pre-migration conflict resolution interface allowing the user to select which session to resume.
+     - `WorkoutsScreen` recovery modal displays dedicated "Unverified Record" badge for sessions with ambiguous provenance.
+     - Fully bilingual in English and Arabic with Latin numerals.
+  5. **Testing Evidence:**
+     - 22 new comprehensive tests in `src/__tests__/migrationProvenanceSafety.test.ts`.
+     - All 364 tests passing (342 baseline + 22 new tests), 0 failures.
+     - Codebase line coverage: **90.07%**, branch coverage: **80.75%**, function coverage: **85.22%**.
      - 20/20 Expo Doctor checks passing.
 
 ---

@@ -978,7 +978,7 @@ export class SQLiteWorkoutSessionRepository implements WorkoutSessionRepository 
 
       const sessions = await client.getAllAsync<SessionRow>(
         `SELECT * FROM workout_sessions
-         WHERE recovery_state = 'interrupted'
+         WHERE recovery_state IN ('interrupted', 'ambiguous') AND status != 'completed'
          ORDER BY started_at DESC, updated_at DESC;`
       );
 
@@ -1006,7 +1006,7 @@ export class SQLiteWorkoutSessionRepository implements WorkoutSessionRepository 
 
   async resumeInterruptedSession(
     id: string,
-    currentSessionAction: 'archive' | 'discard' = 'archive',
+    options?: { currentSessionAction?: 'archive' | 'discard' } | 'archive' | 'discard',
     txn?: IDatabase
   ): Promise<WorkoutSession> {
     const execute = async (client: IDatabase) => {
@@ -1022,7 +1022,18 @@ export class SQLiteWorkoutSessionRepository implements WorkoutSessionRepository 
         throw new SessionValidationError('Cannot resume a completed session.', 'status');
       }
 
-      const now = new Date().toISOString();
+      const isEligible =
+        session.recovery_state === 'interrupted' ||
+        session.recovery_state === 'ambiguous' ||
+        session.status === 'discarded' ||
+        session.status === 'paused';
+
+      if (!isEligible) {
+        throw new SessionValidationError(
+          `Session "${id}" is not in a resumable recovery state (status: ${session.status}, recoveryState: ${session.recovery_state}).`,
+          'recoveryState'
+        );
+      }
 
       // Maintain single-open-session invariant:
       // If there is currently another active or paused session, resolve it first.
@@ -1031,23 +1042,44 @@ export class SQLiteWorkoutSessionRepository implements WorkoutSessionRepository 
         id
       );
 
+      const action = typeof options === 'string' ? options : options?.currentSessionAction;
+
+      if (openSessions.length > 0 && !action) {
+        throw new SessionValidationError(
+          'Another workout session is currently active or paused. Specify currentSessionAction (archive or discard) to resume.',
+          'currentSessionAction'
+        );
+      }
+
+      const now = new Date().toISOString();
+
       for (const open of openSessions) {
-        if (currentSessionAction === 'discard') {
+        if (action === 'discard') {
           await client.runAsync(`DELETE FROM workout_sessions WHERE id = ?;`, open.id);
         } else {
-          // default: archive/complete
+          // default: archive/complete - preserve elapsed time if active
+          let finalAccumulated = open.accumulated_elapsed_ms;
+          if (open.status === 'active' && open.last_resumed_at) {
+            const lastResume = Date.parse(open.last_resumed_at);
+            if (!Number.isNaN(lastResume)) {
+              const delta = Math.max(0, Date.parse(now) - lastResume);
+              finalAccumulated = Math.max(0, finalAccumulated + delta);
+            }
+          }
           await client.runAsync(
             `UPDATE workout_sessions
              SET status = 'completed', recovery_state = 'archived', ended_at = COALESCE(ended_at, ?),
-                 last_resumed_at = NULL, rest_target_at = NULL, updated_at = ?
+                 accumulated_elapsed_ms = ?, last_resumed_at = NULL, rest_target_at = NULL, updated_at = ?
              WHERE id = ?;`,
             now,
+            finalAccumulated,
             now,
             open.id
           );
         }
       }
 
+      // Resume target session: preserve started_at and accumulated_elapsed_ms
       await client.runAsync(
         `UPDATE workout_sessions
          SET status = 'active', recovery_state = 'recovered', last_resumed_at = ?, rest_target_at = NULL, updated_at = ?
@@ -1082,6 +1114,25 @@ export class SQLiteWorkoutSessionRepository implements WorkoutSessionRepository 
 
       if (session.status === 'completed') {
         throw new SessionValidationError('Session is already completed.', 'status');
+      }
+
+      if (session.status === 'active' || session.status === 'paused') {
+        throw new SessionValidationError(
+          'Cannot archive an active or paused session as interrupted. Complete or discard it instead.',
+          'status'
+        );
+      }
+
+      const isEligible =
+        session.recovery_state === 'interrupted' ||
+        session.recovery_state === 'ambiguous' ||
+        session.status === 'discarded';
+
+      if (!isEligible) {
+        throw new SessionValidationError(
+          `Session "${id}" is not in an archivable recovery state.`,
+          'recoveryState'
+        );
       }
 
       const now = new Date().toISOString();

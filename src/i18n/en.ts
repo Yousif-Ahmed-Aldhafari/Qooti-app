@@ -289,7 +289,11 @@ export const en = {
     "resumeInterruptedConflictTitle": "Active Workout in Progress",
     "resumeInterruptedConflictMessage": "Another session is currently active. Would you like to archive the current session to history, or discard it before resuming this one?",
     "archiveAndResume": "Archive Current & Resume",
-    "discardAndResume": "Discard Current & Resume"
+    "discardAndResume": "Discard Current & Resume",
+    "recoveryAmbiguousBadge": "Unverified Record",
+    "preMigrationConflictTitle": "Unfinished Sessions Found",
+    "preMigrationConflictMessage": "Multiple open workout sessions were found from a previous version. Please select which session to resume to continue.",
+    "preMigrationConflictResolve": "Resolve & Continue"
   },
   "progress": {
     "title": "Progress",

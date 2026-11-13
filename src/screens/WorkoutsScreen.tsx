@@ -283,11 +283,20 @@ export function WorkoutsScreen({
 
                 return (
                   <AppCard key={session.id} style={styles.recoveryCard}>
-                    <Text
-                      style={[styles.recoverySessionTitle, directionalText, { color: colors.text }]}
-                    >
-                      {session.title}
-                    </Text>
+                    <View style={[styles.recoveryHeaderRow, activeRowStyle()]}>
+                      <Text
+                        style={[styles.recoverySessionTitle, directionalText, { color: colors.text, flex: 1 }]}
+                      >
+                        {session.title}
+                      </Text>
+                      {session.recoveryState === 'ambiguous' ? (
+                        <View style={[styles.ambiguousBadge, { backgroundColor: colors.cardMuted }]}>
+                          <Text style={[styles.ambiguousBadgeText, { color: colors.textMuted }]}>
+                            {t('workouts.recoveryAmbiguousBadge')}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
                     <Text
                       style={[styles.recoverySessionMeta, directionalText, { color: colors.textMuted }]}
                     >
@@ -486,6 +495,21 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginBottom: spacing.md,
     gap: spacing.sm,
+  },
+  recoveryHeaderRow: {
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  ambiguousBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+  },
+  ambiguousBadgeText: {
+    ...typography.caption,
+    fontSize: 11,
+    fontWeight: '600',
   },
   recoverySessionTitle: {
     ...typography.h3,

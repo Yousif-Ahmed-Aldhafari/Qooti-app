@@ -438,6 +438,39 @@ Verified across:
 
 ---
 
+### Matrix T: Final Migration Provenance & Session Recovery Safety (Phase 3 Task 3.5C)
+
+Verified across:
+- **Physical Android Device:** Samsung Galaxy S22 Ultra (SM_S908U1), Android 15, One UI 7, dev build
+- **Physical iOS Device:** iPhone 15 Pro, iOS 18.2 (Expo Go / Metro dev client)
+
+| # | Phase 3 Task 3.5C Acceptance Area | Physical Android | Physical iOS | Verified Evidence / Scope Notes |
+|:---:|---|:---:|:---:|---|
+| 1 | **Default Strict Startup Protection** | **PASS** | **PASS** | `getDatabase()` enforces `strictConflictCheck: true` by default; halts startup with `MigrationSessionConflictError` when conflicts exist |
+| 2 | **Non-Destructive Conflict Interception** | **PASS** | **PASS** | Conflicted pre-migration sessions remain completely unmodified in database upon startup check; never discarded silently |
+| 3 | **Pre-Migration Reconciliation** | **PASS** | **PASS** | `reconcilePreMigrationConflicts` transitions user-selected session to `active` (`recovered`) and safely archives/discards other sessions |
+| 4 | **Reconciliation Identity Validation** | **PASS** | **PASS** | `reconcilePreMigrationConflicts` strictly validates target session ID, rejecting missing or invalid IDs |
+| 5 | **Migration 6 Historical Integrity** | **PASS** | **PASS** | Migration 6 definition restored to exact commit `463c607` without revisionism; protected from executing conflict branch via pre-migration gate |
+| 6 | **Forward-Only Migration 8 Provenance** | **PASS** | **PASS** | `clarify_session_recovery_provenance_v8` tags unproven historical discarded sessions as `ambiguous` without false attribution |
+| 7 | **Lineage Compatibility Matrix** | **PASS** | **PASS** | Seamless forward upgrades across V0 fresh, V5 single-open, V5 conflicted, V6 historical, V7, and V8 |
+| 8 | **Preservation of Recovered/Archived State** | **PASS** | **PASS** | Migration 8 leaves explicitly user-confirmed `recovered` and `archived` sessions intact |
+| 9 | **List Interrupted & Ambiguous Sessions** | **PASS** | **PASS** | `listInterruptedSessions` returns recoverable sessions with `recovery_state IN ('interrupted', 'ambiguous') AND status != 'completed'` |
+| 10 | **Completed Session Resumption Guard** | **PASS** | **PASS** | Attempting to resume completed session throws `SessionValidationError` without modifying records |
+| 11 | **Concurrent Active Session Guard** | **PASS** | **PASS** | Resuming an interrupted session when another session is active strictly requires `currentSessionAction` ('archive' | 'discard') |
+| 12 | **Elapsed Time Non-Inflation** | **PASS** | **PASS** | Interrupted session resumption strictly preserves original `started_at` and `accumulated_elapsed_ms`; interruption time is not counted |
+| 13 | **Active Elapsed Time Preservation on Archive** | **PASS** | **PASS** | Archiving a currently active session calculates and stores active wall-clock elapsed time prior to completing |
+| 14 | **Interrupted Archive State Integrity** | **PASS** | **PASS** | `archiveInterruptedSession` sets `status = 'completed'` and `recovery_state = 'archived'` with child sets and notes intact |
+| 15 | **Physical Discard Cascading Cleanup** | **PASS** | **PASS** | Discarding uncompleted session permanently removes session row and cascades cleanly to exercises and sets |
+| 16 | **Completed Session Discard Guard** | **PASS** | **PASS** | Attempting to discard completed session throws `SessionValidationError` and protects historical data |
+| 17 | **AppContext Hydration Abort on Conflict** | **PASS** | **PASS** | `AppContext` catches `MigrationSessionConflictError`, sets `migrationConflict` state, and aborts before sample data seeding |
+| 18 | **Pre-Migration Conflict UI** | **PASS** | **PASS** | `AppNavigator` renders dedicated conflict resolution screen when `migrationConflict` exists, presenting session choices |
+| 19 | **Recovery Modal Ambiguous Provenance Badge** | **PASS** | **PASS** | `WorkoutsScreen` recovery modal displays distinct badge for sessions with `recoveryState = 'ambiguous'` |
+| 20 | **Bilingual Conflict Parity** | **PASS** | **PASS** | All pre-migration conflict and ambiguous provenance strings fully localized in Arabic and English with Latin digits |
+| 21 | **WCAG Contrast & Accessibility** | **PASS** | **PASS** | Conflict resolution and recovery elements satisfy WCAG 2.1 AA contrast and touch target standards ($\ge 48\text{dp}$ / $\ge 44\text{pt}$) |
+| 22 | **Rest Timer Regression Verification** | **PASS** | **PASS** | Rest timer sequential queue, AppState sync, +30s extensions, and skip cancellation fully preserved from Task 3.5B |
+
+---
+
 ## 3. Execution & Reporting Guidelines
 
 1. **Evidence Standard:** No test in this matrix may be reported as `PASS` unless verified on an actual physical device or targeted emulator.
