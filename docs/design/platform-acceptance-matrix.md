@@ -481,9 +481,9 @@ Verified across:
 |:---:|---|:---:|:---:|---|
 | 1 | **Safe Pre-Migration Conflict Resolution** | **PASS** | **PASS** | Default resolution preserves conflicting unselected sessions as `'keep_interrupted'`; zero false completed sessions |
 | 2 | **Interactive Resolution Actions** | **PASS** | **PASS** | User can choose "Resume", "Archive to History", "Discard", or "Keep all as recoverable and review later" |
-| 3 | **Elapsed Duration Non-Inflation** | **PASS** | **PASS** | Resumed sessions maintain exact accumulated active duration; offline interruption period is never counted |
-| 4 | **Active Session Archiving Duration Cap** | **PASS** | **PASS** | Archiving an active session accounts for active duration with a safe 12h maximum cap, preventing clock drift explosion |
-| 5 | **Clock Rollback Immunity** | **PASS** | **PASS** | Duration calculations protected by `Math.max(0, ...)` against backwards clock adjustments |
+| 3 | **Elapsed Duration Non-Inflation** | **PASS** | **PASS** | Resumed sessions account for confirmed active interval up to `updated_at`; offline interruption period is never counted |
+| 4 | **Paused Session Duration Freezing** | **PASS** | **PASS** | Paused sessions never accumulate paused time during reconciliation or archiving; base `accumulated_elapsed_ms` preserved |
+| 5 | **Unified Clock & Interruption Policy** | **PASS** | **PASS** | `calculateConfirmedElapsedMs()` applied identically across pre-migration reconciliation and normal repository operations; clock rollbacks safely bounded by `Math.max(0, ...)` |
 | 6 | **Migration Matrix V0 -> V8 Fresh** | **PASS** | **PASS** | Fresh installation creates full schema V1 through V8 cleanly without error |
 | 7 | **Migration Matrix V1-V4 -> V8 Populated** | **PASS** | **PASS** | Populated legacy databases upgrade cleanly preserving user profiles, meals, workouts, catalog IDs, and settings |
 | 8 | **Migration Matrix V5-V7 -> V8 Sessions** | **PASS** | **PASS** | Upgrades preserve execution sessions, exercises, sets, rest targets, and provenance attribution |

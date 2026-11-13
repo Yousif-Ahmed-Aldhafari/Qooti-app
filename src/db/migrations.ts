@@ -253,6 +253,41 @@ export type PreMigrationResolution = {
 };
 
 /**
+ * Calculates confirmed elapsed active duration for a workout session.
+ * 
+ * Policy:
+ * 1. Base accumulated_elapsed_ms is always preserved and non-negative.
+ * 2. Paused sessions never accumulate paused time (delta = 0).
+ * 3. Active sessions only accumulate confirmed in-session active time up to the last
+ *    verified database activity (updated_at). Uncertain offline intervals (between
+ *    updated_at and now) are NEVER counted as confirmed workout time.
+ * 4. Clock rollbacks are safely bounded by Math.max(0, ...).
+ */
+export function calculateConfirmedElapsedMs(session: {
+  status: string;
+  accumulated_elapsed_ms: number;
+  last_resumed_at?: string | null;
+  started_at: string;
+  updated_at: string;
+}): number {
+  let accumulated = Math.max(0, Number(session.accumulated_elapsed_ms) || 0);
+
+  if (session.status === 'active') {
+    const resumeStr = session.last_resumed_at || session.started_at;
+    const resumeTime = Date.parse(resumeStr);
+    const updateTime = Date.parse(session.updated_at);
+
+    if (!Number.isNaN(resumeTime) && !Number.isNaN(updateTime) && updateTime > resumeTime) {
+      // Confirmed active delta up to the last known database update
+      const confirmedDelta = Math.max(0, updateTime - resumeTime);
+      accumulated = Math.max(0, accumulated + confirmedDelta);
+    }
+  }
+
+  return Math.max(0, Math.floor(accumulated));
+}
+
+/**
  * Reconciles pre-migration session conflicts safely under user direction.
  * Keeps at most one selected session open while safely setting other open sessions to
  * a recoverable non-completed disposition ('keep_interrupted'), archiving as completed
@@ -263,8 +298,37 @@ export async function reconcilePreMigrationConflicts(
   resolution: PreMigrationResolution
 ): Promise<void> {
   await db.withExclusiveTransactionAsync(async (client) => {
-    const openSessions = await client.getAllAsync<{ id: string }>(
-      `SELECT id FROM workout_sessions WHERE status IN ('active', 'paused');`
+    const sessionCols = await client.getAllAsync<{ name: string }>(
+      `PRAGMA table_info(workout_sessions);`
+    );
+    const hasRestTarget = sessionCols.some((c) => c.name === 'rest_target_at');
+    const hasRecoveryState = sessionCols.some((c) => c.name === 'recovery_state');
+    const hasLastResumedAt = sessionCols.some((c) => c.name === 'last_resumed_at');
+    const hasAccumulated = sessionCols.some((c) => c.name === 'accumulated_elapsed_ms');
+    const hasEndedAt = sessionCols.some((c) => c.name === 'ended_at');
+
+    if (!hasRecoveryState) {
+      await client.execAsync(`ALTER TABLE workout_sessions ADD COLUMN recovery_state TEXT;`);
+    }
+
+    const openSessions = await client.getAllAsync<{
+      id: string;
+      status: string;
+      started_at: string;
+      ended_at: string | null;
+      accumulated_elapsed_ms: number;
+      last_resumed_at: string | null;
+      updated_at: string;
+      notes: string | null;
+    }>(
+      `SELECT id, status, started_at,
+              ${hasEndedAt ? 'ended_at' : 'NULL as ended_at'},
+              ${hasAccumulated ? 'accumulated_elapsed_ms' : '0 as accumulated_elapsed_ms'},
+              ${hasLastResumedAt ? 'last_resumed_at' : 'NULL as last_resumed_at'},
+              updated_at,
+              notes
+       FROM workout_sessions
+       WHERE status IN ('active', 'paused');`
     );
 
     if (openSessions.length === 0) {
@@ -306,15 +370,6 @@ export async function reconcilePreMigrationConflicts(
       );
     }
 
-    const sessionCols = await client.getAllAsync<{ name: string }>(
-      `PRAGMA table_info(workout_sessions);`
-    );
-    const hasRestTarget = sessionCols.some((c) => c.name === 'rest_target_at');
-    const hasRecoveryState = sessionCols.some((c) => c.name === 'recovery_state');
-    if (!hasRecoveryState) {
-      await client.execAsync(`ALTER TABLE workout_sessions ADD COLUMN recovery_state TEXT;`);
-    }
-
     const now = new Date().toISOString();
 
     for (const s of openSessions) {
@@ -329,25 +384,16 @@ export async function reconcilePreMigrationConflicts(
         action = resolution.actionForOthers ?? 'keep_interrupted';
       }
 
+      const confirmedElapsed = calculateConfirmedElapsedMs(s);
+
       if (action === 'resume') {
-        await client.runAsync(
-          `UPDATE workout_sessions
-           SET status = 'active', recovery_state = 'recovered', last_resumed_at = ?, updated_at = ?
-           WHERE id = ?;`,
-          now,
-          now,
-          s.id
-        );
-      } else if (action === 'discard') {
-        await client.runAsync(`DELETE FROM workout_sessions WHERE id = ?;`, s.id);
-      } else if (action === 'archive') {
-        // User explicitly chose to archive/complete to history
         if (hasRestTarget) {
           await client.runAsync(
             `UPDATE workout_sessions
-             SET status = 'completed', recovery_state = 'archived', ended_at = COALESCE(ended_at, ?),
-                 last_resumed_at = NULL, rest_target_at = NULL, updated_at = ?
+             SET status = 'active', recovery_state = 'recovered',
+                 accumulated_elapsed_ms = ?, last_resumed_at = ?, rest_target_at = NULL, updated_at = ?
              WHERE id = ?;`,
+            confirmedElapsed,
             now,
             now,
             s.id
@@ -355,10 +401,39 @@ export async function reconcilePreMigrationConflicts(
         } else {
           await client.runAsync(
             `UPDATE workout_sessions
-             SET status = 'completed', recovery_state = 'archived', ended_at = COALESCE(ended_at, ?),
-                 last_resumed_at = NULL, updated_at = ?
+             SET status = 'active', recovery_state = 'recovered',
+                 accumulated_elapsed_ms = ?, last_resumed_at = ?, updated_at = ?
              WHERE id = ?;`,
+            confirmedElapsed,
             now,
+            now,
+            s.id
+          );
+        }
+      } else if (action === 'discard') {
+        await client.runAsync(`DELETE FROM workout_sessions WHERE id = ?;`, s.id);
+      } else if (action === 'archive') {
+        // User explicitly chose to archive/complete to history
+        const endedAt = s.ended_at || s.updated_at || now;
+        if (hasRestTarget) {
+          await client.runAsync(
+            `UPDATE workout_sessions
+             SET status = 'completed', recovery_state = 'archived', ended_at = ?,
+                 accumulated_elapsed_ms = ?, last_resumed_at = NULL, rest_target_at = NULL, updated_at = ?
+             WHERE id = ?;`,
+            endedAt,
+            confirmedElapsed,
+            now,
+            s.id
+          );
+        } else {
+          await client.runAsync(
+            `UPDATE workout_sessions
+             SET status = 'completed', recovery_state = 'archived', ended_at = ?,
+                 accumulated_elapsed_ms = ?, last_resumed_at = NULL, updated_at = ?
+             WHERE id = ?;`,
+            endedAt,
+            confirmedElapsed,
             now,
             s.id
           );
@@ -370,8 +445,9 @@ export async function reconcilePreMigrationConflicts(
           await client.runAsync(
             `UPDATE workout_sessions
              SET status = 'discarded', recovery_state = 'interrupted',
-                 last_resumed_at = NULL, rest_target_at = NULL, updated_at = ?
+                 accumulated_elapsed_ms = ?, last_resumed_at = NULL, rest_target_at = NULL, updated_at = ?
              WHERE id = ?;`,
+            confirmedElapsed,
             now,
             s.id
           );
@@ -379,8 +455,9 @@ export async function reconcilePreMigrationConflicts(
           await client.runAsync(
             `UPDATE workout_sessions
              SET status = 'discarded', recovery_state = 'interrupted',
-                 last_resumed_at = NULL, updated_at = ?
+                 accumulated_elapsed_ms = ?, last_resumed_at = NULL, updated_at = ?
              WHERE id = ?;`,
+            confirmedElapsed,
             now,
             s.id
           );

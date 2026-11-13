@@ -380,10 +380,14 @@
      - Changed default action for non-selected conflicting sessions to `'keep_interrupted'` (`status = 'discarded', recovery_state = 'interrupted'`), preserving all exercise and set records, weights, reps, notes, and elapsed duration without falsely recording them as completed.
      - Enhanced `reconcilePreMigrationConflicts()` with support for per-session resolution mappings (`sessionResolutions`) and explicit `actionForOthers`.
      - Provided interactive pre-migration resolution UI in `AppNavigator.tsx` allowing users to "Resume", "Archive to History", "Discard", or "Keep all as recoverable and review later".
-  2. **Elapsed Duration Correctness (`src/db/repositories/workoutSessionRepository.ts`):**
-     - Resumption of interrupted sessions strictly preserves `accumulated_elapsed_ms` without duration inflation; offline intervals are never counted as training.
-     - Archiving an active session calculates active wall-clock time up to the archive action with a safe 12-hour cap (`Math.min(delta, 12 * 60 * 60 * 1000)`), preventing clock drift or multi-day gap explosion.
-     - Enforced non-negative duration guards (`Math.max(0, ...)`), protecting against clock rollbacks.
+  2. **Elapsed Duration Correctness & Shared Clock/Interruption Policy (`src/db/migrations.ts`, `src/db/repositories/workoutSessionRepository.ts`):**
+     - Implemented unified `calculateConfirmedElapsedMs()` shared across pre-migration conflict reconciliation and normal session repository operations.
+     - Active sessions only accumulate confirmed in-session active time up to the last verified database activity (`updated_at`); uncertain offline intervals (between `updated_at` and `now`) are strictly excluded from confirmed workout duration.
+     - Paused sessions never accumulate paused time (delta = 0).
+     - Resuming an active or paused session accounts for prior confirmed active duration in `accumulated_elapsed_ms` and resets `last_resumed_at = now`, preventing lost active intervals or duplicate clock accumulation.
+     - Archiving an active or paused session preserves original `started_at`, sets `ended_at = ended_at || updated_at || now`, and records accurate confirmed active duration.
+     - Resumption of interrupted sessions strictly preserves `accumulated_elapsed_ms` without duration inflation.
+     - Clock rollbacks are safely bounded by non-negative duration guards (`Math.max(0, ...)`).
   3. **Migration Compatibility Matrix (`src/__tests__/migrationCompatibilityMatrix.test.ts`):**
      - Constructed and verified 11 migration scenarios:
        - Fresh V0 $\rightarrow$ V8.
@@ -403,9 +407,19 @@
      - Flow 3: Quick-add repeat workout from history generating fresh collision-resistant IDs and preserving catalog IDs.
      - Flow 4: Active session execution lifecycle: set completion, skipping, extra set addition, pause/resume, rest timer targets with extensions and skip, incomplete finish, and performance analytics summary.
      - Flow 5: Interrupted session recovery and restart resilience without nutrition or profile data corruption.
-  5. **Quality Gates & Verification Evidence:**
-     - 380 total project automated tests passing (364 baseline + 16 new matrix and E2E acceptance tests).
-     - Line coverage: **89.99%** (with domain and repository files $\ge 90\%-100\%$).
+  5. **Reconciliation Elapsed Duration Regression Suite (`src/__tests__/reconciliationElapsedIntegrity.test.ts`):**
+     - Verified 8 dedicated regression scenarios:
+       - Active session selected for resume accounts for prior confirmed active interval without offline inflation.
+       - Active session kept interrupted preserves confirmed active time and recovery eligibility.
+       - Active session explicitly archived preserves completed sets, started_at, and accurate duration.
+       - Paused session archived never accumulates paused time.
+       - Clock rollback immunity protects against backwards clock shifts.
+       - App restart after reconciliation completes cleanly without conflict prompt.
+       - Repeated reconciliation is idempotent and safe.
+       - Non-selected sessions kept interrupted do not fabricate completed workout metrics.
+  6. **Quality Gates & Verification Evidence:**
+     - 388 total project automated tests passing (380 baseline + 8 new reconciliation integrity tests).
+     - Line coverage: **90.05%** across all project files.
      - TypeScript typecheck: 0 errors (`npm run typecheck`).
      - ESLint: 0 warnings, 0 errors (`npm run lint`).
      - Expo Doctor: 20/20 checks passed (`npx expo-doctor`).

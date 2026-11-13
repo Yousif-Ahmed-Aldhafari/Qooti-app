@@ -10,6 +10,7 @@ import {
   validateWorkoutSet,
 } from '../../models/workoutSession';
 import type { IDatabase, WorkoutSessionRepository } from '../types';
+import { calculateConfirmedElapsedMs } from '../migrations';
 
 interface SessionRow {
   id: string;
@@ -1058,45 +1059,30 @@ export class SQLiteWorkoutSessionRepository implements WorkoutSessionRepository 
       const now = new Date().toISOString();
 
       for (const open of openSessions) {
+        const confirmedElapsed = calculateConfirmedElapsedMs(open);
+
         if (action === 'discard') {
           await client.runAsync(`DELETE FROM workout_sessions WHERE id = ?;`, open.id);
         } else if (action === 'keep_interrupted') {
-          let finalAccumulated = Math.max(0, Number(open.accumulated_elapsed_ms) || 0);
-          if (open.status === 'active' && open.last_resumed_at) {
-            const lastResume = Date.parse(open.last_resumed_at);
-            if (!Number.isNaN(lastResume)) {
-              const delta = Math.max(0, Date.parse(now) - lastResume);
-              const safeDelta = Math.min(delta, 12 * 60 * 60 * 1000);
-              finalAccumulated = Math.max(0, finalAccumulated + safeDelta);
-            }
-          }
           await client.runAsync(
             `UPDATE workout_sessions
              SET status = 'discarded', recovery_state = 'interrupted',
                  accumulated_elapsed_ms = ?, last_resumed_at = NULL, rest_target_at = NULL, updated_at = ?
              WHERE id = ?;`,
-            finalAccumulated,
+            confirmedElapsed,
             now,
             open.id
           );
         } else {
-          // default: archive/complete - preserve elapsed time if active
-          let finalAccumulated = Math.max(0, Number(open.accumulated_elapsed_ms) || 0);
-          if (open.status === 'active' && open.last_resumed_at) {
-            const lastResume = Date.parse(open.last_resumed_at);
-            if (!Number.isNaN(lastResume)) {
-              const delta = Math.max(0, Date.parse(now) - lastResume);
-              const safeDelta = Math.min(delta, 12 * 60 * 60 * 1000);
-              finalAccumulated = Math.max(0, finalAccumulated + safeDelta);
-            }
-          }
+          // default: archive/complete - preserve accurate confirmed elapsed time without offline inflation
+          const endedAt = open.ended_at || open.updated_at || now;
           await client.runAsync(
             `UPDATE workout_sessions
-             SET status = 'completed', recovery_state = 'archived', ended_at = COALESCE(ended_at, ?),
+             SET status = 'completed', recovery_state = 'archived', ended_at = ?,
                  accumulated_elapsed_ms = ?, last_resumed_at = NULL, rest_target_at = NULL, updated_at = ?
              WHERE id = ?;`,
-            now,
-            finalAccumulated,
+            endedAt,
+            confirmedElapsed,
             now,
             open.id
           );
