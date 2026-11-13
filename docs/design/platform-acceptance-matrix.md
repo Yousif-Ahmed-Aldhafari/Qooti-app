@@ -230,6 +230,35 @@ Verified across:
 
 ---
 
+### Matrix L: Phase 3 Task 3.3 Exercise Catalog & Multi-Exercise Workout Creation Device Acceptance
+
+Verified across:
+- **Physical Android Device:** Samsung Galaxy S22 Ultra (SM_S908U1), Android 15, One UI 7, dev build
+- **Physical iOS Device:** iPhone 15 Pro, iOS 18.2 (Expo Go / Metro dev client)
+
+| # | Phase 3 Task 3.3 Acceptance Area | Physical Android | Physical iOS | Verified Evidence / Scope Notes |
+|:---:|---|:---:|:---:|---|
+| 1 | **Catalog Modal Launch & Dismissal** | **PASS** | **PASS** | "Add from Catalog" opens `ExercisePickerModal`; close button and backdrop dismiss cleanly |
+| 2 | **Dual-Axis Filtering (Muscle & Equipment)** | **PASS** | **PASS** | Horizontal chip selectors filter by 10 muscle groups and 6 equipment categories with active highlights |
+| 3 | **Real-Time Bilingual Search** | **PASS** | **PASS** | Searching by English/Arabic exercise name or alias filters instantly with diacritic normalization |
+| 4 | **Exercise Selection & Prepopulation** | **PASS** | **PASS** | Selecting catalog item populates exercise name, target muscles, and category into workout form |
+| 5 | **Multi-Exercise Creation in Add Screen** | **PASS** | **PASS** | Users can add multiple distinct exercises (both catalog and custom) within a single session |
+| 6 | **Exercise Order Sequencing (Up/Down)** | **PASS** | **PASS** | "Move Up" / "Move Down" controls dynamically reorder exercises; order persists via `sort_order` |
+| 7 | **Custom Exercise Coexistence** | **PASS** | **PASS** | Bespoke exercises without catalogId coexist with catalog items in the same session without error |
+| 8 | **Edit Screen Catalog Integration** | **PASS** | **PASS** | `EditWorkoutScreen` allows replacing existing exercises or adding new catalog items |
+| 9 | **Legacy Free-Text Exercise Support** | **PASS** | **PASS** | Legacy workouts created prior to catalog support load without regression or missing fields |
+| 10 | **Atomic Multi-Exercise Save** | **PASS** | **PASS** | Entire workout and all exercises commit atomically in `withExclusiveTransactionAsync` |
+| 11 | **Task 3.2 onDismiss Guard** | **PASS** | **PASS** | Dismissing alert does not abort in-flight deletion; only resets state when in `confirming` |
+| 12 | **Task 3.2 Protected Retry Confirmation** | **PASS** | **PASS** | Retrying failed deletion re-engages confirmation prompt rather than direct execution |
+| 13 | **Elimination of Fabricated Duration** | **PASS** | **PASS** | Zero-duration workouts render as "0 min", never falling back to fabricated "45 min" |
+| 14 | **Localized Accessibility Labels** | **PASS** | **PASS** | Deletion retry, error dismiss, and storage error labels render in active language (EN/AR) |
+| 15 | **Bilingual RTL/LTR Parity** | **PASS** | **PASS** | Full visual mirroring in Arabic RTL, Latin numerals preserved (`ar-SA-u-nu-latn`), LTR in English |
+| 16 | **Touch Targets & Platform Ergonomics** | **PASS** | **PASS** | All interactive elements satisfy >= 48dp on Android and >= 44pt on iOS with native press feedback |
+| 17 | **Universal Themes (Light & Dark)** | **PASS** | **PASS** | Modal, chips, cards, and input fields meet WCAG 2.1 AA contrast across light and dark modes |
+| 18 | **Persistence Across Application Restart** | **PASS** | **PASS** | Multi-exercise workouts persist across app termination and reload from SQLite cleanly |
+
+---
+
 ## 3. Execution & Reporting Guidelines
 
 1. **Evidence Standard:** No test in this matrix may be reported as `PASS` unless verified on an actual physical device or targeted emulator.

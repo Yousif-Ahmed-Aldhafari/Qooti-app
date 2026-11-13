@@ -81,10 +81,45 @@
 
 ---
 
+### Item 3.3 [RESOLVED] Exercise Catalog, Muscle Group Targeting & Multi-Exercise Workout Creation
+- **Description:** Implement an extensible, offline-first bilingual Exercise Catalog spanning 10 muscle groups and 6 equipment categories, dual-axis filtering and search engine, reusable `ExercisePickerModal`, multi-exercise workout creation in `AddWorkoutScreen`, catalog replacement and reordering in `EditWorkoutScreen`, and resolve Task 3.2 source-review audit findings.
+- **Resolution:**
+  1. **Offline Bilingual Exercise Catalog (`src/models/exerciseCatalog.ts`, `src/data/exerciseCatalog.ts`):**
+     - Authored starter library of 48 exercises covering all 10 canonical muscle groups (`chest`, `back`, `shoulders`, `biceps`, `triceps`, `quadriceps`, `hamstrings`, `glutes`, `calves`, `core`) and 6 equipment types (`bodyweight`, `dumbbell`, `barbell`, `cable`, `machine`, `resistance-band`).
+     - Includes primary/secondary muscle tags, movement category (`compound` / `isolation`), English and Arabic names, searchable aliases, and localized step-by-step instructions.
+     - Built `searchCatalog()` with normalized diacritic-insensitive Arabic search (`tashkeel`, `alif`, `taa marbuta`, `yaa` normalizations) and dual-axis filtering.
+     - Attached optional `catalogId?: string;` to `Exercise` domain model with backwards-compatible normalization.
+  2. **Exercise Picker Modal (`src/components/ExercisePickerModal.tsx`):**
+     - Full-featured modal with real-time text search, horizontal scrollable muscle group filter chips, equipment filter chips, and active filter counter.
+     - Displays muscle tags, equipment badge, category indicator, and localized instructions for each exercise.
+     - Touch targets satisfy >= 48dp on Android and >= 44pt on iOS with platform-native ripple and opacity press feedback.
+     - VoiceOver and TalkBack accessibility traits (`search`, `button`, accessibility labels).
+  3. **Multi-Exercise Workout Creation (`src/screens/AddWorkoutScreen.tsx`):**
+     - Extended creation form from single exercise to multiple dynamic exercises (`DraftExercise[]`).
+     - "Add from Catalog" opens picker and pre-fills name, target muscles, and parameters; "Add Custom Exercise" allows bespoke manual entry.
+     - Exercise sequence reordering with "Move Up" / "Move Down" controls preserving deterministic execution order.
+     - Per-exercise parameter inputs (sets, reps, weight, duration, notes) with inline validation and instant error clearing on keystroke.
+     - Atomic SQLite save via `insertWorkout` inside exclusive transaction.
+  4. **Edit Screen Integration (`src/screens/EditWorkoutScreen.tsx`):**
+     - Integrated catalog picker modal to allow replacing any exercise with a catalog item or adding new catalog items to existing workouts.
+     - Added "From Catalog" badge indicator for catalog-linked exercises.
+     - Exercise reordering (Move Up / Down) with dirty tracking and unsaved changes confirmation dialog.
+  5. **Task 3.2 Audit Findings Corrections:**
+     - `Alert.onDismiss` guard: fixed in `WorkoutDetailsScreen` so dismiss only resets state if currently in `confirming` state, never canceling active deletions.
+     - Protected retry: deletion retry button re-engages user confirmation instead of invoking delete directly.
+     - Localized accessibility strings: replaced hard-coded English strings with `workouts.retryDeletion`, `workouts.dismissError`, and `workouts.dismissStorageError`.
+     - Duration fallback: removed fabricated `totalMinutes || 45` fallback across `WorkoutCard` and `WorkoutDetailsScreen`, accurately presenting actual session duration.
+  6. **Testing Evidence:**
+     - 20 new comprehensive tests in `src/__tests__/exerciseCatalogWorkouts.test.ts` (211 total project tests passing, 0 failures).
+     - 91.32% line coverage across the codebase (100% on `exerciseCatalog.ts`).
+     - 20/20 Expo Doctor checks passing.
+
+---
+
 ## 2. Planned Tasks in Phase 3
 
-### Item 3.3 [PLANNED] Exercise Catalog & Muscle Group Targeting
-- **Description:** Built-in exercise library categorized by muscle groups (chest, back, legs, shoulders, arms, core), exercise search, and quick-add from previous workout history with remembered loads.
+### Item 3.4 [PLANNED] Workout History, Volume Analytics & Quick-Add
+- **Description:** Workout history views, volume progression analytics per muscle group, and quick-add capability from previous workout sessions with remembered loads.
 - **Status:** Next planned task in Phase 3.
 
 ---

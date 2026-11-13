@@ -77,7 +77,8 @@
 - **Key Deliverables:**
   - **Task 3.1 [COMPLETED]:** Workout Lifecycle Audit & Safe Editing. Atomic `updateWorkout` transactions, strict domain validation (`validateWorkout`), granular `AppContext` persistence (no global `saveAllWorkouts`), and `EditWorkoutScreen` UI.
   - **Task 3.2 [COMPLETED]:** Safe Workout Deletion & History Integrity. Pre-flight ID verification, atomic SQLite deletion with cascade child cleanup and rollback, delete state machine (`idle` -> `confirming` -> `deleting` -> `success` / `error`), localized confirmation dialogs, retryable error handling, navigation safety, and empty state sync.
-  - **Task 3.3 [NEXT]:** Exercise Catalog & Muscle Group Targeting. Built-in exercise database, muscle group targeting, and quick-add from previous workout history.
+  - **Task 3.3 [COMPLETED]:** Exercise Catalog, Muscle Group Targeting & Multi-Exercise Workout Creation. Built-in bilingual exercise database (48 exercises, 10 muscle groups, 6 equipment categories), `ExercisePickerModal` with dual-axis filtering, multi-exercise creation flow with reordering in `AddWorkoutScreen`, catalog replacement and dirty tracking in `EditWorkoutScreen`, Task 3.2 audit corrections (onDismiss guard, protected retry, real duration calculation), and 211 passing tests.
+  - **Task 3.4 [NEXT]:** Workout History, Volume Analytics & Quick-Add. Workout history views, volume progression analytics per muscle group, and quick-add capability from previous workout sessions with remembered loads.
 
 ### Phase 4: Nutrition & Meal Planning — Planned
 - **Core Mission:** Implement full lifecycle management for logged meals, food items, and nutrition planning.
