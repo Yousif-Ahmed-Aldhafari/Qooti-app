@@ -19,6 +19,18 @@ import {
   updateWorkout as updateWorkoutService,
   deleteWorkout as deleteWorkoutService,
 } from '../services/workoutService';
+import type { WorkoutSession } from '../models/workoutSession';
+import {
+  getActiveWorkoutSession,
+  startWorkoutSession,
+  pauseWorkoutSession,
+  resumeWorkoutSession,
+  completeSessionSet,
+  skipSessionSet,
+  addSessionSet,
+  finishWorkoutSession,
+  discardWorkoutSession,
+} from '../services/workoutSessionService';
 import { applyAppDirection, isRTLLanguage } from '../utils/languageDirection';
 import { getDatabase, migrateFromAsyncStorage } from '../db';
 
@@ -30,6 +42,7 @@ export type AppStateData = {
   profile: UserProfile;
   progressEntries: ProgressEntry[];
   settings: Settings;
+  activeSession: WorkoutSession | null;
 };
 
 export type AppAction =
@@ -40,8 +53,10 @@ export type AppAction =
       profile: UserProfile;
       progressEntries: ProgressEntry[];
       settings: Settings;
+      activeSession: WorkoutSession | null;
     }
   | { type: 'setPersistenceError'; error: string | null }
+  | { type: 'setActiveSession'; session: WorkoutSession | null }
   | { type: 'addMeal'; meal: Meal }
   | { type: 'updateMeal'; meal: Meal }
   | { type: 'deleteMeal'; mealId: string }
@@ -69,6 +84,25 @@ type AppContextValue = AppStateData & {
   addProgressEntry: (entry: ProgressEntry) => void;
   updateSettings: (settings: Partial<Settings>) => void;
   clearPersistenceError: () => void;
+  startActiveWorkout: (workout: Workout) => Promise<WorkoutSession>;
+  pauseActiveWorkout: () => Promise<void>;
+  resumeActiveWorkout: () => Promise<void>;
+  completeSetInSession: (
+    setId: string,
+    reps: number,
+    weight: number,
+    rpe?: number | null,
+    notes?: string
+  ) => Promise<void>;
+  skipSetInSession: (setId: string, notes?: string) => Promise<void>;
+  addSetToSession: (
+    sessionExerciseId: string,
+    reps: number,
+    weight: number
+  ) => Promise<void>;
+  finishActiveWorkout: (notes?: string) => Promise<WorkoutSession>;
+  discardActiveWorkout: () => Promise<void>;
+  refreshActiveSession: () => Promise<void>;
 };
 
 const initialState: AppStateData = {
@@ -79,6 +113,7 @@ const initialState: AppStateData = {
   profile: getSeedProfile(),
   progressEntries: [],
   settings: defaultSettings,
+  activeSession: null,
 };
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
@@ -94,6 +129,13 @@ export function appReducer(state: AppStateData, action: AppAction): AppStateData
         profile: normalizeProfile(action.profile),
         progressEntries: action.progressEntries.map(normalizeProgressEntry),
         settings: action.settings,
+        activeSession: action.activeSession,
+      };
+
+    case 'setActiveSession':
+      return {
+        ...state,
+        activeSession: action.session,
       };
 
     case 'setPersistenceError':
@@ -204,7 +246,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           console.warn('[AppContext] SQLite initialization or migration notice:', dbErr);
         }
 
-        const [savedMeals, savedWorkouts, savedProfile, savedProgressEntries, savedSettings] =
+        const [savedMeals, savedWorkouts, savedProfile, savedProgressEntries, savedSettings, savedActiveSession] =
           await Promise.all([
             loadMeals().catch((e) => {
               console.warn('[AppContext] Failed to load meals:', e);
@@ -224,6 +266,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             }),
             loadSettings().catch((e) => {
               console.warn('[AppContext] Failed to load settings:', e);
+              return null;
+            }),
+            getActiveWorkoutSession().catch((e) => {
+              console.warn('[AppContext] Failed to load active workout session:', e);
               return null;
             }),
           ]);
@@ -264,6 +310,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           profile: initialProfile,
           progressEntries: initialProgress,
           settings: hydratedSettings,
+          activeSession: savedActiveSession,
         });
 
         // If first launch, persist the initial seed state so subsequent loads recognize existing user data
@@ -309,6 +356,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           },
           progressEntries: [],
           settings: defaultSettings,
+          activeSession: null,
         });
 
         dispatch({
@@ -499,6 +547,144 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addProgressEntry: (entry) => dispatch({ type: 'addProgressEntry', entry }),
       updateSettings: (settings) => dispatch({ type: 'updateSettings', settings }),
       clearPersistenceError: () => dispatch({ type: 'setPersistenceError', error: null }),
+      startActiveWorkout: async (workout: Workout) => {
+        try {
+          const session = await startWorkoutSession(workout);
+          dispatch({ type: 'setActiveSession', session });
+          dispatch({ type: 'setPersistenceError', error: null });
+          return session;
+        } catch (err) {
+          console.error('[AppContext] Failed to start active workout session:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to start active workout session',
+          });
+          throw err;
+        }
+      },
+      pauseActiveWorkout: async () => {
+        if (!state.activeSession) return;
+        try {
+          const session = await pauseWorkoutSession(state.activeSession.id);
+          dispatch({ type: 'setActiveSession', session });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to pause active workout:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to pause workout session',
+          });
+          throw err;
+        }
+      },
+      resumeActiveWorkout: async () => {
+        if (!state.activeSession) return;
+        try {
+          const session = await resumeWorkoutSession(state.activeSession.id);
+          dispatch({ type: 'setActiveSession', session });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to resume active workout:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to resume workout session',
+          });
+          throw err;
+        }
+      },
+      completeSetInSession: async (
+        setId: string,
+        reps: number,
+        weight: number,
+        rpe?: number | null,
+        notes?: string
+      ) => {
+        if (!state.activeSession) return;
+        try {
+          await completeSessionSet(setId, reps, weight, rpe, notes);
+          const session = await getActiveWorkoutSession();
+          dispatch({ type: 'setActiveSession', session });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to complete set in session:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to complete set',
+          });
+          throw err;
+        }
+      },
+      skipSetInSession: async (setId: string, notes?: string) => {
+        if (!state.activeSession) return;
+        try {
+          await skipSessionSet(setId, notes);
+          const session = await getActiveWorkoutSession();
+          dispatch({ type: 'setActiveSession', session });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to skip set in session:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to skip set',
+          });
+          throw err;
+        }
+      },
+      addSetToSession: async (sessionExerciseId: string, reps: number, weight: number) => {
+        if (!state.activeSession) return;
+        try {
+          await addSessionSet(sessionExerciseId, reps, weight);
+          const session = await getActiveWorkoutSession();
+          dispatch({ type: 'setActiveSession', session });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to add set to session:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to add set',
+          });
+          throw err;
+        }
+      },
+      finishActiveWorkout: async (notes?: string) => {
+        if (!state.activeSession) throw new Error('No active workout session.');
+        try {
+          const finished = await finishWorkoutSession(state.activeSession.id, notes);
+          dispatch({ type: 'setActiveSession', session: null });
+          dispatch({ type: 'setPersistenceError', error: null });
+          return finished;
+        } catch (err) {
+          console.error('[AppContext] Failed to finish active workout session:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to finish workout session',
+          });
+          throw err;
+        }
+      },
+      discardActiveWorkout: async () => {
+        if (!state.activeSession) return;
+        try {
+          await discardWorkoutSession(state.activeSession.id);
+          dispatch({ type: 'setActiveSession', session: null });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to discard active workout session:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to discard workout session',
+          });
+          throw err;
+        }
+      },
+      refreshActiveSession: async () => {
+        try {
+          const session = await getActiveWorkoutSession();
+          dispatch({ type: 'setActiveSession', session });
+        } catch (err) {
+          console.warn('[AppContext] Failed to refresh active workout session:', err);
+        }
+      },
     }),
     [setLanguage, state, t],
   );

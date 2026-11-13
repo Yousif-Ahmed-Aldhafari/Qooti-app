@@ -23,6 +23,7 @@ type WorkoutDetailsScreenProps = {
   onEdit?: (workout: Workout) => void;
   onDelete?: (workout: Workout) => Promise<void> | void;
   onRepeat?: (workout: Workout) => void;
+  onStartWorkout?: (workout: Workout) => void;
 };
 
 export function WorkoutDetailsScreen({
@@ -31,6 +32,7 @@ export function WorkoutDetailsScreen({
   onEdit,
   onDelete,
   onRepeat,
+  onStartWorkout,
 }: WorkoutDetailsScreenProps) {
   const colors = themeColors();
   const [deleteState, setDeleteState] = useState<DeleteState>('idle');
@@ -194,6 +196,16 @@ export function WorkoutDetailsScreen({
             ))}
           </View>
         </View>
+      ) : null}
+
+      {onStartWorkout ? (
+        <AppButton
+          title={t('workouts.startWorkout')}
+          icon="play"
+          variant="primary"
+          disabled={isDeleting}
+          onPress={() => onStartWorkout(workout)}
+        />
       ) : null}
 
       {/* Exercises List */}

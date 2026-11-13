@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { BackHandler, I18nManager, Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
+import { Alert, BackHandler, I18nManager, Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BottomTabs } from '../components/BottomTabs';
 import { BottomNavProvider } from '../context/BottomNavContext';
 import { sampleSleepEntries, sampleWaterEntries } from '../data/sampleData';
+import { ActiveWorkoutScreen } from '../screens/ActiveWorkoutScreen';
 import { AddMealScreen } from '../screens/AddMealScreen';
 import { AddWorkoutScreen } from '../screens/AddWorkoutScreen';
 import { EditWorkoutScreen } from '../screens/EditWorkoutScreen';
@@ -73,6 +74,15 @@ export function AppNavigator() {
     addWorkout,
     updateWorkout,
     deleteWorkout,
+    activeSession,
+    startActiveWorkout,
+    pauseActiveWorkout,
+    resumeActiveWorkout,
+    completeSetInSession,
+    skipSetInSession,
+    addSetToSession,
+    finishActiveWorkout,
+    discardActiveWorkout,
     t,
   } = useApp();
 
@@ -117,8 +127,11 @@ export function AppNavigator() {
     if ((activeScreen === 'workoutDetails' || activeScreen === 'editWorkout') && !selectedWorkout) {
       return 'workouts';
     }
+    if (activeScreen === 'activeWorkout' && !activeSession) {
+      return 'workouts';
+    }
     return activeScreen;
-  }, [activeScreen, selectedMeal, selectedWorkout]);
+  }, [activeScreen, selectedMeal, selectedWorkout, activeSession]);
 
   // Android hardware back handler: prevents accidental app exits on sub-screens
   useEffect(() => {
@@ -132,6 +145,12 @@ export function AppNavigator() {
       if (effectiveScreen === 'addWorkout' && quickAddTemplate) {
         setQuickAddTemplate(null);
         setActiveScreen('workoutDetails');
+        return true;
+      }
+      // 1c. If currently on active workout, back leaves session running safely in background
+      if (effectiveScreen === 'activeWorkout') {
+        setActiveTab('workouts');
+        setActiveScreen('workouts');
         return true;
       }
       // 2. If currently on a detail or form screen, back goes to the active tab
@@ -255,6 +274,40 @@ export function AppNavigator() {
     setActiveScreen('addWorkout');
   }
 
+  async function handleStartWorkout(workout: Workout) {
+    if (activeSession && (activeSession.status === 'active' || activeSession.status === 'paused')) {
+      if (activeSession.sourceWorkoutId === workout.id) {
+        setActiveScreen('activeWorkout');
+        return;
+      }
+      Alert.alert(
+        t('workouts.sessionConflictTitle'),
+        t('workouts.sessionConflictMessage', { title: activeSession.title }),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('workouts.resumeWorkout'),
+            onPress: () => setActiveScreen('activeWorkout'),
+          },
+          {
+            text: t('workouts.discardAndStartNew'),
+            style: 'destructive',
+            onPress: async () => {
+              await discardActiveWorkout();
+              await startActiveWorkout(workout);
+              setActiveScreen('activeWorkout');
+            },
+          },
+        ],
+        { cancelable: true }
+      );
+      return;
+    }
+
+    await startActiveWorkout(workout);
+    setActiveScreen('activeWorkout');
+  }
+
   async function handleUpdateWorkout(updatedWorkout: Workout) {
     await updateWorkout(updatedWorkout);
     setSelectedWorkoutId(updatedWorkout.id);
@@ -337,6 +390,8 @@ export function AppNavigator() {
             t={t}
             language={language}
             workouts={workouts}
+            activeSession={activeSession}
+            onResumeSession={() => setActiveScreen('activeWorkout')}
             onAddWorkout={() => {
               setQuickAddTemplate(null);
               setActiveScreen('addWorkout');
@@ -389,6 +444,50 @@ export function AppNavigator() {
             onEdit={openEditWorkout}
             onDelete={handleDeleteWorkout}
             onRepeat={handleRepeatWorkout}
+            onStartWorkout={handleStartWorkout}
+          />
+        );
+      case 'activeWorkout':
+        if (!activeSession) {
+          return (
+            <WorkoutsScreen
+              key={language}
+              t={t}
+              language={language}
+              workouts={workouts}
+              onAddWorkout={() => {
+                setQuickAddTemplate(null);
+                setActiveScreen('addWorkout');
+              }}
+              onWorkoutPress={openWorkoutDetails}
+            />
+          );
+        }
+        return (
+          <ActiveWorkoutScreen
+            key={`${language}-${activeSession.id}`}
+            t={t}
+            language={language}
+            session={activeSession}
+            onPause={pauseActiveWorkout}
+            onResume={resumeActiveWorkout}
+            onCompleteSet={completeSetInSession}
+            onSkipSet={skipSetInSession}
+            onAddSet={addSetToSession}
+            onFinish={async (notes) => {
+              await finishActiveWorkout(notes);
+              setActiveTab('workouts');
+              setActiveScreen('workouts');
+            }}
+            onDiscard={async () => {
+              await discardActiveWorkout();
+              setActiveTab('workouts');
+              setActiveScreen('workouts');
+            }}
+            onLeave={() => {
+              setActiveTab('workouts');
+              setActiveScreen('workouts');
+            }}
           />
         );
       case 'editWorkout':
@@ -435,7 +534,7 @@ export function AppNavigator() {
   }
 
   const showTabs = hasOnboarded && isMainTab(effectiveScreen);
-  const showBack = hasOnboarded && !isMainTab(effectiveScreen);
+  const showBack = hasOnboarded && !isMainTab(effectiveScreen) && effectiveScreen !== 'activeWorkout';
   const rtl = isRTL(language);
   setActiveTheme(resolvedTheme);
   const palette = themeColors();

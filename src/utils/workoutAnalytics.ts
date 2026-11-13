@@ -1,5 +1,6 @@
 import { getExerciseById } from '../data/exerciseCatalog';
 import type { Exercise, Workout } from '../models/workout';
+import type { WorkoutSession } from '../models/workoutSession';
 import { createId } from './id';
 import { safeNumber } from './nutrition';
 
@@ -628,5 +629,111 @@ export function createQuickAddWorkoutDraft(
     time: newTime,
     notes: sourceWorkout.notes || '',
     exercises,
+  };
+}
+
+export type SessionPerformanceSummary = {
+  sessionId: string;
+  sessionTitle: string;
+  actualDurationMinutes: number;
+  totalCompletedSets: number;
+  totalSkippedSets: number;
+  totalPendingSets: number;
+  totalPlannedSets: number;
+  totalCompletedReps: number;
+  actualRecordedVolumeKg: number;
+  volumeByMuscle: Record<string, number>;
+  musclesEngaged: string[];
+  hasIncompleteSets: boolean;
+};
+
+/**
+ * Calculates verified performance metrics for an active or completed WorkoutSession.
+ *
+ * Semantic Invariants:
+ * 1. Only sets with `status === 'completed'` contribute to actual volume and reps.
+ * 2. Planned sets are never fabricated as completed.
+ * 3. Actual volume = sum(actualReps * actualWeightKg) across completed sets.
+ * 4. 100% of volume is attributed to primary muscle group (zero inflation).
+ * 5. Actual duration is derived from real accumulated milliseconds.
+ */
+export function calculateSessionPerformanceSummary(
+  session: WorkoutSession
+): SessionPerformanceSummary {
+  let totalCompletedSets = 0;
+  let totalSkippedSets = 0;
+  let totalPendingSets = 0;
+  let totalPlannedSets = 0;
+  let totalCompletedReps = 0;
+  let actualRecordedVolumeKg = 0;
+  const volumeByMuscle: Record<string, number> = {};
+  const musclesEngaged = new Set<string>();
+
+  const exercises = session.exercises || [];
+
+  for (const ex of exercises) {
+    const dummyExercise: Exercise = {
+      id: ex.id,
+      exerciseName: ex.exerciseName,
+      targetMuscles: ex.targetMuscles,
+      sets: 0,
+      reps: 0,
+      weight: 0,
+      duration: 0,
+      notes: '',
+      catalogId: ex.catalogId ?? undefined,
+    };
+    const primaryMuscle = resolvePrimaryMuscleGroup(dummyExercise);
+    const { primary, secondary } = resolveAllExerciseMuscles(dummyExercise);
+
+    let exerciseHadCompletedSet = false;
+
+    for (const st of ex.sets || []) {
+      totalPlannedSets += 1;
+      if (st.status === 'completed') {
+        totalCompletedSets += 1;
+        exerciseHadCompletedSet = true;
+        const reps = Math.max(0, safeNumber(st.actualReps ?? st.plannedReps));
+        const weight = Math.max(0, safeNumber(st.actualWeightKg ?? st.plannedWeightKg));
+        totalCompletedReps += reps;
+
+        const setVolume = Math.round(reps * weight * 10) / 10;
+        actualRecordedVolumeKg += setVolume;
+
+        volumeByMuscle[primaryMuscle] =
+          Math.round(((volumeByMuscle[primaryMuscle] || 0) + setVolume) * 10) / 10;
+      } else if (st.status === 'skipped') {
+        totalSkippedSets += 1;
+      } else {
+        totalPendingSets += 1;
+      }
+    }
+
+    if (exerciseHadCompletedSet) {
+      if (primary && primary !== 'other') musclesEngaged.add(primary);
+      for (const s of secondary) {
+        if (s && s !== 'other') musclesEngaged.add(s);
+      }
+    }
+  }
+
+  const actualDurationMinutes = Math.max(
+    0,
+    Math.round(session.accumulatedElapsedMs / 60000)
+  );
+
+  return {
+    sessionId: session.id,
+    sessionTitle: session.title,
+    actualDurationMinutes,
+    totalCompletedSets,
+    totalSkippedSets,
+    totalPendingSets,
+    totalPlannedSets,
+    totalCompletedReps,
+    actualRecordedVolumeKg: Math.round(actualRecordedVolumeKg * 10) / 10,
+    volumeByMuscle,
+    musclesEngaged: Array.from(musclesEngaged),
+    hasIncompleteSets: totalPendingSets > 0 || totalSkippedSets > 0,
   };
 }

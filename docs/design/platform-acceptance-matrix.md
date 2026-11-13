@@ -340,6 +340,36 @@ Verified across:
 
 ---
 
+### Matrix P: Phase 3 Task 3.5 Active Workout Execution, Per-Set Logging & Timers Acceptance
+
+Verified across:
+- **Physical Android Device:** Samsung Galaxy S22 Ultra (SM_S908U1), Android 15, One UI 7, dev build
+- **Physical iOS Device:** iPhone 15 Pro, iOS 18.2 (Expo Go / Metro dev client)
+
+| # | Phase 3 Task 3.5 Acceptance Area | Physical Android | Physical iOS | Verified Evidence / Scope Notes |
+|:---:|---|:---:|:---:|---|
+| 1 | **Migration 4 -> 5 Schema Upgrade** | **PASS** | **PASS** | `workout_sessions`, `workout_session_exercises`, `workout_sets` created non-destructively |
+| 2 | **Legacy Workouts Preservation** | **PASS** | **PASS** | Pre-v5 workouts, exercises, and catalog IDs remain 100% queryable and editable |
+| 3 | **Session Pre-Population from Template** | **PASS** | **PASS** | Starts session with pending planned sets, null actual reps/weight, no fabricated logs |
+| 4 | **Single Active Session Constraint** | **PASS** | **PASS** | Reject concurrent active/paused session creation, preserving single-session integrity |
+| 5 | **State Machine Transitions** | **PASS** | **PASS** | `active` <-> `paused` -> `completed` / `discarded`; terminal states reject reactivation |
+| 6 | **Per-Set Live Logging** | **PASS** | **PASS** | Completing set logs exact actual reps, actual weight, RPE, and completion timestamp |
+| 7 | **Partial & Modified Set Records** | **PASS** | **PASS** | User can modify reps and weights independently from planned values per set |
+| 8 | **Set Skipping Semantics** | **PASS** | **PASS** | Skipped set marks `status='skipped'`, keeps planned values, leaves actual values null |
+| 9 | **Dynamic Set Addition** | **PASS** | **PASS** | "Add Set" adds next sequential set (`setNumber: N+1`) inheriting previous targets |
+| 10 | **Wall-Clock Elapsed Time (Drift-Free)** | **PASS** | **PASS** | Elapsed derived from `accumulatedElapsedMs + (now - lastResumedAt)`; survives app restart |
+| 11 | **Rest Countdown Timer** | **PASS** | **PASS** | Auto-starts on set completion; features +30s addition and skip rest button |
+| 12 | **App Relaunch Recovery** | **PASS** | **PASS** | `AppContext` hydrates active session from SQLite on app startup; resumes without data loss |
+| 13 | **Actual vs Planned Volume Separation** | **PASS** | **PASS** | Actual volume computed strictly from completed sets; skipped/pending contribute 0 |
+| 14 | **Incomplete Sets Summary Warning** | **PASS** | **PASS** | Finish modal highlights incomplete sets count and confirms unlogged sets |
+| 15 | **Safe Leave & Discard Modals** | **PASS** | **PASS** | Leave confirmation keeps session running in background; discard requires destructive confirmation |
+| 16 | **Android Hardware Back Interception** | **PASS** | **PASS** | Hardware back navigates safely to workouts tab keeping session active without crash or exit |
+| 17 | **WorkoutsScreen Resumption Banner** | **PASS** | **PASS** | Prominent active/paused session banner with one-tap "Resume" action button |
+| 18 | **Bilingual RTL & Number Preservation** | **PASS** | **PASS** | Perfect mirror layout in Arabic; Latin numerals (`ar-SA-u-nu-latn`) for timers, reps, and weights |
+| 19 | **Universal Theme & Touch Targets** | **PASS** | **PASS** | All interactive inputs and buttons meet WCAG 2.1 AA and >= 48dp Android / >= 44pt iOS |
+
+---
+
 ## 3. Execution & Reporting Guidelines
 
 1. **Evidence Standard:** No test in this matrix may be reported as `PASS` unless verified on an actual physical device or targeted emulator.

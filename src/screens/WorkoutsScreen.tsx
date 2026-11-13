@@ -13,7 +13,7 @@ import { themeColors } from '../theme/colors';
 import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
-import type { Language, Workout } from '../types';
+import type { Language, Workout, WorkoutSession } from '../types';
 import { activeRowStyle, activeTextAlign, activeWritingDirection } from '../utils/rtl';
 import {
   calculateWorkoutProgressionSummary,
@@ -27,6 +27,8 @@ type WorkoutsScreenProps = {
   onAddWorkout: () => void;
   onWorkoutPress: (workout: Workout) => void;
   language?: Language;
+  activeSession?: WorkoutSession | null;
+  onResumeSession?: () => void;
 };
 
 export function WorkoutsScreen({
@@ -35,6 +37,8 @@ export function WorkoutsScreen({
   onAddWorkout,
   onWorkoutPress,
   language = 'en',
+  activeSession,
+  onResumeSession,
 }: WorkoutsScreenProps) {
   const colors = themeColors();
   const handleBottomNavScroll = useBottomNavScrollHandler();
@@ -78,6 +82,34 @@ export function WorkoutsScreen({
         subtitle={t('workouts.subtitle')}
         action={<AppButton title={t('common.add')} icon="add" onPress={onAddWorkout} />}
       />
+
+      {activeSession && (activeSession.status === 'active' || activeSession.status === 'paused') && onResumeSession ? (
+        <AppCard style={[styles.activeBanner, { borderColor: colors.accent }]}>
+          <View style={[styles.activeBannerRow, activeRowStyle()]}>
+            <View style={styles.activeBannerTextCol}>
+              <View style={[styles.activeIndicatorRow, activeRowStyle()]}>
+                <View
+                  style={[
+                    styles.activeDot,
+                    { backgroundColor: activeSession.status === 'active' ? colors.accent : colors.warning },
+                  ]}
+                />
+                <Text style={[styles.activeBannerSubtitle, directionalText, { color: colors.accent }]}>
+                  {activeSession.status === 'active' ? t('workouts.activeWorkout') : t('workouts.pauseWorkout')}
+                </Text>
+              </View>
+              <Text style={[styles.activeBannerTitle, directionalText, { color: colors.text }]} numberOfLines={1}>
+                {activeSession.title}
+              </Text>
+            </View>
+            <AppButton
+              title={t('workouts.resume')}
+              icon="play"
+              onPress={onResumeSession}
+            />
+          </View>
+        </AppCard>
+      ) : null}
 
       {workouts.length > 0 ? (
         <>
@@ -186,6 +218,38 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     paddingBottom: 120,
     gap: spacing.lg,
+  },
+  activeBanner: {
+    padding: spacing.md,
+    borderWidth: 1.5,
+  },
+  activeBannerRow: {
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  activeBannerTextCol: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  activeIndicatorRow: {
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  activeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  activeBannerSubtitle: {
+    ...typography.caption,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  activeBannerTitle: {
+    ...typography.h3,
+    fontSize: 16,
+    fontWeight: '700',
   },
   filtersRow: {
     gap: spacing.sm,

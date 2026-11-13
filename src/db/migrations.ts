@@ -67,6 +67,55 @@ export const MIGRATIONS: SchemaMigration[] = [
       ]);
     },
   },
+  {
+    version: 5,
+    name: 'add_workout_execution_sessions_v5',
+    up: async (db: IDatabase) => {
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS workout_sessions (
+          id TEXT PRIMARY KEY,
+          source_workout_id TEXT REFERENCES workouts(id) ON DELETE SET NULL,
+          title TEXT NOT NULL,
+          status TEXT NOT NULL CHECK(status IN ('active', 'paused', 'completed', 'discarded')),
+          started_at TEXT NOT NULL,
+          ended_at TEXT,
+          accumulated_elapsed_ms INTEGER NOT NULL DEFAULT 0,
+          last_resumed_at TEXT,
+          notes TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_workout_sessions_status ON workout_sessions(status);
+        CREATE INDEX IF NOT EXISTS idx_workout_sessions_started_at ON workout_sessions(started_at);
+
+        CREATE TABLE IF NOT EXISTS workout_session_exercises (
+          id TEXT PRIMARY KEY,
+          session_id TEXT NOT NULL REFERENCES workout_sessions(id) ON DELETE CASCADE,
+          source_exercise_id TEXT,
+          catalog_id TEXT,
+          exercise_name TEXT NOT NULL,
+          target_muscles TEXT NOT NULL DEFAULT '[]',
+          sort_order INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE INDEX IF NOT EXISTS idx_workout_session_exercises_session ON workout_session_exercises(session_id);
+
+        CREATE TABLE IF NOT EXISTS workout_sets (
+          id TEXT PRIMARY KEY,
+          session_exercise_id TEXT NOT NULL REFERENCES workout_session_exercises(id) ON DELETE CASCADE,
+          set_number INTEGER NOT NULL,
+          planned_reps INTEGER NOT NULL DEFAULT 0,
+          actual_reps INTEGER,
+          planned_weight_kg REAL NOT NULL DEFAULT 0,
+          actual_weight_kg REAL,
+          status TEXT NOT NULL CHECK(status IN ('pending', 'completed', 'skipped')),
+          completed_at TEXT,
+          rpe REAL,
+          notes TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_workout_sets_session_ex ON workout_sets(session_exercise_id);
+      `);
+    },
+  },
 ];
 
 /**

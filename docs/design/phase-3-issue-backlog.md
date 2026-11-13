@@ -218,19 +218,60 @@
 
 ---
 
+### Item 3.5 [RESOLVED] Active Workout Execution, Per-Set Logging & Timers
+- **Description:** Implement a complete, reliable active workout execution experience with individual set logging (actual reps & weight vs planned targets), rest timers, elapsed workout duration derived from persisted timestamps, interrupted session recovery upon app relaunch, and strict separation between planned and actual training volume.
+- **Resolution:**
+  1. **Canonical Domain Models (`src/models/workoutSession.ts`):**
+     - Introduced `WorkoutSession`, `WorkoutSessionExercise`, `WorkoutSet`, `SessionStatus` (`'active' | 'paused' | 'completed' | 'discarded'`), and `SetStatus` (`'pending' | 'completed' | 'skipped'`).
+     - State machine validation via `validateSessionTransition()`: terminal statuses (`completed`, `discarded`) strictly cannot transition back to active/paused.
+     - Strict domain validation via `validateWorkoutSet()` enforcing positive integer set numbers, non-negative reps/weights, and RPE bounds [1, 10].
+  2. **SQLite Migration 5 (`src/db/migrations.ts`):**
+     - Versioned non-destructive migration `add_workout_execution_sessions_v5`.
+     - Tables: `workout_sessions`, `workout_session_exercises`, `workout_sets` with foreign key cascades and indexes on `status`, `started_at`, and parent relationships.
+     - Preserves Migrations 1–4 and all legacy user workouts without modification.
+  3. **Repository & Service Architecture (`src/db/repositories/workoutSessionRepository.ts`, `src/services/workoutSessionService.ts`):**
+     - Implemented `SQLiteWorkoutSessionRepository` with transactional integrity (`withExclusiveTransactionAsync`).
+     - Session uniqueness guard: rejects starting a new session if an active/paused session already exists.
+     - Timestamp-based elapsed duration calculation (`accumulatedElapsedMs + (now - lastResumedAt)`), eliminating timer drift across pauses, unmounts, or app backgrounding.
+     - Supports individual set completion, editing, skipping, and dynamic addition of extra sets.
+     - Discarding cleanly purges uncommitted session sets. Deleting a template workout sets `source_workout_id` to NULL without corrupting completed session records.
+  4. **Active Workout Execution UI (`src/screens/ActiveWorkoutScreen.tsx`):**
+     - Real-time elapsed duration clock and status indicator (Active / Paused).
+     - Rest countdown timer with `+30s` increment and skip actions.
+     - Per-set editing table displaying planned targets alongside actual reps, actual weight, and checkmark / skip controls.
+     - "Add Set" action dynamically adds extra sets to any exercise.
+     - Finish Workout modal with actual performance metrics (elapsed minutes, completed sets, actual volume, total reps) and warning banner when sets remain incomplete.
+     - Back navigation with leave confirmation prompt (leaves session running safely in background) and discard confirmation modal.
+  5. **Navigation & Session Recovery (`src/navigation/AppNavigator.tsx`, `src/store/AppContext.tsx`):**
+     - `AppContext` hydrates active session from SQLite on app startup.
+     - Active workout banner on `WorkoutsScreen` provides one-tap resumption into the running session.
+     - Conflict alert on `WorkoutDetailsScreen` if starting a workout while another session is in progress (Resume / Discard & Start New / Cancel).
+     - Android hardware back button handles active session gracefully without accidental data loss or premature screen exit.
+  6. **Separation of Actual vs Planned Volume (`src/utils/workoutAnalytics.ts`):**
+     - Implemented `calculateSessionPerformanceSummary(session)` computing actual verified volume strictly from completed sets ($\sum reps_{actual} \times weight_{actual}$).
+     - Incomplete sets contribute 0 load, preventing artificial volume inflation.
+  7. **Testing Evidence:**
+     - 30 comprehensive automated tests in `src/__tests__/activeWorkoutExecution.test.ts`.
+     - Total project test suite: **299 passing tests**, 0 failures.
+     - Codebase line coverage: **90.79%** (`workoutSession.ts`: 95.71%, `workoutSessionRepository.ts`: 91.95%).
+     - 20/20 Expo Doctor checks passing.
+
+---
+
 ## 2. Planned Tasks in Phase 3
 
-### Item 3.5 [PLANNED] Active Workout Logging & Exercise Timers
-- **Description:** Real-time workout execution mode, rest timers between sets, per-set completion toggles, and live duration tracking.
+### Item 3.6 [PLANNED] Training Volume & Progression Insights
+- **Description:** Longitudinal progression trends, volume load comparisons across weeks and months, personal records (PRs), and workout frequency charts based on logged execution sessions.
 - **Status:** Next planned task in Phase 3.
 
 ---
 
 ## 3. Known Limitations & Architectural Notes
 
-1. **Derived Duration:**
-   - Workout duration continues to be derived from the sum of exercise durations. Dedicated session timer or workout-level duration column is not currently part of the SQLite schema.
-2. **Aggregated Set Model:**
-   - Exercises are stored as aggregated sets/reps/weight (`sets: 4, reps: 10, weight: 60`). Individual set-by-set logging (e.g. Set 1: 60kg x 10, Set 2: 65kg x 8) is deferred to future schema migrations.
+1. **Dual Storage Layers:**
+   - Template workouts continue to reside in `workouts` and `workout_exercises`.
+   - Execution instances reside in `workout_sessions`, `workout_session_exercises`, and `workout_sets`, ensuring legacy template stability alongside granular per-set execution logs.
+2. **Derived Duration for Templates vs Exact Wall-Clock Duration for Sessions:**
+   - Template workouts derive duration from aggregated estimates. Active workout sessions track exact persisted wall-clock timestamps (`startedAt`, `lastResumedAt`, `accumulatedElapsedMs`, `endedAt`).
 3. **Navigation Architecture:**
    - Navigation remains state-based within `AppNavigator.tsx`, in compliance with project architecture rules. Native stack navigation remains deferred to Phase 1B.
