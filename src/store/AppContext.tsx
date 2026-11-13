@@ -12,21 +12,57 @@ import { loadProfile, saveProfile } from '../services/profileService';
 import { loadProgressEntries, saveProgressEntries } from '../services/progressService';
 import { resolveAuthoritativeLanguage } from '../services/localizationService';
 import { defaultSettings, loadSettings, saveSettings } from '../services/settingsService';
-import { loadWorkouts, saveWorkouts } from '../services/workoutService';
+import {
+  loadWorkouts,
+  saveWorkouts,
+  insertWorkout as insertWorkoutService,
+  updateWorkout as updateWorkoutService,
+  deleteWorkout as deleteWorkoutService,
+} from '../services/workoutService';
+import { MigrationSessionConflictError, type WorkoutSession } from '../models/workoutSession';
+import {
+  getActiveWorkoutSession,
+  startWorkoutSession,
+  pauseWorkoutSession,
+  resumeWorkoutSession,
+  completeSessionSet,
+  skipSessionSet,
+  addSessionSet,
+  finishWorkoutSession,
+  discardWorkoutSession,
+  setSessionRestTarget,
+  getInterruptedWorkoutSessions,
+  resumeInterruptedWorkoutSession,
+  archiveInterruptedWorkoutSession,
+} from '../services/workoutSessionService';
 import { applyAppDirection, isRTLLanguage } from '../utils/languageDirection';
-import { getDatabase, migrateFromAsyncStorage } from '../db';
+import {
+  getDatabase,
+  getDatabaseConnectionOnly,
+  migrateFromAsyncStorage,
+  reconcilePreMigrationConflicts,
+  type PreMigrationResolution,
+} from '../db';
 
-type AppStateData = {
+export type MigrationConflictInfo = {
+  conflicts: { id: string; title: string; startedAt: string; status?: string }[];
+  error: string;
+};
+
+export type AppStateData = {
   isReady: boolean;
   persistenceError: string | null;
+  migrationConflict: MigrationConflictInfo | null;
   meals: Meal[];
   workouts: Workout[];
   profile: UserProfile;
   progressEntries: ProgressEntry[];
   settings: Settings;
+  activeSession: WorkoutSession | null;
+  interruptedSessions: WorkoutSession[];
 };
 
-type AppAction =
+export type AppAction =
   | {
       type: 'hydrate';
       meals: Meal[];
@@ -34,8 +70,13 @@ type AppAction =
       profile: UserProfile;
       progressEntries: ProgressEntry[];
       settings: Settings;
+      activeSession: WorkoutSession | null;
+      interruptedSessions?: WorkoutSession[];
     }
   | { type: 'setPersistenceError'; error: string | null }
+  | { type: 'setMigrationConflict'; conflict: MigrationConflictInfo | null }
+  | { type: 'setActiveSession'; session: WorkoutSession | null }
+  | { type: 'setInterruptedSessions'; sessions: WorkoutSession[] }
   | { type: 'addMeal'; meal: Meal }
   | { type: 'updateMeal'; meal: Meal }
   | { type: 'deleteMeal'; mealId: string }
@@ -57,27 +98,70 @@ type AppContextValue = AppStateData & {
   addMeal: (meal: Meal) => void;
   updateMeal: (meal: Meal) => void;
   deleteMeal: (mealId: string) => void;
-  addWorkout: (workout: Workout) => void;
-  updateWorkout: (workout: Workout) => void;
-  deleteWorkout: (workoutId: string) => void;
+  addWorkout: (workout: Workout) => Promise<void> | void;
+  updateWorkout: (workout: Workout) => Promise<void> | void;
+  deleteWorkout: (workoutId: string) => Promise<void> | void;
   addProgressEntry: (entry: ProgressEntry) => void;
   updateSettings: (settings: Partial<Settings>) => void;
   clearPersistenceError: () => void;
+  startActiveWorkout: (workout: Workout) => Promise<WorkoutSession>;
+  pauseActiveWorkout: () => Promise<void>;
+  resumeActiveWorkout: () => Promise<void>;
+  completeSetInSession: (
+    setId: string,
+    reps: number,
+    weight: number,
+    rpe?: number | null,
+    notes?: string
+  ) => Promise<void>;
+  skipSetInSession: (setId: string, notes?: string) => Promise<void>;
+  addSetToSession: (
+    sessionExerciseId: string,
+    reps: number,
+    weight: number
+  ) => Promise<void>;
+  finishActiveWorkout: (notes?: string) => Promise<WorkoutSession>;
+  discardActiveWorkout: () => Promise<void>;
+  refreshActiveSession: () => Promise<void>;
+  updateActiveSessionRestTarget: (restTargetAt: string | null) => Promise<WorkoutSession | null>;
+  loadInterruptedSessions: () => Promise<WorkoutSession[]>;
+  resolveMigrationConflict: (
+    resolution?:
+      | string
+      | {
+          resumeSessionId?: string;
+          actionForOthers?: 'keep_interrupted' | 'archive' | 'discard';
+          sessionResolutions?: Record<
+            string,
+            'resume' | 'keep_interrupted' | 'archive' | 'discard'
+          >;
+        },
+    actionForOthers?: 'keep_interrupted' | 'archive' | 'discard'
+  ) => Promise<void>;
+  resumeInterruptedSession: (
+    sessionId: string,
+    currentSessionAction?: 'keep_interrupted' | 'archive' | 'discard'
+  ) => Promise<WorkoutSession>;
+  archiveInterruptedSession: (sessionId: string, notes?: string) => Promise<WorkoutSession>;
+  discardInterruptedSession: (sessionId: string) => Promise<void>;
 };
 
 const initialState: AppStateData = {
   isReady: false,
   persistenceError: null,
+  migrationConflict: null,
   meals: [],
   workouts: [],
   profile: getSeedProfile(),
   progressEntries: [],
   settings: defaultSettings,
+  activeSession: null,
+  interruptedSessions: [],
 };
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
 
-function appReducer(state: AppStateData, action: AppAction): AppStateData {
+export function appReducer(state: AppStateData, action: AppAction): AppStateData {
   switch (action.type) {
     case 'hydrate':
       return {
@@ -88,12 +172,32 @@ function appReducer(state: AppStateData, action: AppAction): AppStateData {
         profile: normalizeProfile(action.profile),
         progressEntries: action.progressEntries.map(normalizeProgressEntry),
         settings: action.settings,
+        activeSession: action.activeSession,
+        interruptedSessions: action.interruptedSessions ?? [],
+      };
+
+    case 'setActiveSession':
+      return {
+        ...state,
+        activeSession: action.session,
+      };
+
+    case 'setInterruptedSessions':
+      return {
+        ...state,
+        interruptedSessions: action.sessions,
       };
 
     case 'setPersistenceError':
       return {
         ...state,
         persistenceError: action.error,
+      };
+
+    case 'setMigrationConflict':
+      return {
+        ...state,
+        migrationConflict: action.conflict,
       };
 
     case 'addMeal': {
@@ -180,6 +284,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Tracks whether state has been initialized from storage to prevent overwriting during hydration
   const isHydratedRef = useRef(false);
+  const hydrateRef = useRef<() => Promise<void>>(() => Promise.resolve());
 
   const applyLanguageDirection = useCallback((language: Language) => {
     applyAppDirection(language);
@@ -194,33 +299,64 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         try {
           const db = await getDatabase();
           await migrateFromAsyncStorage(db);
-        } catch (dbErr) {
+        } catch (dbErr: any) {
+          if (
+            dbErr instanceof MigrationSessionConflictError ||
+            dbErr?.name === 'MigrationSessionConflictError'
+          ) {
+            console.warn('[AppContext] Pre-migration session conflict detected:', dbErr);
+            if (active) {
+              dispatch({
+                type: 'setMigrationConflict',
+                conflict: {
+                  conflicts: dbErr.conflictingSessions || [],
+                  error: dbErr.message,
+                },
+              });
+            }
+            return;
+          }
           console.warn('[AppContext] SQLite initialization or migration notice:', dbErr);
         }
 
-        const [savedMeals, savedWorkouts, savedProfile, savedProgressEntries, savedSettings] =
-          await Promise.all([
-            loadMeals().catch((e) => {
-              console.warn('[AppContext] Failed to load meals:', e);
-              return null;
-            }),
-            loadWorkouts().catch((e) => {
-              console.warn('[AppContext] Failed to load workouts:', e);
-              return null;
-            }),
-            loadProfile().catch((e) => {
-              console.warn('[AppContext] Failed to load profile:', e);
-              return null;
-            }),
-            loadProgressEntries().catch((e) => {
-              console.warn('[AppContext] Failed to load progress entries:', e);
-              return null;
-            }),
-            loadSettings().catch((e) => {
-              console.warn('[AppContext] Failed to load settings:', e);
-              return null;
-            }),
-          ]);
+        const [
+          savedMeals,
+          savedWorkouts,
+          savedProfile,
+          savedProgressEntries,
+          savedSettings,
+          savedActiveSession,
+          savedInterruptedSessions,
+        ] = await Promise.all([
+          loadMeals().catch((e) => {
+            console.warn('[AppContext] Failed to load meals:', e);
+            return null;
+          }),
+          loadWorkouts().catch((e) => {
+            console.warn('[AppContext] Failed to load workouts:', e);
+            return null;
+          }),
+          loadProfile().catch((e) => {
+            console.warn('[AppContext] Failed to load profile:', e);
+            return null;
+          }),
+          loadProgressEntries().catch((e) => {
+            console.warn('[AppContext] Failed to load progress entries:', e);
+            return null;
+          }),
+          loadSettings().catch((e) => {
+            console.warn('[AppContext] Failed to load settings:', e);
+            return null;
+          }),
+          getActiveWorkoutSession().catch((e) => {
+            console.warn('[AppContext] Failed to load active workout session:', e);
+            return null;
+          }),
+          getInterruptedWorkoutSessions().catch((e) => {
+            console.warn('[AppContext] Failed to load interrupted workout sessions:', e);
+            return [];
+          }),
+        ]);
 
         if (!active) {
           return;
@@ -258,6 +394,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           profile: initialProfile,
           progressEntries: initialProgress,
           settings: hydratedSettings,
+          activeSession: savedActiveSession,
+          interruptedSessions: savedInterruptedSessions,
         });
 
         // If first launch, persist the initial seed state so subsequent loads recognize existing user data
@@ -303,6 +441,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           },
           progressEntries: [],
           settings: defaultSettings,
+          activeSession: null,
+          interruptedSessions: [],
         });
 
         dispatch({
@@ -312,12 +452,60 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
+    hydrateRef.current = hydrate;
     hydrate();
 
     return () => {
       active = false;
     };
   }, []);
+
+  const resolveMigrationConflict = useCallback(
+    async (
+      resolutionArg?:
+        | string
+        | {
+            resumeSessionId?: string;
+            actionForOthers?: 'keep_interrupted' | 'archive' | 'discard';
+            sessionResolutions?: Record<
+              string,
+              'resume' | 'keep_interrupted' | 'archive' | 'discard'
+            >;
+          },
+      actionForOthersArg?: 'keep_interrupted' | 'archive' | 'discard'
+    ) => {
+      try {
+        let resolution: PreMigrationResolution;
+        if (typeof resolutionArg === 'string') {
+          resolution = {
+            resumeSessionId: resolutionArg,
+            actionForOthers: actionForOthersArg ?? 'keep_interrupted',
+          };
+        } else if (resolutionArg) {
+          resolution = {
+            ...resolutionArg,
+            actionForOthers: resolutionArg.actionForOthers ?? actionForOthersArg ?? 'keep_interrupted',
+          };
+        } else {
+          resolution = { actionForOthers: actionForOthersArg ?? 'keep_interrupted' };
+        }
+
+        const db = await getDatabaseConnectionOnly();
+        await reconcilePreMigrationConflicts(db, resolution);
+        await getDatabase();
+        dispatch({ type: 'setMigrationConflict', conflict: null });
+        await hydrateRef.current();
+      } catch (err: any) {
+        console.error('[AppContext] Failed to resolve migration conflict:', err);
+        dispatch({
+          type: 'setPersistenceError',
+          error: err?.message || 'Failed to resolve session conflict.',
+        });
+        throw err;
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     if (!state.isReady) {
@@ -347,26 +535,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         });
       });
   }, [state.isReady, state.meals]);
-
-  useEffect(() => {
-    if (!state.isReady) {
-      return;
-    }
-    if (!isHydratedRef.current) {
-      return;
-    }
-    saveWorkouts(state.workouts)
-      .then(() => {
-        dispatch({ type: 'setPersistenceError', error: null });
-      })
-      .catch((err) => {
-        console.error('[AppContext] Failed to persist workouts:', err);
-        dispatch({
-          type: 'setPersistenceError',
-          error: err instanceof Error ? err.message : 'Failed to persist workouts',
-        });
-      });
-  }, [state.isReady, state.workouts]);
 
   useEffect(() => {
     if (!state.isReady) {
@@ -466,14 +634,266 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addMeal: (meal) => dispatch({ type: 'addMeal', meal }),
       updateMeal: (meal) => dispatch({ type: 'updateMeal', meal }),
       deleteMeal: (mealId) => dispatch({ type: 'deleteMeal', mealId }),
-      addWorkout: (workout) => dispatch({ type: 'addWorkout', workout }),
-      updateWorkout: (workout) => dispatch({ type: 'updateWorkout', workout }),
-      deleteWorkout: (workoutId) => dispatch({ type: 'deleteWorkout', workoutId }),
+      addWorkout: async (workout) => {
+        try {
+          const normalized = normalizeWorkout(workout);
+          await insertWorkoutService(normalized);
+          dispatch({ type: 'addWorkout', workout: normalized });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to insert workout:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to persist workout',
+          });
+          throw err;
+        }
+      },
+      updateWorkout: async (workout) => {
+        try {
+          const normalized = normalizeWorkout(workout);
+          await updateWorkoutService(normalized);
+          dispatch({ type: 'updateWorkout', workout: normalized });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to update workout:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to persist workout',
+          });
+          throw err;
+        }
+      },
+      deleteWorkout: async (workoutId) => {
+        try {
+          await deleteWorkoutService(workoutId);
+          dispatch({ type: 'deleteWorkout', workoutId });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to delete workout:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to persist workout deletion',
+          });
+          throw err;
+        }
+      },
       addProgressEntry: (entry) => dispatch({ type: 'addProgressEntry', entry }),
       updateSettings: (settings) => dispatch({ type: 'updateSettings', settings }),
       clearPersistenceError: () => dispatch({ type: 'setPersistenceError', error: null }),
+      startActiveWorkout: async (workout: Workout) => {
+        try {
+          const session = await startWorkoutSession(workout);
+          dispatch({ type: 'setActiveSession', session });
+          dispatch({ type: 'setPersistenceError', error: null });
+          return session;
+        } catch (err) {
+          console.error('[AppContext] Failed to start active workout session:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to start active workout session',
+          });
+          throw err;
+        }
+      },
+      pauseActiveWorkout: async () => {
+        if (!state.activeSession) return;
+        try {
+          const session = await pauseWorkoutSession(state.activeSession.id);
+          dispatch({ type: 'setActiveSession', session });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to pause active workout:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to pause workout session',
+          });
+          throw err;
+        }
+      },
+      resumeActiveWorkout: async () => {
+        if (!state.activeSession) return;
+        try {
+          const session = await resumeWorkoutSession(state.activeSession.id);
+          dispatch({ type: 'setActiveSession', session });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to resume active workout:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to resume workout session',
+          });
+          throw err;
+        }
+      },
+      completeSetInSession: async (
+        setId: string,
+        reps: number,
+        weight: number,
+        rpe?: number | null,
+        notes?: string
+      ) => {
+        if (!state.activeSession) return;
+        try {
+          await completeSessionSet(setId, reps, weight, rpe, notes);
+          const session = await getActiveWorkoutSession();
+          dispatch({ type: 'setActiveSession', session });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to complete set in session:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to complete set',
+          });
+          throw err;
+        }
+      },
+      skipSetInSession: async (setId: string, notes?: string) => {
+        if (!state.activeSession) return;
+        try {
+          await skipSessionSet(setId, notes);
+          const session = await getActiveWorkoutSession();
+          dispatch({ type: 'setActiveSession', session });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to skip set in session:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to skip set',
+          });
+          throw err;
+        }
+      },
+      addSetToSession: async (sessionExerciseId: string, reps: number, weight: number) => {
+        if (!state.activeSession) return;
+        try {
+          await addSessionSet(sessionExerciseId, reps, weight);
+          const session = await getActiveWorkoutSession();
+          dispatch({ type: 'setActiveSession', session });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to add set to session:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to add set',
+          });
+          throw err;
+        }
+      },
+      finishActiveWorkout: async (notes?: string) => {
+        if (!state.activeSession) throw new Error('No active workout session.');
+        try {
+          const finished = await finishWorkoutSession(state.activeSession.id, notes);
+          dispatch({ type: 'setActiveSession', session: null });
+          dispatch({ type: 'setPersistenceError', error: null });
+          return finished;
+        } catch (err) {
+          console.error('[AppContext] Failed to finish active workout session:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to finish workout session',
+          });
+          throw err;
+        }
+      },
+      discardActiveWorkout: async () => {
+        if (!state.activeSession) return;
+        try {
+          await discardWorkoutSession(state.activeSession.id);
+          dispatch({ type: 'setActiveSession', session: null });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to discard active workout session:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to discard workout session',
+          });
+          throw err;
+        }
+      },
+      refreshActiveSession: async () => {
+        try {
+          const session = await getActiveWorkoutSession();
+          dispatch({ type: 'setActiveSession', session });
+        } catch (err) {
+          console.warn('[AppContext] Failed to refresh active workout session:', err);
+        }
+      },
+      updateActiveSessionRestTarget: async (restTargetAt: string | null) => {
+        if (!state.activeSession) return null;
+        try {
+          const updated = await setSessionRestTarget(state.activeSession.id, restTargetAt);
+          dispatch({ type: 'setActiveSession', session: updated });
+          return updated;
+        } catch (err) {
+          console.warn('[AppContext] Failed to update rest target:', err);
+          throw err;
+        }
+      },
+      loadInterruptedSessions: async () => {
+        try {
+          const sessions = await getInterruptedWorkoutSessions();
+          dispatch({ type: 'setInterruptedSessions', sessions });
+          return sessions;
+        } catch (err) {
+          console.warn('[AppContext] Failed to load interrupted sessions:', err);
+          return [];
+        }
+      },
+      resumeInterruptedSession: async (
+        sessionId: string,
+        currentSessionAction?: 'keep_interrupted' | 'archive' | 'discard'
+      ) => {
+        try {
+          const resumed = await resumeInterruptedWorkoutSession(sessionId, currentSessionAction);
+          const remainingInterrupted = await getInterruptedWorkoutSessions();
+          dispatch({ type: 'setInterruptedSessions', sessions: remainingInterrupted });
+          dispatch({ type: 'setActiveSession', session: resumed });
+          dispatch({ type: 'setPersistenceError', error: null });
+          return resumed;
+        } catch (err) {
+          console.error('[AppContext] Failed to resume interrupted session:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to resume interrupted session',
+          });
+          throw err;
+        }
+      },
+      archiveInterruptedSession: async (sessionId: string, notes?: string) => {
+        try {
+          const archived = await archiveInterruptedWorkoutSession(sessionId, notes);
+          const remainingInterrupted = await getInterruptedWorkoutSessions();
+          dispatch({ type: 'setInterruptedSessions', sessions: remainingInterrupted });
+          dispatch({ type: 'setPersistenceError', error: null });
+          return archived;
+        } catch (err) {
+          console.error('[AppContext] Failed to archive interrupted session:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to archive interrupted session',
+          });
+          throw err;
+        }
+      },
+      discardInterruptedSession: async (sessionId: string) => {
+        try {
+          await discardWorkoutSession(sessionId);
+          const remainingInterrupted = await getInterruptedWorkoutSessions();
+          dispatch({ type: 'setInterruptedSessions', sessions: remainingInterrupted });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to discard interrupted session:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to discard interrupted session',
+          });
+          throw err;
+        }
+      },
+      resolveMigrationConflict,
     }),
-    [setLanguage, state, t],
+    [resolveMigrationConflict, setLanguage, state, t],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

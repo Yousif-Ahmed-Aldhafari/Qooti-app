@@ -3,6 +3,7 @@ import { Workout } from '../models/workout';
 import { UserProfile } from '../models/profile';
 import { ProgressEntry } from '../models/progress';
 import { Settings } from '../models/settings';
+import { WorkoutSession, WorkoutSet } from '../models/workoutSession';
 
 /**
  * Standard interface for SQLite Database instance, compatible with expo-sqlite.
@@ -85,4 +86,49 @@ export interface ProgressRepository {
 export interface SettingsRepository {
   getSettings(): Promise<Settings | null>;
   saveSettings(settings: Settings, txn?: IDatabase): Promise<void>;
+}
+
+export interface WorkoutSessionRepository {
+  createSession(session: WorkoutSession, txn?: IDatabase): Promise<WorkoutSession>;
+  getActiveSession(txn?: IDatabase): Promise<WorkoutSession | null>;
+  getSessionById(id: string, txn?: IDatabase): Promise<WorkoutSession | null>;
+  listSessions(limit?: number, txn?: IDatabase): Promise<WorkoutSession[]>;
+  pauseSession(id: string, pausedAt?: string, txn?: IDatabase): Promise<WorkoutSession>;
+  resumeSession(id: string, resumedAt?: string, txn?: IDatabase): Promise<WorkoutSession>;
+  completeSet(
+    setId: string,
+    updates: {
+      actualReps: number;
+      actualWeightKg: number;
+      rpe?: number | null;
+      notes?: string;
+    },
+    txn?: IDatabase
+  ): Promise<WorkoutSet>;
+  updateSet(setId: string, updates: Partial<WorkoutSet>, txn?: IDatabase): Promise<WorkoutSet>;
+  skipSet(setId: string, notes?: string, txn?: IDatabase): Promise<WorkoutSet>;
+  addSet(
+    sessionExerciseId: string,
+    plannedReps: number,
+    plannedWeightKg: number,
+    txn?: IDatabase
+  ): Promise<WorkoutSet>;
+  completeSession(id: string, notes?: string, completedAt?: string, txn?: IDatabase): Promise<WorkoutSession>;
+  discardSession(id: string, txn?: IDatabase): Promise<void>;
+  setRestTarget(sessionId: string, restTargetAt: string | null, txn?: IDatabase): Promise<WorkoutSession>;
+  listInterruptedSessions(txn?: IDatabase): Promise<WorkoutSession[]>;
+  resumeInterruptedSession(
+    id: string,
+    options?:
+      | { currentSessionAction?: 'keep_interrupted' | 'archive' | 'discard' }
+      | 'keep_interrupted'
+      | 'archive'
+      | 'discard',
+    txn?: IDatabase
+  ): Promise<WorkoutSession>;
+  archiveInterruptedSession(
+    id: string,
+    notes?: string,
+    txn?: IDatabase
+  ): Promise<WorkoutSession>;
 }

@@ -11,6 +11,13 @@ export type {
 } from '../models/profile';
 export type { FoodItem, Meal, MealItem } from '../models/meal';
 export type { Exercise, Workout } from '../models/workout';
+export type {
+  SessionStatus,
+  SetStatus,
+  WorkoutSession,
+  WorkoutSessionExercise,
+  WorkoutSet,
+} from '../models/workoutSession';
 export type { DailyNutritionSummary, ProgressEntry } from '../models/progress';
 export type { SleepEntry } from '../models/sleep';
 export type { WaterEntry } from '../models/water';
@@ -26,7 +33,9 @@ export type ScreenKey =
   | 'mealDetails'
   | 'workouts'
   | 'addWorkout'
+  | 'editWorkout'
   | 'workoutDetails'
+  | 'activeWorkout'
   | 'progress'
   | 'profile'
   | 'settings';

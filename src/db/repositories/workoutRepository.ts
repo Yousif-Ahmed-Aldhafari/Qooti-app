@@ -1,5 +1,11 @@
 import { IDatabase, WorkoutRepository } from '../types';
-import { Workout, Exercise, normalizeWorkout, normalizeExercise } from '../../models/workout';
+import {
+  Workout,
+  Exercise,
+  normalizeWorkout,
+  normalizeExercise,
+  validateWorkout,
+} from '../../models/workout';
 
 interface WorkoutRow {
   id: string;
@@ -14,6 +20,7 @@ interface ExerciseRow {
   id: string;
   workout_id: string;
   name: string;
+  catalog_id: string | null;
   target_muscles: string;
   sets: number;
   reps: number;
@@ -53,6 +60,7 @@ export class SQLiteWorkoutRepository implements WorkoutRepository {
       const exercise = normalizeExercise({
         id: ex.id,
         name: ex.name,
+        catalogId: ex.catalog_id ?? undefined,
         targetMuscles,
         sets: ex.sets,
         reps: ex.reps,
@@ -106,6 +114,7 @@ export class SQLiteWorkoutRepository implements WorkoutRepository {
       return normalizeExercise({
         id: ex.id,
         name: ex.name,
+        catalogId: ex.catalog_id ?? undefined,
         targetMuscles,
         sets: ex.sets,
         reps: ex.reps,
@@ -128,6 +137,7 @@ export class SQLiteWorkoutRepository implements WorkoutRepository {
   async insertWorkout(workout: Workout, txn?: IDatabase): Promise<void> {
     const target = txn || this.db;
     const normalized = normalizeWorkout(workout);
+    validateWorkout(normalized);
     const now = new Date().toISOString();
 
     await target.withExclusiveTransactionAsync(async (t) => {
@@ -146,11 +156,12 @@ export class SQLiteWorkoutRepository implements WorkoutRepository {
         const ex = normalizeExercise(normalized.exercises[i]);
         await t.runAsync(
           `INSERT INTO workout_exercises (
-             id, workout_id, name, target_muscles, sets, reps, weight, duration, notes, sort_order
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+             id, workout_id, name, catalog_id, target_muscles, sets, reps, weight, duration, notes, sort_order
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
           ex.id,
           normalized.id,
           ex.name,
+          ex.catalogId ?? null,
           JSON.stringify(ex.targetMuscles || []),
           ex.sets,
           ex.reps,
@@ -166,8 +177,17 @@ export class SQLiteWorkoutRepository implements WorkoutRepository {
   async updateWorkout(workout: Workout, txn?: IDatabase): Promise<void> {
     const target = txn || this.db;
     const normalized = normalizeWorkout(workout);
+    validateWorkout(normalized);
 
     await target.withExclusiveTransactionAsync(async (t) => {
+      const existing = await t.getFirstAsync<{ id: string }>(
+        'SELECT id FROM workouts WHERE id = ?;',
+        normalized.id
+      );
+      if (!existing) {
+        throw new Error(`Cannot update workout: Workout with id "${normalized.id}" not found.`);
+      }
+
       await t.runAsync(
         `UPDATE workouts SET
            title = ?,
@@ -188,11 +208,12 @@ export class SQLiteWorkoutRepository implements WorkoutRepository {
         const ex = normalizeExercise(normalized.exercises[i]);
         await t.runAsync(
           `INSERT INTO workout_exercises (
-             id, workout_id, name, target_muscles, sets, reps, weight, duration, notes, sort_order
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+             id, workout_id, name, catalog_id, target_muscles, sets, reps, weight, duration, notes, sort_order
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
           ex.id,
           normalized.id,
           ex.name,
+          ex.catalogId ?? null,
           JSON.stringify(ex.targetMuscles || []),
           ex.sets,
           ex.reps,
@@ -206,10 +227,23 @@ export class SQLiteWorkoutRepository implements WorkoutRepository {
   }
 
   async deleteWorkout(id: string, txn?: IDatabase): Promise<void> {
+    if (!id || typeof id !== 'string' || id.trim().length === 0) {
+      throw new Error('Cannot delete workout: A valid workout id must be provided.');
+    }
+    const cleanId = id.trim();
     const target = txn || this.db;
+
     await target.withExclusiveTransactionAsync(async (t) => {
-      await t.runAsync('DELETE FROM workout_exercises WHERE workout_id = ?;', id);
-      await t.runAsync('DELETE FROM workouts WHERE id = ?;', id);
+      const existing = await t.getFirstAsync<{ id: string }>(
+        'SELECT id FROM workouts WHERE id = ?;',
+        cleanId
+      );
+      if (!existing) {
+        throw new Error(`Cannot delete workout: Workout with id "${cleanId}" not found.`);
+      }
+
+      await t.runAsync('DELETE FROM workout_exercises WHERE workout_id = ?;', cleanId);
+      await t.runAsync('DELETE FROM workouts WHERE id = ?;', cleanId);
     });
   }
 
@@ -238,11 +272,12 @@ export class SQLiteWorkoutRepository implements WorkoutRepository {
           const ex = normalizeExercise(normalized.exercises[i]);
           await t.runAsync(
             `INSERT INTO workout_exercises (
-               id, workout_id, name, target_muscles, sets, reps, weight, duration, notes, sort_order
-             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+               id, workout_id, name, catalog_id, target_muscles, sets, reps, weight, duration, notes, sort_order
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
             ex.id,
             normalized.id,
             ex.name,
+            ex.catalogId ?? null,
             JSON.stringify(ex.targetMuscles || []),
             ex.sets,
             ex.reps,
