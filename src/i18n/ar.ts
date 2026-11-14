@@ -182,7 +182,12 @@ export const ar = {
     "detailsTitle": "تفاصيل الوجبة",
     "fats": "الدهون",
     "foodPlaceholder": "صدر دجاج",
-    "itemLabel": "عناصر"
+    "itemLabel": "عناصر",
+    "discardChangesTitle": "تجاهل التعديلات؟",
+    "discardChangesMessage": "هل تريد تجاهل التعديلات غير المحفوظة على الوجبة؟",
+    "deleteSuccess": "تم حذف الوجبة بنجاح",
+    "deleteError": "فشل حذف الوجبة",
+    "saveError": "فشل حفظ الوجبة"
   },
   "workouts": {
     "title": "التمارين",

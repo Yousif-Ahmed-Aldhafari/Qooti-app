@@ -30,6 +30,7 @@ export type ScreenKey =
   | 'home'
   | 'meals'
   | 'addMeal'
+  | 'editMeal'
   | 'mealDetails'
   | 'workouts'
   | 'addWorkout'

@@ -2,12 +2,18 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useReducer,
 
 import { translate } from '../i18n';
 import type { Language, Settings } from '../models/settings';
-import { normalizeMeal, type Meal } from '../models/meal';
+import { normalizeMeal, validateMeal, type Meal } from '../models/meal';
 import { normalizeProfile, type UserProfile } from '../models/profile';
 import { normalizeProgressEntry, type ProgressEntry } from '../models/progress';
 import { normalizeWorkout, type Workout } from '../models/workout';
 import { getSeedMeals, getSeedProfile, getSeedProgressEntries, getSeedWorkouts } from '../data/seedData';
-import { loadMeals, saveMeals } from '../services/mealService';
+import {
+  loadMeals,
+  saveMeals,
+  insertMeal as insertMealService,
+  updateMeal as updateMealService,
+  deleteMeal as deleteMealService,
+} from '../services/mealService';
 import { loadProfile, saveProfile } from '../services/profileService';
 import { loadProgressEntries, saveProgressEntries } from '../services/progressService';
 import { resolveAuthoritativeLanguage } from '../services/localizationService';
@@ -95,9 +101,9 @@ type AppContextValue = AppStateData & {
   register: (profile: Partial<UserProfile>) => void;
   logout: () => void;
   updateProfile: (profile: Partial<UserProfile>) => void;
-  addMeal: (meal: Meal) => void;
-  updateMeal: (meal: Meal) => void;
-  deleteMeal: (mealId: string) => void;
+  addMeal: (meal: Meal) => Promise<void>;
+  updateMeal: (meal: Meal) => Promise<void>;
+  deleteMeal: (mealId: string) => Promise<void>;
   addWorkout: (workout: Workout) => Promise<void> | void;
   updateWorkout: (workout: Workout) => Promise<void> | void;
   deleteWorkout: (workoutId: string) => Promise<void> | void;
@@ -515,26 +521,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     applyLanguageDirection(state.settings.selectedLanguage);
   }, [applyLanguageDirection, state.isReady, state.settings.selectedLanguage]);
 
-  // Persist mutations after initial hydration completes
-  useEffect(() => {
-    if (!state.isReady) {
-      return;
-    }
-    if (!isHydratedRef.current) {
-      return;
-    }
-    saveMeals(state.meals)
-      .then(() => {
-        dispatch({ type: 'setPersistenceError', error: null });
-      })
-      .catch((err) => {
-        console.error('[AppContext] Failed to persist meals:', err);
-        dispatch({
-          type: 'setPersistenceError',
-          error: err instanceof Error ? err.message : 'Failed to persist meals',
-        });
-      });
-  }, [state.isReady, state.meals]);
 
   useEffect(() => {
     if (!state.isReady) {
@@ -631,9 +617,52 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       },
       logout: () => dispatch({ type: 'updateSettings', settings: { isAuthenticated: false } }),
       updateProfile: (profile) => dispatch({ type: 'updateProfile', profile }),
-      addMeal: (meal) => dispatch({ type: 'addMeal', meal }),
-      updateMeal: (meal) => dispatch({ type: 'updateMeal', meal }),
-      deleteMeal: (mealId) => dispatch({ type: 'deleteMeal', mealId }),
+      addMeal: async (meal) => {
+        try {
+          const normalized = normalizeMeal(meal);
+          validateMeal(normalized);
+          await insertMealService(normalized);
+          dispatch({ type: 'addMeal', meal: normalized });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to insert meal:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to persist meal',
+          });
+          throw err;
+        }
+      },
+      updateMeal: async (meal) => {
+        try {
+          const normalized = normalizeMeal(meal);
+          validateMeal(normalized);
+          await updateMealService(normalized);
+          dispatch({ type: 'updateMeal', meal: normalized });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to update meal:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to persist meal',
+          });
+          throw err;
+        }
+      },
+      deleteMeal: async (mealId) => {
+        try {
+          await deleteMealService(mealId);
+          dispatch({ type: 'deleteMeal', mealId });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to delete meal:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to persist meal deletion',
+          });
+          throw err;
+        }
+      },
       addWorkout: async (workout) => {
         try {
           const normalized = normalizeWorkout(workout);

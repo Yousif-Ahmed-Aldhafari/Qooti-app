@@ -20,7 +20,16 @@ export function calculateMealTotals(items: MealItem[]): DailyNutritionSummary {
 export function calculateDailyNutrition(meals: Meal[]): DailyNutritionSummary {
   return (meals || []).reduce(
     (totals, meal) => {
-      const mealTotals = calculateMealTotals(meal.items);
+      const mealTotals =
+        meal.items && meal.items.length > 0
+          ? calculateMealTotals(meal.items)
+          : {
+              calories: safeNumber(meal.totalCalories),
+              protein: safeNumber(meal.totalProtein),
+              carbs: safeNumber(meal.totalCarbs),
+              fats: safeNumber(meal.totalFat ?? meal.totalFats),
+              fat: safeNumber(meal.totalFat ?? meal.totalFats),
+            };
       const newFats = totals.fats + mealTotals.fats;
       return {
         calories: totals.calories + mealTotals.calories,
@@ -68,4 +77,22 @@ export function safeNumber(value: number | undefined): number {
 export function parseInputNumber(value: string): number {
   const parsed = Number(value.replace(',', '.'));
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+/**
+ * Formats a Date object to YYYY-MM-DD using local calendar date.
+ * Avoids UTC boundary shifts in UTC+3 or other non-UTC timezones.
+ */
+export function formatLocalDate(date: Date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Formats a Date object to 24-hr HH:mm format using local hours and minutes.
+ */
+export function formatLocalTime(date: Date = new Date()): string {
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 }

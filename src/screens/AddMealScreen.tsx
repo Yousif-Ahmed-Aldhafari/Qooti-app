@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
+  Text,
   TouchableWithoutFeedback,
   useWindowDimensions,
   View,
@@ -16,20 +17,28 @@ import { AppHeader } from '../components/AppHeader';
 import { AppInput } from '../components/AppInput';
 import type { Translator } from '../i18n';
 import { themeColors } from '../theme/colors';
+import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
+import { typography } from '../theme/typography';
 import type { Meal } from '../types';
-import { parseInputNumber } from '../utils/nutrition';
-import { activeRowStyle } from '../utils/rtl';
+import { createId } from '../utils/id';
+import { formatLocalDate, formatLocalTime, parseInputNumber } from '../utils/nutrition';
+import { activeRowStyle, activeTextAlign, activeWritingDirection } from '../utils/rtl';
 
 type AddMealScreenProps = {
   t: Translator;
-  onSave: (meal: Meal) => void;
+  onSave: (meal: Meal) => Promise<void> | void;
 };
 
 export function AddMealScreen({ t, onSave }: AddMealScreenProps) {
   const { width } = useWindowDimensions();
   const isCompact = width < 340;
   const colors = themeColors();
+
+  // Stable draft IDs across validation attempts and retries
+  const draftMealIdRef = useRef(createId('meal'));
+  const draftItemIdRef = useRef(createId('meal-item'));
+
   const [mealName, setMealName] = useState('');
   const [foodName, setFoodName] = useState('');
   const [quantity, setQuantity] = useState('1');
@@ -37,11 +46,28 @@ export function AddMealScreen({ t, onSave }: AddMealScreenProps) {
   const [protein, setProtein] = useState('');
   const [carbs, setCarbs] = useState('');
   const [fats, setFats] = useState('');
+
   const [mealNameError, setMealNameError] = useState('');
   const [foodNameError, setFoodNameError] = useState('');
+  const [quantityError, setQuantityError] = useState('');
+  const [caloriesError, setCaloriesError] = useState('');
+  const [proteinError, setProteinError] = useState('');
+  const [carbsError, setCarbsError] = useState('');
+  const [fatsError, setFatsError] = useState('');
+  const [saveError, setSaveError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
-  function handleSave() {
+  const directionalText = {
+    textAlign: activeTextAlign(),
+    writingDirection: activeWritingDirection(),
+  } as const;
+
+  async function handleSave() {
+    if (isSaving) return;
+
     let hasError = false;
+
+    // Validate meal title
     if (!mealName.trim()) {
       setMealNameError(t('common.requiredMessage') || 'Required');
       hasError = true;
@@ -49,6 +75,7 @@ export function AddMealScreen({ t, onSave }: AddMealScreenProps) {
       setMealNameError('');
     }
 
+    // Validate food name
     if (!foodName.trim()) {
       setFoodNameError(t('common.requiredMessage') || 'Required');
       hasError = true;
@@ -56,27 +83,83 @@ export function AddMealScreen({ t, onSave }: AddMealScreenProps) {
       setFoodNameError('');
     }
 
+    // Validate quantity (> 0, finite)
+    const parsedQuantity = parseInputNumber(quantity);
+    if (quantity.trim() === '' || !Number.isFinite(parsedQuantity) || parsedQuantity <= 0) {
+      setQuantityError(t('common.invalidNumber') || 'Must be > 0');
+      hasError = true;
+    } else {
+      setQuantityError('');
+    }
+
+    // Validate calories (>= 0, finite)
+    const parsedCalories = calories.trim() === '' ? 0 : parseInputNumber(calories);
+    if (!Number.isFinite(parsedCalories) || parsedCalories < 0 || (calories.trim() !== '' && Number.isNaN(Number(calories.replace(',', '.'))))) {
+      setCaloriesError(t('common.invalidNumber') || 'Must be >= 0');
+      hasError = true;
+    } else {
+      setCaloriesError('');
+    }
+
+    // Validate protein (>= 0, finite)
+    const parsedProtein = protein.trim() === '' ? 0 : parseInputNumber(protein);
+    if (!Number.isFinite(parsedProtein) || parsedProtein < 0 || (protein.trim() !== '' && Number.isNaN(Number(protein.replace(',', '.'))))) {
+      setProteinError(t('common.invalidNumber') || 'Must be >= 0');
+      hasError = true;
+    } else {
+      setProteinError('');
+    }
+
+    // Validate carbs (>= 0, finite)
+    const parsedCarbs = carbs.trim() === '' ? 0 : parseInputNumber(carbs);
+    if (!Number.isFinite(parsedCarbs) || parsedCarbs < 0 || (carbs.trim() !== '' && Number.isNaN(Number(carbs.replace(',', '.'))))) {
+      setCarbsError(t('common.invalidNumber') || 'Must be >= 0');
+      hasError = true;
+    } else {
+      setCarbsError('');
+    }
+
+    // Validate fats (>= 0, finite)
+    const parsedFats = fats.trim() === '' ? 0 : parseInputNumber(fats);
+    if (!Number.isFinite(parsedFats) || parsedFats < 0 || (fats.trim() !== '' && Number.isNaN(Number(fats.replace(',', '.'))))) {
+      setFatsError(t('common.invalidNumber') || 'Must be >= 0');
+      hasError = true;
+    } else {
+      setFatsError('');
+    }
+
     if (hasError) {
       return;
     }
 
-    onSave({
-      id: `meal-${Date.now()}`,
-      title: mealName.trim(),
-      date: new Date().toISOString().slice(0, 10),
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      items: [
-        {
-          id: `item-${Date.now()}`,
-          foodName: foodName.trim(),
-          quantity: parseInputNumber(quantity),
-          calories: parseInputNumber(calories),
-          protein: parseInputNumber(protein),
-          carbs: parseInputNumber(carbs),
-          fats: parseInputNumber(fats),
-        },
-      ],
-    });
+    setIsSaving(true);
+    setSaveError('');
+
+    try {
+      const now = new Date();
+      await onSave({
+        id: draftMealIdRef.current,
+        title: mealName.trim(),
+        date: formatLocalDate(now),
+        time: formatLocalTime(now),
+        items: [
+          {
+            id: draftItemIdRef.current,
+            foodName: foodName.trim(),
+            quantity: parsedQuantity,
+            calories: parsedCalories,
+            protein: parsedProtein,
+            carbs: parsedCarbs,
+            fats: parsedFats,
+            unit: 'g',
+          },
+        ],
+      });
+    } catch (err) {
+      setIsSaving(false);
+      const message = err instanceof Error ? err.message : t('meals.saveError') || 'Failed to save meal';
+      setSaveError(message);
+    }
   }
 
   return (
@@ -95,6 +178,15 @@ export function AddMealScreen({ t, onSave }: AddMealScreenProps) {
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
           <View style={styles.innerForm}>
             <AppHeader title={t('meals.addTitle')} subtitle={t('meals.subtitle')} />
+
+            {saveError ? (
+              <View style={[styles.errorBanner, { backgroundColor: colors.card, borderColor: colors.danger }]}>
+                <Text style={[styles.errorBannerText, directionalText, { color: colors.danger }]}>
+                  {saveError}
+                </Text>
+              </View>
+            ) : null}
+
             <AppCard>
               <AppInput
                 label={t('meals.mealName')}
@@ -121,14 +213,22 @@ export function AddMealScreen({ t, onSave }: AddMealScreenProps) {
                   label={t('meals.quantity')}
                   keyboardType="decimal-pad"
                   value={quantity}
-                  onChangeText={setQuantity}
+                  error={quantityError}
+                  onChangeText={(text) => {
+                    setQuantity(text);
+                    if (quantityError) setQuantityError('');
+                  }}
                   containerStyle={styles.halfInput}
                 />
                 <AppInput
                   label={t('meals.calories')}
                   keyboardType="decimal-pad"
                   value={calories}
-                  onChangeText={setCalories}
+                  error={caloriesError}
+                  onChangeText={(text) => {
+                    setCalories(text);
+                    if (caloriesError) setCaloriesError('');
+                  }}
                   containerStyle={styles.halfInput}
                 />
               </View>
@@ -139,14 +239,22 @@ export function AddMealScreen({ t, onSave }: AddMealScreenProps) {
                       label={t('meals.protein')}
                       keyboardType="decimal-pad"
                       value={protein}
-                      onChangeText={setProtein}
+                      error={proteinError}
+                      onChangeText={(text) => {
+                        setProtein(text);
+                        if (proteinError) setProteinError('');
+                      }}
                       containerStyle={styles.halfInput}
                     />
                     <AppInput
                       label={t('meals.carbs')}
                       keyboardType="decimal-pad"
                       value={carbs}
-                      onChangeText={setCarbs}
+                      error={carbsError}
+                      onChangeText={(text) => {
+                        setCarbs(text);
+                        if (carbsError) setCarbsError('');
+                      }}
                       containerStyle={styles.halfInput}
                     />
                   </View>
@@ -155,7 +263,11 @@ export function AddMealScreen({ t, onSave }: AddMealScreenProps) {
                       label={t('meals.fats')}
                       keyboardType="decimal-pad"
                       value={fats}
-                      onChangeText={setFats}
+                      error={fatsError}
+                      onChangeText={(text) => {
+                        setFats(text);
+                        if (fatsError) setFatsError('');
+                      }}
                       containerStyle={styles.halfInput}
                     />
                   </View>
@@ -166,7 +278,11 @@ export function AddMealScreen({ t, onSave }: AddMealScreenProps) {
                     label={t('meals.protein')}
                     keyboardType="decimal-pad"
                     value={protein}
-                    onChangeText={setProtein}
+                    error={proteinError}
+                    onChangeText={(text) => {
+                      setProtein(text);
+                      if (proteinError) setProteinError('');
+                    }}
                     containerStyle={styles.macroColumn}
                     style={styles.macroInputField}
                   />
@@ -174,7 +290,11 @@ export function AddMealScreen({ t, onSave }: AddMealScreenProps) {
                     label={t('meals.carbs')}
                     keyboardType="decimal-pad"
                     value={carbs}
-                    onChangeText={setCarbs}
+                    error={carbsError}
+                    onChangeText={(text) => {
+                      setCarbs(text);
+                      if (carbsError) setCarbsError('');
+                    }}
                     containerStyle={styles.macroColumn}
                     style={styles.macroInputField}
                   />
@@ -182,14 +302,23 @@ export function AddMealScreen({ t, onSave }: AddMealScreenProps) {
                     label={t('meals.fats')}
                     keyboardType="decimal-pad"
                     value={fats}
-                    onChangeText={setFats}
+                    error={fatsError}
+                    onChangeText={(text) => {
+                      setFats(text);
+                      if (fatsError) setFatsError('');
+                    }}
                     containerStyle={styles.macroColumn}
                     style={styles.macroInputField}
                   />
                 </View>
               )}
             </AppCard>
-            <AppButton title={t('common.save')} icon="save-outline" onPress={handleSave} />
+            <AppButton
+              title={isSaving ? t('common.save') : t('common.save')}
+              icon="save-outline"
+              disabled={isSaving}
+              onPress={handleSave}
+            />
           </View>
         </TouchableWithoutFeedback>
       </ScrollView>
@@ -230,5 +359,14 @@ const styles = StyleSheet.create({
   },
   macroInputField: {
     paddingHorizontal: spacing.sm,
+  },
+  errorBanner: {
+    borderRadius: radius.md,
+    borderWidth: 1,
+    padding: spacing.md,
+  },
+  errorBannerText: {
+    ...typography.caption,
+    fontWeight: '600',
   },
 });

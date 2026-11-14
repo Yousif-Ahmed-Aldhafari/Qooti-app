@@ -10,6 +10,7 @@ import { sampleSleepEntries, sampleWaterEntries } from '../data/sampleData';
 import { ActiveWorkoutScreen } from '../screens/ActiveWorkoutScreen';
 import { AddMealScreen } from '../screens/AddMealScreen';
 import { AddWorkoutScreen } from '../screens/AddWorkoutScreen';
+import { EditMealScreen } from '../screens/EditMealScreen';
 import { EditWorkoutScreen } from '../screens/EditWorkoutScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { MealDetailsScreen } from '../screens/MealDetailsScreen';
@@ -71,6 +72,8 @@ export function AppNavigator() {
     updateProfile,
     completeOnboarding: finishOnboardingInContext,
     addMeal,
+    updateMeal,
+    deleteMeal,
     addWorkout,
     updateWorkout,
     deleteWorkout,
@@ -128,7 +131,7 @@ export function AppNavigator() {
 
   // Derive effective screen: safely fall back to parent list if selected entity is missing
   const effectiveScreen: ScreenKey = useMemo(() => {
-    if (activeScreen === 'mealDetails' && !selectedMeal) {
+    if ((activeScreen === 'mealDetails' || activeScreen === 'editMeal') && !selectedMeal) {
       return 'meals';
     }
     if ((activeScreen === 'workoutDetails' || activeScreen === 'editWorkout') && !selectedWorkout) {
@@ -143,7 +146,12 @@ export function AppNavigator() {
   // Android hardware back handler: prevents accidental app exits on sub-screens
   useEffect(() => {
     const onHardwareBack = () => {
-      // 1. If currently on edit workout, back returns to workout details
+      // 1. If currently on edit meal, back returns to meal details
+      if (effectiveScreen === 'editMeal') {
+        setActiveScreen('mealDetails');
+        return true;
+      }
+      // 1a. If currently on edit workout, back returns to workout details
       if (effectiveScreen === 'editWorkout') {
         setActiveScreen('workoutDetails');
         return true;
@@ -251,11 +259,30 @@ export function AppNavigator() {
     setActiveScreen('mealDetails');
   }
 
-  function saveMeal(meal: Meal) {
-    addMeal(meal);
+  async function saveMeal(meal: Meal) {
+    await addMeal(meal);
     setSelectedMealId(meal.id);
     setActiveTab('meals');
     setActiveScreen('mealDetails');
+  }
+
+  function openEditMeal(meal: Meal) {
+    setSelectedMealId(meal.id);
+    setActiveScreen('editMeal');
+  }
+
+  async function handleUpdateMeal(meal: Meal) {
+    await updateMeal(meal);
+    setSelectedMealId(meal.id);
+    setActiveTab('meals');
+    setActiveScreen('mealDetails');
+  }
+
+  async function handleDeleteMeal(meal: Meal) {
+    await deleteMeal(meal.id);
+    setSelectedMealId(null);
+    setActiveTab('meals');
+    setActiveScreen('meals');
   }
 
   function openWorkoutDetails(workout: Workout) {
@@ -387,9 +414,31 @@ export function AppNavigator() {
         return <AddMealScreen key={language} t={t} onSave={saveMeal} />;
       case 'mealDetails':
         if (!selectedMeal) {
-          return <MealsScreen key={language} t={t} meals={meals} onAddMeal={() => setActiveScreen('addMeal')} onMealPress={openMealDetails} />;
+          return <MealsScreen key={language} t={t} meals={meals} profile={profile} onAddMeal={() => setActiveScreen('addMeal')} onMealPress={openMealDetails} />;
         }
-        return <MealDetailsScreen key={language} t={t} meal={selectedMeal} profile={profile} />;
+        return (
+          <MealDetailsScreen
+            key={language}
+            t={t}
+            meal={selectedMeal}
+            profile={profile}
+            onEdit={openEditMeal}
+            onDelete={handleDeleteMeal}
+          />
+        );
+      case 'editMeal':
+        if (!selectedMeal) {
+          return <MealsScreen key={language} t={t} meals={meals} profile={profile} onAddMeal={() => setActiveScreen('addMeal')} onMealPress={openMealDetails} />;
+        }
+        return (
+          <EditMealScreen
+            key={language}
+            t={t}
+            meal={selectedMeal}
+            onSave={handleUpdateMeal}
+            onCancel={() => setActiveScreen('mealDetails')}
+          />
+        );
       case 'workouts':
         return (
           <WorkoutsScreen

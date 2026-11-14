@@ -28,6 +28,10 @@ export async function loadMeals(): Promise<Meal[] | null> {
   return null;
 }
 
+/**
+ * Retained strictly for initial seed/migration hydration.
+ * Runtime meal CRUD must use insertMeal, updateMeal, and deleteMeal.
+ */
 export async function saveMeals(meals: Meal[]): Promise<void> {
   const db = await getDatabase();
   const repo = new SQLiteMealRepository(db);
@@ -61,13 +65,35 @@ export async function insertMeal(meal: Meal): Promise<void> {
 }
 
 export async function updateMeal(meal: Meal): Promise<void> {
-  const repo = await getMealRepository();
-  await repo.updateMeal(meal);
+  const db = await getDatabase();
+  const repo = new SQLiteMealRepository(db);
+
+  await db.withExclusiveTransactionAsync(async (txn) => {
+    await repo.updateMeal(meal, txn);
+    const now = new Date().toISOString();
+    await txn.runAsync(
+      `INSERT INTO migration_meta (key, value, updated_at)
+       VALUES ('meals_saved', 'true', ?)
+       ON CONFLICT(key) DO UPDATE SET value = 'true', updated_at = excluded.updated_at;`,
+      now
+    );
+  });
 }
 
 export async function deleteMeal(mealId: string): Promise<void> {
-  const repo = await getMealRepository();
-  await repo.deleteMeal(mealId);
+  const db = await getDatabase();
+  const repo = new SQLiteMealRepository(db);
+
+  await db.withExclusiveTransactionAsync(async (txn) => {
+    await repo.deleteMeal(mealId, txn);
+    const now = new Date().toISOString();
+    await txn.runAsync(
+      `INSERT INTO migration_meta (key, value, updated_at)
+       VALUES ('meals_saved', 'true', ?)
+       ON CONFLICT(key) DO UPDATE SET value = 'true', updated_at = excluded.updated_at;`,
+      now
+    );
+  });
 }
 
 export async function getMealById(mealId: string): Promise<Meal | null> {

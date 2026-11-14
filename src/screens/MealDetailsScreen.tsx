@@ -1,11 +1,13 @@
-import { useMemo } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { AppButton } from '../components/AppButton';
 import { AppCard } from '../components/AppCard';
 import { AppHeader } from '../components/AppHeader';
 import { MacroCard } from '../components/MacroCard';
 import type { Translator } from '../i18n';
 import { themeColors } from '../theme/colors';
+import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import type { Meal, UserProfile } from '../types';
@@ -13,15 +15,37 @@ import { calculateMealTotals } from '../utils/nutrition';
 import { resolveEffectiveNutritionTargets } from '../utils/nutritionTargets';
 import { activeRowStyle, activeTextAlign, activeWritingDirection } from '../utils/rtl';
 
+export type MealDeleteState = 'idle' | 'confirming' | 'deleting' | 'success' | 'error';
+
 type MealDetailsScreenProps = {
   t: Translator;
   meal: Meal;
   profile: UserProfile;
+  onEdit?: (meal: Meal) => void;
+  onDelete?: (meal: Meal) => Promise<void> | void;
 };
 
-export function MealDetailsScreen({ t, meal, profile }: MealDetailsScreenProps) {
+export function MealDetailsScreen({ t, meal, profile, onEdit, onDelete }: MealDetailsScreenProps) {
   const colors = themeColors();
-  const totals = calculateMealTotals(meal.items);
+  const [deleteState, setDeleteState] = useState<MealDeleteState>('idle');
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const isDeleting = deleteState === 'deleting';
+
+  // Support itemless legacy meals with explicit totals
+  const totals = useMemo(() => {
+    if (meal.items && meal.items.length > 0) {
+      return calculateMealTotals(meal.items);
+    }
+    return {
+      calories: meal.totalCalories ?? 0,
+      protein: meal.totalProtein ?? 0,
+      carbs: meal.totalCarbs ?? 0,
+      fats: meal.totalFat ?? meal.totalFats ?? 0,
+      fat: meal.totalFat ?? meal.totalFats ?? 0,
+    };
+  }, [meal]);
+
   const effectiveTargets = useMemo(() => resolveEffectiveNutritionTargets(profile), [profile]);
   const directionalText = {
     textAlign: activeTextAlign(),
@@ -31,9 +55,87 @@ export function MealDetailsScreen({ t, meal, profile }: MealDetailsScreenProps) 
   const hasActiveTarget = effectiveTargets.hasActiveTarget;
   const unavailableLabel = t('personalization.unconfirmedStatus');
 
+  const executeDelete = async () => {
+    if (isDeleting || !onDelete) return;
+    setDeleteState('deleting');
+    setDeleteError(null);
+
+    try {
+      await onDelete(meal);
+      setDeleteState('success');
+    } catch (err) {
+      setDeleteState('error');
+      const message = err instanceof Error ? err.message : t('meals.deleteError') || 'Failed to delete meal';
+      setDeleteError(message);
+    }
+  };
+
+  const confirmDelete = () => {
+    if (isDeleting) return;
+    setDeleteState('confirming');
+    setDeleteError(null);
+
+    const mealTitle = meal.title || meal.name || '';
+    const message = mealTitle
+      ? `${mealTitle}\n${t('meals.deleteMealMessage')}`
+      : t('meals.deleteMealMessage');
+
+    Alert.alert(
+      t('meals.deleteMeal'),
+      message,
+      [
+        {
+          text: t('common.cancel'),
+          style: 'cancel',
+          onPress: () => setDeleteState('idle'),
+        },
+        {
+          text: t('common.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            await executeDelete();
+          },
+        },
+      ],
+      {
+        cancelable: true,
+        onDismiss: () => {
+          setDeleteState((prev) => (prev === 'confirming' ? 'idle' : prev));
+        },
+      }
+    );
+  };
+
   return (
-    <ScrollView style={[styles.screen, { backgroundColor: colors.background }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <AppHeader title={meal.title} subtitle={t('meals.detailsTitle')} />
+    <ScrollView
+      style={[styles.screen, { backgroundColor: colors.background }]}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+    >
+      <AppHeader
+        title={meal.title || meal.name || ''}
+        subtitle={`${meal.date} · ${meal.time}`}
+        action={
+          onEdit ? (
+            <AppButton
+              title={t('common.edit')}
+              icon="create-outline"
+              variant="secondary"
+              disabled={isDeleting}
+              onPress={() => onEdit(meal)}
+            />
+          ) : undefined
+        }
+      />
+
+      {deleteError ? (
+        <View style={[styles.errorBanner, { backgroundColor: colors.card, borderColor: colors.danger }]}>
+          <Text style={[styles.errorBannerText, directionalText, { color: colors.danger }]}>
+            {deleteError}
+          </Text>
+        </View>
+      ) : null}
+
       <View style={[styles.grid, activeRowStyle()]}>
         <MacroCard
           label={t('common.calories')}
@@ -71,14 +173,37 @@ export function MealDetailsScreen({ t, meal, profile }: MealDetailsScreenProps) 
           accent={colors.orange}
         />
       </View>
-      {meal.items.map((item) => (
-        <AppCard key={item.id}>
-          <Text style={[styles.itemTitle, directionalText, { color: colors.text }]}>{item.foodName}</Text>
+
+      {meal.items && meal.items.length > 0 ? (
+        meal.items.map((item) => (
+          <AppCard key={item.id}>
+            <Text style={[styles.itemTitle, directionalText, { color: colors.text }]}>{item.foodName || item.name}</Text>
+            <Text style={[styles.itemMeta, directionalText, { color: colors.textMuted }]}>
+              {item.quantity} {item.unit || 'g'} - {item.calories} {t('common.kcal')} - {item.protein}{t('common.grams')} {t('common.protein')}
+            </Text>
+          </AppCard>
+        ))
+      ) : (
+        <AppCard>
+          <Text style={[styles.itemTitle, directionalText, { color: colors.text }]}>{meal.title || meal.name}</Text>
           <Text style={[styles.itemMeta, directionalText, { color: colors.textMuted }]}>
-            {item.quantity} - {item.calories} {t('common.kcal')} - {item.protein}{t('common.grams')} {t('common.protein')}
+            {t('meals.noItems')} - {totals.calories} {t('common.kcal')}
           </Text>
         </AppCard>
-      ))}
+      )}
+
+      {onDelete ? (
+        <View style={styles.dangerZone}>
+          <AppButton
+            title={isDeleting ? (t('common.loading') || 'Loading...') : t('meals.deleteMeal')}
+            icon="trash-outline"
+            variant="danger"
+            disabled={isDeleting}
+            onPress={confirmDelete}
+            style={styles.deleteButton}
+          />
+        </View>
+      ) : null}
     </ScrollView>
   );
 }
@@ -92,6 +217,15 @@ const styles = StyleSheet.create({
     paddingBottom: 120,
     gap: spacing.lg,
   },
+  errorBanner: {
+    borderRadius: radius.md,
+    borderWidth: 1,
+    padding: spacing.md,
+  },
+  errorBannerText: {
+    ...typography.caption,
+    fontWeight: '600',
+  },
   grid: {
     flexWrap: 'wrap',
     gap: spacing.md,
@@ -101,5 +235,12 @@ const styles = StyleSheet.create({
   },
   itemMeta: {
     ...typography.body,
+  },
+  dangerZone: {
+    marginTop: spacing.md,
+    marginBottom: spacing.xl,
+  },
+  deleteButton: {
+    width: '100%',
   },
 });

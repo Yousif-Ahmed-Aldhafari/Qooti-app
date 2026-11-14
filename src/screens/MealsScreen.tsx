@@ -12,7 +12,7 @@ import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import type { Meal, UserProfile } from '../types';
-import { calculateDailyNutrition } from '../utils/nutrition';
+import { calculateDailyNutrition, formatLocalDate } from '../utils/nutrition';
 import { resolveEffectiveNutritionTargets } from '../utils/nutritionTargets';
 import { activeRowStyle, activeTextAlign, activeWritingDirection } from '../utils/rtl';
 
@@ -32,7 +32,7 @@ export function MealsScreen({ t, meals, onAddMeal, onMealPress, profile }: Meals
     writingDirection: activeWritingDirection(),
   } as const;
 
-  const todayKey = new Date().toISOString().slice(0, 10);
+  const todayKey = formatLocalDate(new Date());
   const todayMeals = useMemo(
     () => meals.filter((m) => (m.date ? m.date.slice(0, 10) === todayKey : true)),
     [meals, todayKey]

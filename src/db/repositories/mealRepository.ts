@@ -1,5 +1,5 @@
 import { IDatabase, MealRepository } from '../types';
-import { Meal, MealItem, normalizeMeal, normalizeMealItem } from '../../models/meal';
+import { Meal, MealItem, normalizeMeal, normalizeMealItem, validateMeal } from '../../models/meal';
 
 interface MealRow {
   id: string;
@@ -117,9 +117,18 @@ export class SQLiteMealRepository implements MealRepository {
   async insertMeal(meal: Meal, txn?: IDatabase): Promise<void> {
     const target = txn || this.db;
     const normalized = normalizeMeal(meal);
+    validateMeal(normalized);
     const now = new Date().toISOString();
 
     await target.withExclusiveTransactionAsync(async (t) => {
+      const existing = await t.getFirstAsync<{ id: string }>(
+        'SELECT id FROM meals WHERE id = ?;',
+        normalized.id
+      );
+      if (existing) {
+        throw new Error(`Cannot insert meal: Meal with id "${normalized.id}" already exists.`);
+      }
+
       await t.runAsync(
         `INSERT INTO meals (id, title, date, time, total_calories, total_protein, total_carbs, total_fat, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`,
@@ -157,8 +166,17 @@ export class SQLiteMealRepository implements MealRepository {
   async updateMeal(meal: Meal, txn?: IDatabase): Promise<void> {
     const target = txn || this.db;
     const normalized = normalizeMeal(meal);
+    validateMeal(normalized);
 
     await target.withExclusiveTransactionAsync(async (t) => {
+      const existing = await t.getFirstAsync<{ id: string; created_at: string }>(
+        'SELECT id, created_at FROM meals WHERE id = ?;',
+        normalized.id
+      );
+      if (!existing) {
+        throw new Error(`Cannot update meal: Meal with id "${normalized.id}" not found.`);
+      }
+
       await t.runAsync(
         `UPDATE meals SET
            title = ?,
@@ -179,7 +197,7 @@ export class SQLiteMealRepository implements MealRepository {
         normalized.id
       );
 
-      // Re-synchronize child items
+      // Re-synchronize child items atomically
       await t.runAsync('DELETE FROM meal_items WHERE meal_id = ?;', normalized.id);
 
       for (let i = 0; i < normalized.items.length; i++) {
@@ -203,13 +221,30 @@ export class SQLiteMealRepository implements MealRepository {
   }
 
   async deleteMeal(id: string, txn?: IDatabase): Promise<void> {
+    if (!id || typeof id !== 'string' || id.trim().length === 0) {
+      throw new Error('Cannot delete meal: A valid meal id must be provided.');
+    }
+    const cleanId = id.trim();
     const target = txn || this.db;
+
     await target.withExclusiveTransactionAsync(async (t) => {
-      await t.runAsync('DELETE FROM meal_items WHERE meal_id = ?;', id);
-      await t.runAsync('DELETE FROM meals WHERE id = ?;', id);
+      const existing = await t.getFirstAsync<{ id: string }>(
+        'SELECT id FROM meals WHERE id = ?;',
+        cleanId
+      );
+      if (!existing) {
+        throw new Error(`Cannot delete meal: Meal with id "${cleanId}" not found.`);
+      }
+
+      await t.runAsync('DELETE FROM meal_items WHERE meal_id = ?;', cleanId);
+      await t.runAsync('DELETE FROM meals WHERE id = ?;', cleanId);
     });
   }
 
+  /**
+   * Retained exclusively for initial backward-compatible seed/migration hydration.
+   * MUST NEVER be invoked by runtime application CRUD mutations.
+   */
   async saveAllMeals(meals: Meal[], txn?: IDatabase): Promise<void> {
     const target = txn || this.db;
     const now = new Date().toISOString();

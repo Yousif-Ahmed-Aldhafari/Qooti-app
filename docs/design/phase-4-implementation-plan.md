@@ -22,13 +22,13 @@
 ## 2. Detailed Task Breakdown
 
 ```
-[ Task 4.0: Nutrition Architecture Audit & Blueprint ] ────────► (CURRENT AUDIT - COMPLETE)
+[ Task 4.0: Nutrition Architecture Audit & Blueprint ] ────────► (COMPLETE)
        │
        ▼
-[ Task 4.1: Meal Lifecycle Integrity, Granular Persistence & Editing ]
+[ Task 4.1: Meal Lifecycle Integrity, Granular Persistence & Editing ] ──► (COMPLETE - 423 Tests)
        │
        ▼
-[ Task 4.2: Bilingual Food Catalog & Portion Scaling Engine ]
+[ Task 4.2: Bilingual Food Catalog & Portion Scaling Engine ] ──► (NEXT)
        │
        ▼
 [ Task 4.3: Multi-Food Meal Creation, Search UX & Day Navigation ]
@@ -48,9 +48,11 @@
 
 ---
 
-### Task 4.1: Meal Lifecycle Integrity, Granular Persistence & Editing
+### Task 4.1: Meal Lifecycle Integrity, Granular Persistence & Editing [COMPLETED]
+- **Status:** COMPLETED
 - **Objective:** Fix P0 and P1 persistence defects; introduce granular async repository methods in `AppContext`; implement `EditMealScreen` and safe meal deletion.
 - **Pre-conditions:** Task 4.0 audit complete; 388 baseline tests passing.
+- **Outcome Metrics:** 423 total passing tests (+35 new tests in `mealLifecycleIntegrity.test.ts`), 0 failures, 0 skipped, 0 TypeScript errors, 0 ESLint warnings, 20/20 expo-doctor checks passing.
 - **Technical Specifications:**
   1. **Eradicate `saveAllMeals` in AppContext:**
      - Replace `saveMeals(state.meals)` effect with direct async calls to `insertMealService(meal)`, `updateMealService(meal)`, and `deleteMealService(mealId)`.

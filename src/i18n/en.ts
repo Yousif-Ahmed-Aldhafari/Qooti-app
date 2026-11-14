@@ -182,7 +182,12 @@ export const en = {
     "detailsTitle": "Meal details",
     "fats": "Fats",
     "foodPlaceholder": "Chicken breast",
-    "itemLabel": "items"
+    "itemLabel": "items",
+    "discardChangesTitle": "Discard changes?",
+    "discardChangesMessage": "Discard your unsaved meal changes?",
+    "deleteSuccess": "Meal deleted successfully",
+    "deleteError": "Failed to delete meal",
+    "saveError": "Failed to save meal"
   },
   "workouts": {
     "title": "Workouts",
