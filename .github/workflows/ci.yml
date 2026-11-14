@@ -7,6 +7,7 @@ on:
       - dev/phase-1-foundation
       - dev/phase-2-user-profiles
       - dev/phase-3-workout-system
+      - dev/phase-4-nutrition
       - upgrade/expo-sdk-58
   pull_request:
     branches:
@@ -14,6 +15,7 @@ on:
       - dev/phase-1-foundation
       - dev/phase-2-user-profiles
       - dev/phase-3-workout-system
+      - dev/phase-4-nutrition
       - upgrade/expo-sdk-58
 
 permissions:
