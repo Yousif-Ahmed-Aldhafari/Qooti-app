@@ -114,7 +114,11 @@ export function MealDetailsScreen({ t, meal, profile, onEdit, onDelete }: MealDe
     >
       <AppHeader
         title={meal.title || meal.name || ''}
-        subtitle={`${meal.date} · ${meal.time}`}
+        subtitle={
+          meal.date && meal.date.trim()
+            ? `${meal.date.trim()}${meal.time ? ` · ${meal.time}` : ''}`
+            : (t('meals.unassignedBadge') || 'Unassigned')
+        }
         action={
           onEdit ? (
             <AppButton

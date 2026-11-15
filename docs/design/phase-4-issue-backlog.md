@@ -226,6 +226,22 @@
   - Verified by Tests 30–35 in `src/__tests__/multiFoodMealAndDayNavigation.test.ts`.
 - **Target Task:** Task 4.3
 
+#### ISSUE-NUT-13A: Undated Legacy Meals Attribution, Midnight Rollover & Navigation Continuity
+- **Severity:** P1 (High)
+- **Status:** RESOLVED (Task 4.3A)
+- **Location:** `src/screens/MealsScreen.tsx`, `src/navigation/AppNavigator.tsx`, `src/hooks/useLiveLocalDate.ts`, `src/components/MealCard.tsx`, `src/screens/MealDetailsScreen.tsx`
+- **Description:** Undated legacy meals (`!m.date`) were previously matched on every single diary day via `if (!m.date) return true`, polluting dated daily totals. Furthermore, `todayKey` was frozen on initial mount via `useMemo(..., [])`, leading to stale dates across midnight or app resume, and the selected diary date was not preserved across Add/Edit/Delete flows, tab switching, or language switching.
+- **Root Cause:** Permissive date fallback in diary filter; static `useMemo` for today's date without lifecycle or midnight listeners; ephemeral local state ownership of `selectedDate` in `MealsScreen`.
+- **Impact:** Double-counting undated meal calories on every single day; inaccurate Today/Yesterday labels after midnight; reset of user-selected calendar dates to today upon returning from child screens, switching tabs, or changing language.
+- **Resolution & Verification:**
+  - Strict date matching in `MealsScreen`: only meals where `m.date.slice(0, 10) === activeDate` are included in the daily list and `dailyTotals`.
+  - Dedicated recoverable "Unassigned Date Meals" section rendering undated meals without dates invented in SQLite; user can tap to edit and assign them to a calendar day.
+  - Live local date hook (`useLiveLocalDate`) dynamically refreshing on `AppState` resume and scheduling exact midnight rollover timers.
+  - Lifted `selectedDiaryDate` ownership to `AppNavigator`, preserving historical date selection across Add/Edit/Delete flows, tab switches, and language changes.
+  - If a meal's own date is edited, `selectedDiaryDate` updates to the meal's newly assigned date.
+  - Verified by 25 comprehensive tests in `src/__tests__/dailyDiaryDateIntegrity.test.ts`.
+- **Target Task:** Task 4.3A
+
 #### ISSUE-NUT-14: Missing Meal Slot Categorization (Breakfast, Lunch, Dinner, Snack)
 - **Severity:** P2 (Medium)
 - **Status:** RESOLVED (Task 4.3)

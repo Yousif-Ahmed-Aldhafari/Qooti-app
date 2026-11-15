@@ -20,7 +20,23 @@ type MealCardProps = {
 
 export function MealCard({ meal, caloriesLabel, itemLabel, onPress, language }: MealCardProps) {
   const colors = themeColors();
-  const totals = calculateMealTotals(meal.items);
+  const hasItems = Array.isArray(meal.items) && meal.items.length > 0;
+  const totals = hasItems
+    ? calculateMealTotals(meal.items)
+    : {
+        calories: meal.totalCalories ?? 0,
+        protein: meal.totalProtein ?? 0,
+        carbs: meal.totalCarbs ?? 0,
+        fats: meal.totalFat ?? meal.totalFats ?? 0,
+        fat: meal.totalFat ?? meal.totalFats ?? 0,
+      };
+
+  const itemCount = Array.isArray(meal.items) ? meal.items.length : 1;
+  const timeDisplay = meal.time ? `${meal.time}` : '';
+  const metaText = timeDisplay
+    ? `${timeDisplay} · ${itemCount} ${itemLabel}`
+    : `${itemCount} ${itemLabel}`;
+
   const directionalText = {
     textAlign: textAlign(language),
     writingDirection: writingDirection(language),
@@ -34,7 +50,7 @@ export function MealCard({ meal, caloriesLabel, itemLabel, onPress, language }: 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${meal.title}, ${meal.time}, ${Math.round(totals.calories)} ${caloriesLabel}`}
+      accessibilityLabel={`${meal.title || meal.name || ''}, ${timeDisplay}, ${Math.round(totals.calories)} ${caloriesLabel}`}
       android_ripple={android_ripple}
       onPress={onPress}
       style={({ pressed }) => [
@@ -49,10 +65,10 @@ export function MealCard({ meal, caloriesLabel, itemLabel, onPress, language }: 
       </View>
       <View style={styles.copy}>
         <Text style={[styles.title, directionalText, { color: colors.text }]} numberOfLines={1}>
-          {meal.title}
+          {meal.title || meal.name || ''}
         </Text>
         <Text style={[styles.meta, directionalText, { color: colors.textMuted }]} numberOfLines={1}>
-          {meal.time} - {meal.items.length} {itemLabel}
+          {metaText}
         </Text>
       </View>
       <Text style={[styles.calories, directionalText, { color: colors.accent }]}>

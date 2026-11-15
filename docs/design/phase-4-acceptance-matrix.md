@@ -19,7 +19,8 @@
 | **Task 4.2** | Bilingual Food Catalog & Portion Scaling | **455** (+10) | **480 Passed (+35)** — 158 verified bilingual catalog entries, pure mass-basis portion scaling, custom foods persistence, Arabic search normalization, Migration 9 schema safety. |
 | **Task 4.2A** | Food Data Provenance & Portion Scaling Safety | **480** | **500 Passed (+20)** — 158-item provenance audit (143 verified, 6 estimated, 9 unverified, 0 mismatch), scaling bounds/overflow protection, monotonic `createId('meal-item')`. |
 | **Task 4.3** | Multi-Food Meal Creation & Search UX | **510** (+10) | **540 Passed (+40)** — Multi-food drafts, food search picker with portion selector, manual food entries, day-by-day navigation, slot categorization, legacy meal compatibility. |
-| **Task 4.4** | Nutrition Analytics & Daily Targets | **550** (+10) | Macro distribution formulas ($4/4/9$), surplus/deficit calculations, progress entry synchronization. |
+| **Task 4.3A** | Daily Diary Date Integrity & Navigation Hardening | **540** | **565 Passed (+25)** — Undated legacy meal isolation, zero daily totals inflation, live local midnight rollover, AppState resume listener, persistent selected date across Add/Edit/Delete, tabs, and language switches. |
+| **Task 4.4** | Nutrition Analytics & Daily Targets | **575** (+10) | Macro distribution formulas ($4/4/9$), surplus/deficit calculations, progress entry synchronization. |
 | **Task 4.5** | Meal Templates, Favorites & Quick-Log | **442** (+8) | Repeat meal ID isolation, favorite toggling, quick calorie logging without item breakdown. |
 | **Task 4.6** | Cross-Platform UX, A11y & RTL Parity | **450** (+8) | Touch target bounds, screen reader accessibility labels, RTL layout symmetry. |
 | **Task 4.7** | Final Acceptance & Merge Readiness | **450+** | Full 11-step migration upgrade matrix (V0 through V9), cross-platform regression suite. |

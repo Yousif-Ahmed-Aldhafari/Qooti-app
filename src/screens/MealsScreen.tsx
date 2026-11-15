@@ -7,6 +7,7 @@ import { AppHeader } from '../components/AppHeader';
 import { EmptyState } from '../components/EmptyState';
 import { MealCard } from '../components/MealCard';
 import { useBottomNavScrollHandler } from '../context/BottomNavContext';
+import { useLiveLocalDate } from '../hooks/useLiveLocalDate';
 import type { Translator } from '../i18n';
 import type { MealType } from '../models/meal';
 import { themeColors } from '../theme/colors';
@@ -19,7 +20,7 @@ import {
   getNextCalendarDate,
   getPreviousCalendarDate,
 } from '../utils/date';
-import { calculateDailyNutrition, formatLocalDate } from '../utils/nutrition';
+import { calculateDailyNutrition } from '../utils/nutrition';
 import { resolveEffectiveNutritionTargets } from '../utils/nutritionTargets';
 import { activeRowStyle, activeTextAlign, activeWritingDirection } from '../utils/rtl';
 
@@ -30,7 +31,10 @@ type MealsScreenProps = {
   onMealPress: (meal: Meal) => void;
   profile?: UserProfile;
   language?: 'en' | 'ar';
+  selectedDate?: string;
+  onSelectDate?: (date: string) => void;
   initialDate?: string;
+  clock?: () => Date;
 };
 
 const MEAL_SLOT_ORDER: { type: MealType | 'other'; key: string; icon: string }[] = [
@@ -48,7 +52,10 @@ export function MealsScreen({
   onMealPress,
   profile,
   language = 'en',
+  selectedDate: selectedDateProp,
+  onSelectDate,
   initialDate,
+  clock,
 }: MealsScreenProps) {
   const colors = themeColors();
   const isRTL = language === 'ar';
@@ -59,19 +66,42 @@ export function MealsScreen({
     writingDirection: activeWritingDirection(),
   } as const;
 
-  const todayKey = useMemo(() => formatLocalDate(new Date()), []);
-  const [selectedDate, setSelectedDate] = useState<string>(initialDate || todayKey);
+  // Live local date tracking with background/resume and midnight rollover
+  const liveTodayKey = useLiveLocalDate(undefined, clock);
+  const todayKey = liveTodayKey;
 
-  // Filter meals for the selected local calendar day
+  const [internalSelectedDate, setInternalSelectedDate] = useState<string>(
+    selectedDateProp || initialDate || todayKey
+  );
+
+  const activeDate = selectedDateProp ?? internalSelectedDate;
+
+  function handleSelectDate(newDate: string) {
+    if (onSelectDate) {
+      onSelectDate(newDate);
+    }
+    setInternalSelectedDate(newDate);
+  }
+
+  // Filter meals strictly for the active local calendar day (excluding undated meals)
   const selectedDateMeals = useMemo(() => {
     return meals.filter((m) => {
-      if (!m.date) return true; // Legacy meals without date included on all days
-      const localDate = m.date.slice(0, 10);
-      return localDate === selectedDate;
+      if (!m.date || typeof m.date !== 'string') return false;
+      const trimmed = m.date.trim();
+      if (!trimmed) return false;
+      return trimmed.slice(0, 10) === activeDate;
     });
-  }, [meals, selectedDate]);
+  }, [meals, activeDate]);
 
-  // Calculate actual daily nutrition totals for selected day
+  // Separate undated legacy records for recovery without corrupting daily totals
+  const undatedMeals = useMemo(() => {
+    return meals.filter((m) => {
+      if (!m.date || typeof m.date !== 'string') return true;
+      return m.date.trim() === '';
+    });
+  }, [meals]);
+
+  // Calculate actual daily nutrition totals strictly for selected day
   const dailyTotals = useMemo(
     () => calculateDailyNutrition(selectedDateMeals),
     [selectedDateMeals]
@@ -102,36 +132,36 @@ export function MealsScreen({
 
   // Date Navigation Handlers
   function handlePreviousDay() {
-    setSelectedDate((prev) => getPreviousCalendarDate(prev));
+    handleSelectDate(getPreviousCalendarDate(activeDate));
   }
 
   function handleNextDay() {
-    setSelectedDate((prev) => getNextCalendarDate(prev));
+    handleSelectDate(getNextCalendarDate(activeDate));
   }
 
   function handleJumpToToday() {
-    setSelectedDate(todayKey);
+    handleSelectDate(todayKey);
   }
 
   // Localized date header label
   const dateHeaderLabel = useMemo(() => {
-    const formatted = formatDisplayDate(selectedDate, language);
+    const formatted = formatDisplayDate(activeDate, language);
     const yesterdayKey = getPreviousCalendarDate(todayKey);
     const tomorrowKey = getNextCalendarDate(todayKey);
 
-    if (selectedDate === todayKey) {
+    if (activeDate === todayKey) {
       return `${t('meals.today') || 'Today'} · ${formatted}`;
     }
-    if (selectedDate === yesterdayKey) {
+    if (activeDate === yesterdayKey) {
       return `${t('meals.yesterday') || 'Yesterday'} · ${formatted}`;
     }
-    if (selectedDate === tomorrowKey) {
+    if (activeDate === tomorrowKey) {
       return `${t('meals.tomorrow') || 'Tomorrow'} · ${formatted}`;
     }
     return formatted;
-  }, [selectedDate, todayKey, language, t]);
+  }, [activeDate, todayKey, language, t]);
 
-  const isToday = selectedDate === todayKey;
+  const isToday = activeDate === todayKey;
 
   return (
     <ScrollView
@@ -148,7 +178,7 @@ export function MealsScreen({
           <AppButton
             title={t('common.add')}
             icon="add"
-            onPress={() => onAddMeal(selectedDate)}
+            onPress={() => onAddMeal(activeDate)}
           />
         }
       />
@@ -279,8 +309,43 @@ export function MealsScreen({
           description={t('meals.emptyMessage') || 'Add a meal to see nutrition totals.'}
           actionTitle={t('meals.addTitle') || 'Add meal'}
           actionIcon="add"
-          onAction={() => onAddMeal(selectedDate)}
+          onAction={() => onAddMeal(activeDate)}
         />
+      )}
+
+      {/* Recoverable Unassigned Date Legacy Meals Section */}
+      {undatedMeals.length > 0 && (
+        <View
+          accessibilityRole="region"
+          accessibilityLabel={t('meals.unassignedDateTitle') || 'Unassigned Date Meals'}
+          style={[styles.unassignedCard, { backgroundColor: `${colors.accent}10`, borderColor: `${colors.accent}40` }]}
+        >
+          <View style={[styles.unassignedHeader, activeRowStyle()]}>
+            <View style={[styles.unassignedTitleGroup, activeRowStyle()]}>
+              <Ionicons name="help-circle-outline" size={20} color={colors.accent} style={{ marginEnd: 6 }} />
+              <Text style={[styles.unassignedTitle, directionalText, { color: colors.text }]}>
+                {t('meals.unassignedDateTitle') || 'Unassigned Date Meals'}
+              </Text>
+            </View>
+            <View style={[styles.unassignedBadge, { backgroundColor: colors.accent }]}>
+              <Text style={styles.unassignedBadgeText}>{undatedMeals.length}</Text>
+            </View>
+          </View>
+          <Text style={[styles.unassignedDescription, directionalText, { color: colors.textMuted }]}>
+            {t('meals.unassignedDateDescription') || 'These legacy meals do not have an assigned calendar date. Tap to edit and assign them to a day.'}
+          </Text>
+          <View style={styles.unassignedList}>
+            {undatedMeals.map((meal) => (
+              <MealCard
+                key={meal.id}
+                meal={meal}
+                caloriesLabel={t('common.kcal')}
+                itemLabel={t('meals.itemLabel')}
+                onPress={() => onMealPress(meal)}
+              />
+            ))}
+          </View>
+        </View>
       )}
     </ScrollView>
   );
@@ -374,5 +439,42 @@ const styles = StyleSheet.create({
   slotCaloriesSubtotal: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  unassignedCard: {
+    borderRadius: radius.md,
+    borderWidth: 1,
+    padding: spacing.md,
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  unassignedHeader: {
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  unassignedTitleGroup: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  unassignedTitle: {
+    ...typography.h3,
+    fontSize: 15,
+  },
+  unassignedBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+  },
+  unassignedBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  unassignedDescription: {
+    ...typography.caption,
+    fontSize: 12,
+  },
+  unassignedList: {
+    gap: spacing.sm,
+    marginTop: spacing.xs,
   },
 });

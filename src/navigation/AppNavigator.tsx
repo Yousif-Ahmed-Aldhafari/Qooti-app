@@ -35,6 +35,7 @@ import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import type { Language, Meal, ScreenKey, TabKey, Workout } from '../types';
+import { formatLocalDate } from '../utils/nutrition';
 import { applyRTL, flexStart, isRTL, rowStyle, textAlign, writingDirection } from '../utils/rtl';
 import { createQuickAddWorkoutDraft } from '../utils/workoutAnalytics';
 
@@ -103,6 +104,7 @@ export function AppNavigator() {
   const [activeScreen, setActiveScreen] = useState<ScreenKey>('home');
   const [selectedMealId, setSelectedMealId] = useState<string | null>(null);
   const [addMealInitialDate, setAddMealInitialDate] = useState<string | undefined>(undefined);
+  const [selectedDiaryDate, setSelectedDiaryDate] = useState<string>(() => formatLocalDate(new Date()));
   const [selectedWorkoutId, setSelectedWorkoutId] = useState<string | null>(null);
   const [quickAddTemplate, setQuickAddTemplate] = useState<Workout | null>(null);
 
@@ -263,6 +265,9 @@ export function AppNavigator() {
   async function saveMeal(meal: Meal) {
     await addMeal(meal);
     setSelectedMealId(meal.id);
+    if (meal.date && meal.date.trim()) {
+      setSelectedDiaryDate(meal.date.trim().slice(0, 10));
+    }
     setActiveTab('meals');
     setActiveScreen('mealDetails');
   }
@@ -275,6 +280,9 @@ export function AppNavigator() {
   async function handleUpdateMeal(meal: Meal) {
     await updateMeal(meal);
     setSelectedMealId(meal.id);
+    if (meal.date && meal.date.trim()) {
+      setSelectedDiaryDate(meal.date.trim().slice(0, 10));
+    }
     setActiveTab('meals');
     setActiveScreen('mealDetails');
   }
@@ -360,6 +368,15 @@ export function AppNavigator() {
       setActiveScreen('workoutDetails');
       return;
     }
+    if (effectiveScreen === 'editMeal') {
+      setActiveScreen('mealDetails');
+      return;
+    }
+    if (effectiveScreen === 'mealDetails') {
+      setSelectedMealId(null);
+      setActiveScreen('meals');
+      return;
+    }
     if (effectiveScreen === 'addWorkout' && quickAddTemplate) {
       setQuickAddTemplate(null);
       if (selectedWorkoutId) {
@@ -408,8 +425,10 @@ export function AppNavigator() {
             meals={meals}
             profile={profile}
             language={language}
+            selectedDate={selectedDiaryDate}
+            onSelectDate={setSelectedDiaryDate}
             onAddMeal={(date?: string) => {
-              setAddMealInitialDate(date);
+              setAddMealInitialDate(date || selectedDiaryDate);
               setActiveScreen('addMeal');
             }}
             onMealPress={openMealDetails}
@@ -420,7 +439,7 @@ export function AppNavigator() {
           <AddMealScreen
             key={language}
             t={t}
-            initialDate={addMealInitialDate}
+            initialDate={addMealInitialDate || selectedDiaryDate}
             language={language}
             onSave={async (meal) => {
               await saveMeal(meal);
@@ -441,8 +460,10 @@ export function AppNavigator() {
               meals={meals}
               profile={profile}
               language={language}
+              selectedDate={selectedDiaryDate}
+              onSelectDate={setSelectedDiaryDate}
               onAddMeal={(date?: string) => {
-                setAddMealInitialDate(date);
+                setAddMealInitialDate(date || selectedDiaryDate);
                 setActiveScreen('addMeal');
               }}
               onMealPress={openMealDetails}
@@ -468,8 +489,10 @@ export function AppNavigator() {
               meals={meals}
               profile={profile}
               language={language}
+              selectedDate={selectedDiaryDate}
+              onSelectDate={setSelectedDiaryDate}
               onAddMeal={(date?: string) => {
-                setAddMealInitialDate(date);
+                setAddMealInitialDate(date || selectedDiaryDate);
                 setActiveScreen('addMeal');
               }}
               onMealPress={openMealDetails}

@@ -40,6 +40,9 @@
 [ Task 4.3: Multi-Food Meal Creation, Search UX & Day Navigation ] ──► (COMPLETE - 540 Tests)
        │
        ▼
+[ Task 4.3A: Daily Diary Date Integrity & Navigation Hardening ] ──► (COMPLETE - 565 Tests)
+       │
+       ▼
 [ Task 4.4: Nutrition Analytics, Daily Targets & Macro Distribution ] ──► (NEXT)
        │
        ▼
@@ -244,6 +247,40 @@
   - `src/i18n/en.ts` & `src/i18n/ar.ts` (updated)
   - `src/__tests__/multiFoodMealAndDayNavigation.test.ts` (new - 40 tests)
 - **Success Criteria:** Verified multi-food meal logging, portion scaling, bilingual search, date navigation, and backward compatibility. All 540 tests passing.
+
+---
+
+### Task 4.3A: Daily Diary Date Integrity & Navigation Hardening [COMPLETED]
+- **Status:** COMPLETED
+- **Objective:** Eliminate undated legacy meal leakage across diary days, prevent daily totals distortion, implement live local-day midnight rollover with AppState resume listeners, and preserve selected diary date navigation state across Add/Edit/Delete flows, language changes, and tab switches.
+- **Pre-conditions:** Task 4.3 completed and verified; 540 baseline tests passing.
+- **Outcome Metrics:** 565 total passing tests (+25 new tests in `dailyDiaryDateIntegrity.test.ts`), 0 failures, 0 skipped, 0 TypeScript errors, 0 ESLint warnings, 92.24% line coverage, 20/20 expo-doctor checks passing.
+- **Technical Specifications:**
+  1. **Strict Diary Date Matching & Undated Meal Recovery:**
+     - `MealsScreen` strictly filters `selectedDateMeals` requiring `m.date.slice(0, 10) === activeDate`.
+     - Completely eliminates `if (!m.date) return true` leak that was double-counting undated meals on every day.
+     - Separates undated meals into dedicated, recoverable "Unassigned Date Meals" section with count badge and `MealCard` list.
+     - Allows assigning valid calendar date via editing without inventing synthetic dates in SQLite.
+     - `dailyTotals` strictly computes over `selectedDateMeals`, ensuring zero calorie inflation.
+  2. **Live Local-Day Rollover (`useLiveLocalDate.ts`):**
+     - Hook listens to `AppState` transitions to `'active'` to refresh `todayKey` upon resume.
+     - Schedules precise timeout for next local midnight via `getMsUntilNextMidnight()` with safe 50ms buffer.
+     - Automatically updates Today / Yesterday / Tomorrow labels and Today jump button.
+     - Preserves user's manually selected historical date even after midnight rollover.
+  3. **Selected-Date Navigation Continuity (`AppNavigator.tsx`):**
+     - Lifted `selectedDiaryDate` state to `AppNavigator`.
+     - Preserved across opening/saving Add Meal, opening/canceling/saving Edit Meal, and deleting meals.
+     - If a meal's own date is edited, `selectedDiaryDate` automatically updates to the meal's newly assigned date.
+     - Preserved across EN/AR language switches and tab navigation without resetting to today.
+- **Files Affected:**
+  - `src/hooks/useLiveLocalDate.ts` (new)
+  - `src/screens/MealsScreen.tsx` (updated)
+  - `src/navigation/AppNavigator.tsx` (updated)
+  - `src/components/MealCard.tsx` (updated)
+  - `src/screens/MealDetailsScreen.tsx` (updated)
+  - `src/i18n/en.ts` & `src/i18n/ar.ts` (updated)
+  - `src/__tests__/dailyDiaryDateIntegrity.test.ts` (new - 25 tests)
+- **Success Criteria:** Zero undated meal leakage; live midnight rollover; persistent selected diary date across all flows; 565 passing tests.
 
 ---
 
