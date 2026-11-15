@@ -9,4 +9,5 @@ export * from './repositories/mealRepository';
 export * from './repositories/workoutRepository';
 export * from './repositories/progressRepository';
 export * from './repositories/settingsRepository';
+export * from './repositories/customFoodRepository';
 

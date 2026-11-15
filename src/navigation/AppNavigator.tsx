@@ -102,6 +102,7 @@ export function AppNavigator() {
   const [activeTab, setActiveTab] = useState<TabKey>('home');
   const [activeScreen, setActiveScreen] = useState<ScreenKey>('home');
   const [selectedMealId, setSelectedMealId] = useState<string | null>(null);
+  const [addMealInitialDate, setAddMealInitialDate] = useState<string | undefined>(undefined);
   const [selectedWorkoutId, setSelectedWorkoutId] = useState<string | null>(null);
   const [quickAddTemplate, setQuickAddTemplate] = useState<Workout | null>(null);
 
@@ -406,15 +407,47 @@ export function AppNavigator() {
             t={t}
             meals={meals}
             profile={profile}
-            onAddMeal={() => setActiveScreen('addMeal')}
+            language={language}
+            onAddMeal={(date?: string) => {
+              setAddMealInitialDate(date);
+              setActiveScreen('addMeal');
+            }}
             onMealPress={openMealDetails}
           />
         );
       case 'addMeal':
-        return <AddMealScreen key={language} t={t} onSave={saveMeal} />;
+        return (
+          <AddMealScreen
+            key={language}
+            t={t}
+            initialDate={addMealInitialDate}
+            language={language}
+            onSave={async (meal) => {
+              await saveMeal(meal);
+              setAddMealInitialDate(undefined);
+            }}
+            onCancel={() => {
+              setAddMealInitialDate(undefined);
+              setActiveScreen('meals');
+            }}
+          />
+        );
       case 'mealDetails':
         if (!selectedMeal) {
-          return <MealsScreen key={language} t={t} meals={meals} profile={profile} onAddMeal={() => setActiveScreen('addMeal')} onMealPress={openMealDetails} />;
+          return (
+            <MealsScreen
+              key={language}
+              t={t}
+              meals={meals}
+              profile={profile}
+              language={language}
+              onAddMeal={(date?: string) => {
+                setAddMealInitialDate(date);
+                setActiveScreen('addMeal');
+              }}
+              onMealPress={openMealDetails}
+            />
+          );
         }
         return (
           <MealDetailsScreen
@@ -428,13 +461,27 @@ export function AppNavigator() {
         );
       case 'editMeal':
         if (!selectedMeal) {
-          return <MealsScreen key={language} t={t} meals={meals} profile={profile} onAddMeal={() => setActiveScreen('addMeal')} onMealPress={openMealDetails} />;
+          return (
+            <MealsScreen
+              key={language}
+              t={t}
+              meals={meals}
+              profile={profile}
+              language={language}
+              onAddMeal={(date?: string) => {
+                setAddMealInitialDate(date);
+                setActiveScreen('addMeal');
+              }}
+              onMealPress={openMealDetails}
+            />
+          );
         }
         return (
           <EditMealScreen
             key={language}
             t={t}
             meal={selectedMeal}
+            language={language}
             onSave={handleUpdateMeal}
             onCancel={() => setActiveScreen('mealDetails')}
           />

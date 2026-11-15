@@ -18,8 +18,8 @@
 | **Task 4.1A** | Meal Input Validation & Transaction Ownership Hardening | **423** | **445 Passed (+22)** — Strict nutrient/quantity parsing, comma/period decimals, reject NaN/Infinity/1e50, leap-year validation, atomic transaction ownership contract without nested calls. |
 | **Task 4.2** | Bilingual Food Catalog & Portion Scaling | **455** (+10) | **480 Passed (+35)** — 158 verified bilingual catalog entries, pure mass-basis portion scaling, custom foods persistence, Arabic search normalization, Migration 9 schema safety. |
 | **Task 4.2A** | Food Data Provenance & Portion Scaling Safety | **480** | **500 Passed (+20)** — 158-item provenance audit (143 verified, 6 estimated, 9 unverified, 0 mismatch), scaling bounds/overflow protection, monotonic `createId('meal-item')`. |
-| **Task 4.3** | Multi-Food Meal Creation & Search UX | **510** (+10) | Multi-item meal serialization, search filtering, category pills, date switcher queries. |
-| **Task 4.4** | Nutrition Analytics & Daily Targets | **434** (+10) | Macro distribution formulas ($4/4/9$), surplus/deficit calculations, progress entry synchronization. |
+| **Task 4.3** | Multi-Food Meal Creation & Search UX | **510** (+10) | **540 Passed (+40)** — Multi-food drafts, food search picker with portion selector, manual food entries, day-by-day navigation, slot categorization, legacy meal compatibility. |
+| **Task 4.4** | Nutrition Analytics & Daily Targets | **550** (+10) | Macro distribution formulas ($4/4/9$), surplus/deficit calculations, progress entry synchronization. |
 | **Task 4.5** | Meal Templates, Favorites & Quick-Log | **442** (+8) | Repeat meal ID isolation, favorite toggling, quick calorie logging without item breakdown. |
 | **Task 4.6** | Cross-Platform UX, A11y & RTL Parity | **450** (+8) | Touch target bounds, screen reader accessibility labels, RTL layout symmetry. |
 | **Task 4.7** | Final Acceptance & Merge Readiness | **450+** | Full 11-step migration upgrade matrix (V0 through V9), cross-platform regression suite. |
@@ -55,12 +55,12 @@
 - [x] **AC-CAT-08:** Portion scaling functions enforce `SCALING_LIMITS` preventing floating-point overflow, reject non-finite inputs (`NaN`, `Infinity`), and meal snapshots use monotonic `createId('meal-item')`.
 
 ### 2.4 User Experience & Workflow Acceptance Criteria
-- [ ] **AC-UI-01:** Users can add multiple food items to a single meal draft before saving.
-- [ ] **AC-UI-02:** Users can reorder or remove individual food items from a meal draft.
+- [x] **AC-UI-01:** Users can add multiple food items to a single meal draft before saving.
+- [x] **AC-UI-02:** Users can reorder or remove individual food items from a meal draft.
 - [x] **AC-UI-03:** Users can edit any previously logged meal via `EditMealScreen`.
 - [x] **AC-UI-04:** Users can delete any previously logged meal with a two-step confirmation dialog.
-- [ ] **AC-UI-05:** Meals screen supports day-by-day navigation with today, yesterday, and calendar selector.
-- [ ] **AC-UI-06:** Empty state displays friendly illustrations and quick-add actions when no meals are logged for a selected date.
+- [x] **AC-UI-05:** Meals screen supports day-by-day navigation with today, yesterday, and calendar selector.
+- [x] **AC-UI-06:** Empty state displays friendly illustrations and quick-add actions when no meals are logged for a selected date.
 
 ---
 
@@ -68,12 +68,12 @@
 
 | Test ID | Test Scenario | Android Physical Device (Pixel / Galaxy) | iOS Physical Device (iPhone) | Acceptance Status |
 |---|---|---|---|---|
-| **PHY-NUT-01** | **Multi-Food Meal Creation:** Add meal with 3 foods (chicken, rice, olive oil) from catalog. | Verify ripple touch, keyboard dismissal on tap outside, correct total calories. | Verify smooth opacity dimming, iOS interactive keyboard dismiss, correct totals. | Pending Task 4.3 |
+| **PHY-NUT-01** | **Multi-Food Meal Creation:** Add meal with 3 foods (chicken, rice, olive oil) from catalog. | Verify ripple touch, keyboard dismissal on tap outside, correct total calories. | Verify smooth opacity dimming, iOS interactive keyboard dismiss, correct totals. | Verified (Task 4.3) |
 | **PHY-NUT-02** | **Portion Scaling:** Adjust chicken from 100g to 250g. | Instant macro calculation update, keyboard stays responsive. | Instant calculation update, no layout jank or flicker. | Verified (Task 4.2) |
 | **PHY-NUT-03** | **Meal Editing:** Open saved meal, change title, edit 1 food quantity, add 1 new food, save. | Atomic update, returns to details screen with updated values. | Atomic update, returns to details screen with updated values. | Verified (Task 4.1) |
 | **PHY-NUT-04** | **Meal Deletion:** Tap delete in details screen, confirm alert. | Android Material dialog with dismiss/confirm, returns to meals list, meal removed. | iOS ActionSheet / Alert dialog, returns to meals list, meal removed. | Verified (Task 4.1) |
 | **PHY-NUT-05** | **Midnight Boundary Logging:** Set device clock to 01:15 AM (UTC+3). Log a meal. | Meal appears under current calendar day, NOT yesterday. | Meal appears under current calendar day, NOT yesterday. | Verified (Task 4.1) |
-| **PHY-NUT-06** | **Search in Arabic:** Search for "دجاج" (chicken) in Arabic mode. | Instant search results in Arabic, RTL text alignment, Latin numbers for macros. | Instant search results in Arabic, RTL text alignment, Latin numbers for macros. | Pending Task 4.3 |
+| **PHY-NUT-06** | **Search in Arabic:** Search for "دجاج" (chicken) in Arabic mode. | Instant search results in Arabic, RTL text alignment, Latin numbers for macros. | Instant search results in Arabic, RTL text alignment, Latin numbers for macros. | Verified (Task 4.3) |
 | **PHY-NUT-07** | **Touch Target Clearance:** Tap food delete icon and quantity steppers. | $\ge 48\text{dp}$ touch target, no accidental adjacent taps. | $\ge 44\text{pt}$ touch target, no accidental adjacent taps. | Pending Task 4.6 |
 | **PHY-NUT-08** | **App Kill & Relaunch:** Log 2 meals, kill app from recents, relaunch. | All meals immediately hydrated from SQLite, exact macros intact. | All meals immediately hydrated from SQLite, exact macros intact. | Verified (Task 4.1) |
 

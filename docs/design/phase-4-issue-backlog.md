@@ -167,11 +167,18 @@
 
 #### ISSUE-NUT-11: Inability to Add Multiple Foods in `AddMealScreen`
 - **Severity:** P2 (Medium)
-- **Location:** `src/screens/AddMealScreen.tsx`
-- **Description:** Form fields are constrained to a single food item (`foodName`, `quantity`, `calories`, `protein`, `carbs`, `fats`).
+- **Status:** RESOLVED (Task 4.3)
+- **Location:** `src/screens/AddMealScreen.tsx`, `src/screens/EditMealScreen.tsx`, `src/components/FoodPickerModal.tsx`, `src/components/ManualFoodModal.tsx`
+- **Description:** Form fields were constrained to a single food item (`foodName`, `quantity`, `calories`, `protein`, `carbs`, `fats`).
 - **Root Cause:** Hardcoded single-item state.
-- **Impact:** Users cannot log complex meals (e.g. breakfast of 2 eggs, 50g oats, 10g honey) without creating separate meal entries for each food item.
-- **Proposed Remediation:** Redesign meal creation flow to allow adding, reordering, and removing multiple food items within a single meal draft.
+- **Impact:** Users could not log complex meals without creating separate meal entries for each food item.
+- **Resolution & Verification:**
+  - Implemented multi-food draft state in both `AddMealScreen` and `EditMealScreen` allowing unlimited food items per meal.
+  - Integrated `FoodPickerModal` connecting the 158-entry bilingual food catalog and custom foods with serving options, fractional quantities, and live gram mass previews.
+  - Provided `ManualFoodModal` for direct nutrient entry alongside catalog foods.
+  - Real-time meal calorie and macro totals dynamically sum child items via `calculateMealTotals()`.
+  - Atomic persistence to SQLite via `insertMeal` / `updateMeal` preserving snapshots without mutating historical data.
+  - Verified by Tests 14–24 in `src/__tests__/multiFoodMealAndDayNavigation.test.ts`.
 - **Target Task:** Task 4.3
 
 #### ISSUE-NUT-12: Absence of Built-in Food Catalog & Portion Scaling
@@ -206,20 +213,32 @@
 
 #### ISSUE-NUT-13: Unfiltered Infinite Meal List & Missing Date Navigation
 - **Severity:** P2 (Medium)
-- **Location:** `src/screens/MealsScreen.tsx`
-- **Description:** `MealsScreen` renders all meals ever logged in a flat list without day-by-day navigation or date filtering.
-- **Root Cause:** Missing day picker component on `MealsScreen`.
+- **Status:** RESOLVED (Task 4.3)
+- **Location:** `src/screens/MealsScreen.tsx`, `src/utils/date.ts`
+- **Description:** `MealsScreen` rendered all meals ever logged in a flat list without day-by-day navigation or date filtering.
+- **Root Cause:** Missing day navigation component on `MealsScreen`.
 - **Impact:** Difficult to review meals logged on previous days or see daily macro totals for past dates.
-- **Proposed Remediation:** Introduce date selector header (Today, Yesterday, Calendar Day) to filter meals by day and display date-specific macro progress.
+- **Resolution & Verification:**
+  - Added calendar date navigation header with Previous Day, Next Day, and Today buttons using strict local dates (`YYYY-MM-DD`).
+  - Added date helper functions `getPreviousCalendarDate()` and `getNextCalendarDate()` handling month rollovers, leap years, and calendar boundaries cleanly.
+  - Added daily nutrition summaries dynamically recomputed for the active selected day.
+  - Added empty-day state when no meals are logged for the selected date.
+  - Verified by Tests 30–35 in `src/__tests__/multiFoodMealAndDayNavigation.test.ts`.
 - **Target Task:** Task 4.3
 
 #### ISSUE-NUT-14: Missing Meal Slot Categorization (Breakfast, Lunch, Dinner, Snack)
 - **Severity:** P2 (Medium)
-- **Location:** `src/models/meal.ts`, `src/db/schema.ts`
-- **Description:** Meals have no structured category or meal slot property; users must type "Lunch" into the free-text `title`.
-- **Root Cause:** Schema lacks `meal_type` column.
-- **Impact:** Cannot analyze calorie distribution across meal slots or organize UI by standard meal times.
-- **Proposed Remediation:** Introduce `mealType` ('breakfast' | 'lunch' | 'dinner' | 'snack') with backward compatibility for legacy records.
+- **Status:** RESOLVED (Task 4.3)
+- **Location:** `src/models/meal.ts`, `src/screens/MealsScreen.tsx`, `src/screens/AddMealScreen.tsx`, `src/screens/EditMealScreen.tsx`
+- **Description:** Meals had no structured category or meal slot property; users had to type "Lunch" into the free-text `title`.
+- **Root Cause:** Schema and UI lacked structured meal slot selection.
+- **Impact:** Cannot organize UI by standard meal times or distinguish breakfast from dinner.
+- **Resolution & Verification:**
+  - Leveraged `meals.meal_type` column from Migration 9 supporting `'breakfast' | 'lunch' | 'dinner' | 'snack' | 'other'`.
+  - Added meal slot selection chips in `AddMealScreen` and `EditMealScreen` with auto-defaulted meal titles based on selected slot.
+  - Grouped `MealsScreen` by meal slot with localized section headers and badges.
+  - Fully backward compatible with legacy meals without `meal_type` (rendered under 'Other').
+  - Verified by Tests 25–27 in `src/__tests__/multiFoodMealAndDayNavigation.test.ts`.
 - **Target Task:** Task 4.3
 
 ---

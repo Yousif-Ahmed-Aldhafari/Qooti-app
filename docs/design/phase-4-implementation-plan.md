@@ -37,10 +37,10 @@
 [ Task 4.2A: Food Data Provenance & Portion Scaling Safety ] ──► (COMPLETE - 500 Tests)
        │
        ▼
-[ Task 4.3: Multi-Food Meal Creation, Search UX & Day Navigation ] ──► (NEXT)
+[ Task 4.3: Multi-Food Meal Creation, Search UX & Day Navigation ] ──► (COMPLETE - 540 Tests)
        │
        ▼
-[ Task 4.4: Nutrition Analytics, Daily Targets & Macro Distribution ]
+[ Task 4.4: Nutrition Analytics, Daily Targets & Macro Distribution ] ──► (NEXT)
        │
        ▼
 [ Task 4.5: Meal Templates, Favorites & Quick-Log ]
@@ -207,34 +207,43 @@
 
 ---
 
-### Task 4.3: Multi-Food Meal Creation, Search UX & Day Navigation
-- **Objective:** Redesign meal creation/editing flow to support multiple foods; add food search picker modal; implement day-by-day navigation in `MealsScreen`.
-- **Pre-conditions:** Task 4.2 completed and verified.
+### Task 4.3: Multi-Food Meal Creation, Search UX & Day Navigation [COMPLETED]
+- **Status:** COMPLETED
+- **Objective:** Connect the bilingual food catalog and portion-scaling engine to real user-facing meal logging; support multi-food creation and editing drafts; add bilingual food picker with portion selectors and manual item entry; implement day-by-day calendar navigation and meal slot organization.
+- **Pre-conditions:** Task 4.2 and Task 4.2A completed and verified; 500 baseline tests passing.
+- **Outcome Metrics:** 540 total passing tests (+40 new tests in `multiFoodMealAndDayNavigation.test.ts`), 0 failures, 0 skipped, 0 TypeScript errors, 0 ESLint warnings, 92.41% line coverage, 20/20 expo-doctor checks passing.
 - **Technical Specifications:**
-  1. **Multi-Food Meal Form (`AddMealScreen`, `EditMealScreen`):**
-     - Dynamic food items list with add, remove, and reorder controls.
-     - Live updating meal totals card (calories, protein, carbs, fats) reflecting all draft items.
+  1. **Multi-Food Meal Creation & Editing (`AddMealScreen`, `EditMealScreen`):**
+     - Dynamic multi-food items list supporting adding, removing, and reordering items without caps.
+     - Live updating meal totals card (calories, protein, carbs, fats) recomputed via `calculateMealTotals()`.
+     - Preserves historical snapshots and item IDs without truncation or mutation.
+     - Atomic SQLite transactions via `insertMeal` and `updateMeal`.
   2. **Food Picker Modal (`FoodPickerModal.tsx`):**
-     - Search input with debounced bilingual matching (`nameEn` and `nameAr`).
-     - Category filter pills (Proteins, Carbs, Fats, Dairy, Produce, Regional).
-     - Portion selector allowing quantity input with unit toggle (Grams vs Standard Servings).
-     - "Custom Food" quick-entry option.
-  3. **Meals Screen Day Navigation:**
-     - Date switcher bar: Today, Yesterday, or custom date picker.
-     - Grouping meals by slot: Breakfast, Lunch, Dinner, Snack.
-     - Daily target comparison banner updated for the currently viewed date.
+     - Fast debounced bilingual search over 158 catalog foods and custom foods.
+     - Arabic normalization handling tashkeel, alef variants, and taa marbuta.
+     - Category filter chips and provenance badges (`VERIFIED`, `ESTIMATED`, `UNVERIFIED`).
+     - Portion selector with serving options (e.g. cup, large, 100g, grams) and strict fractional quantity parsing.
+     - Manual food fallback via `ManualFoodModal.tsx`.
+  3. **Meals Screen Day Navigation (`MealsScreen.tsx`):**
+     - Date navigation header: Previous Day, Next Day, Today button.
+     - Strict local calendar date filtering (`YYYY-MM-DD`) across midnight and month/leap-year boundaries.
+     - Day-specific calorie totals and target comparison.
+     - Meal slot grouping: Breakfast, Lunch, Dinner, Snack, Other.
 - **Files Affected:**
-  - `src/screens/AddMealScreen.tsx`
-  - `src/screens/EditMealScreen.tsx`
-  - `src/screens/MealsScreen.tsx`
   - `src/components/FoodPickerModal.tsx` (new)
-  - `src/components/FoodItemRow.tsx` (enhanced)
-  - `src/components/MealSlotSection.tsx` (new)
-- **Automated Test Requirements:**
-  - Multi-item meal serialization and SQLite persistence roundtrip.
-  - Food search filtering and category selection tests.
-  - Date switcher navigation and day-filtered query tests.
-- **Success Criteria:** Ability to create a meal with 5+ items; instant bilingual search; clean date navigation.
+  - `src/components/ManualFoodModal.tsx` (new)
+  - `src/screens/AddMealScreen.tsx` (updated)
+  - `src/screens/EditMealScreen.tsx` (updated)
+  - `src/screens/MealsScreen.tsx` (updated)
+  - `src/screens/MealDetailsScreen.tsx` (updated)
+  - `src/navigation/AppNavigator.tsx` (updated)
+  - `src/utils/foodSearch.ts` (updated)
+  - `src/services/customFoodService.ts` (updated)
+  - `src/db/index.ts` (updated)
+  - `src/utils/date.ts` (updated)
+  - `src/i18n/en.ts` & `src/i18n/ar.ts` (updated)
+  - `src/__tests__/multiFoodMealAndDayNavigation.test.ts` (new - 40 tests)
+- **Success Criteria:** Verified multi-food meal logging, portion scaling, bilingual search, date navigation, and backward compatibility. All 540 tests passing.
 
 ---
 

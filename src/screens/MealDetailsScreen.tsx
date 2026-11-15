@@ -128,6 +128,24 @@ export function MealDetailsScreen({ t, meal, profile, onEdit, onDelete }: MealDe
         }
       />
 
+      {/* Meal Slot Badge & Notes */}
+      {(meal.mealType || meal.notes) && (
+        <View style={styles.metaCard}>
+          {meal.mealType ? (
+            <View style={[styles.slotBadge, { backgroundColor: `${colors.primary}20`, borderColor: colors.primary }]}>
+              <Text style={[styles.slotBadgeText, { color: colors.primary }]}>
+                {t(`meals.${meal.mealType}` as any) || meal.mealType}
+              </Text>
+            </View>
+          ) : null}
+          {meal.notes ? (
+            <Text style={[styles.notesText, directionalText, { color: colors.textMuted }]}>
+              {meal.notes}
+            </Text>
+          ) : null}
+        </View>
+      )}
+
       {deleteError ? (
         <View style={[styles.errorBanner, { backgroundColor: colors.card, borderColor: colors.danger }]}>
           <Text style={[styles.errorBannerText, directionalText, { color: colors.danger }]}>
@@ -216,6 +234,26 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     paddingBottom: 120,
     gap: spacing.lg,
+  },
+  metaCard: {
+    gap: spacing.xs,
+  },
+  slotBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+  },
+  slotBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'capitalize',
+  },
+  notesText: {
+    fontSize: 13,
+    fontStyle: 'italic',
+    marginTop: 4,
   },
   errorBanner: {
     borderRadius: radius.md,

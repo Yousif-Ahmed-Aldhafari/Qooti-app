@@ -70,3 +70,23 @@ export function compareDateTimeDesc(
 ): number {
   return `${right.date}T${right.time}`.localeCompare(`${left.date}T${left.time}`);
 }
+
+export function getPreviousCalendarDate(dateStr: string): string {
+  const parts = dateStr.slice(0, 10).split('-');
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1;
+  const day = parseInt(parts[2], 10);
+  const d = new Date(year, month, day);
+  d.setDate(d.getDate() - 1);
+  return toDateInputValue(d);
+}
+
+export function getNextCalendarDate(dateStr: string): string {
+  const parts = dateStr.slice(0, 10).split('-');
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1;
+  const day = parseInt(parts[2], 10);
+  const d = new Date(year, month, day);
+  d.setDate(d.getDate() + 1);
+  return toDateInputValue(d);
+}

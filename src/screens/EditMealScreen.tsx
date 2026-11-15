@@ -5,97 +5,98 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TouchableWithoutFeedback,
-  useWindowDimensions,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { AppButton } from '../components/AppButton';
 import { AppCard } from '../components/AppCard';
 import { AppHeader } from '../components/AppHeader';
 import { AppInput } from '../components/AppInput';
+import { FoodPickerModal } from '../components/FoodPickerModal';
+import { ManualFoodModal } from '../components/ManualFoodModal';
 import type { Translator } from '../i18n';
+import type { CustomFood } from '../models/food';
+import { validateMealDate, validateMealTime, type Meal, type MealItem, type MealType } from '../models/meal';
 import { themeColors } from '../theme/colors';
 import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
-import type { Meal } from '../types';
 import { createId } from '../utils/id';
-import { formatLocalDate, formatLocalTime, parseStrictNutrient, parseStrictQuantity } from '../utils/nutrition';
-import { validateMealDate, validateMealTime } from '../models/meal';
+import { calculateMealTotals, formatLocalDate, formatLocalTime } from '../utils/nutrition';
 import { activeRowStyle, activeTextAlign, activeWritingDirection } from '../utils/rtl';
-
-type MealItemEditState = {
-  id: string;
-  foodName: string;
-  quantity: string;
-  calories: string;
-  protein: string;
-  carbs: string;
-  fats: string;
-  unit: string;
-};
-
-type MealItemErrorMap = {
-  foodName?: string;
-  quantity?: string;
-  calories?: string;
-  protein?: string;
-  carbs?: string;
-  fats?: string;
-};
+import { getPressFeedback } from '../utils/touchFeedback';
 
 type EditMealScreenProps = {
   t: Translator;
   meal: Meal;
   onSave: (meal: Meal) => Promise<void> | void;
   onCancel: () => void;
+  language?: 'en' | 'ar';
+  customFoods?: CustomFood[];
 };
 
-export function EditMealScreen({ t, meal, onSave, onCancel }: EditMealScreenProps) {
-  const { width } = useWindowDimensions();
-  const isCompact = width < 340;
+const MEAL_SLOTS: { id: MealType; key: string; icon: string }[] = [
+  { id: 'breakfast', key: 'meals.breakfast', icon: 'sunny-outline' },
+  { id: 'lunch', key: 'meals.lunch', icon: 'restaurant-outline' },
+  { id: 'dinner', key: 'meals.dinner', icon: 'moon-outline' },
+  { id: 'snack', key: 'meals.snack', icon: 'cafe-outline' },
+];
+
+export function EditMealScreen({
+  t,
+  meal,
+  onSave,
+  onCancel,
+  language = 'en',
+  customFoods,
+}: EditMealScreenProps) {
   const colors = themeColors();
 
   const [title, setTitle] = useState(meal.title || meal.name || '');
   const [date, setDate] = useState(meal.date || formatLocalDate());
   const [time, setTime] = useState(meal.time || formatLocalTime());
+  const [mealType, setMealType] = useState<MealType>(
+    (meal.mealType as MealType) || 'lunch'
+  );
+  const [notes, setNotes] = useState(meal.notes || '');
 
-  // Initialize items from meal, preserving item IDs. If itemless legacy meal, provide 1 item based on meal totals.
-  const [items, setItems] = useState<MealItemEditState[]>(() => {
+  // Initialize items from meal, preserving item IDs and snapshots. If itemless legacy meal, provide 1 item.
+  const [items, setItems] = useState<MealItem[]>(() => {
     if (meal.items && meal.items.length > 0) {
-      return meal.items.map((item) => ({
-        id: item.id,
-        foodName: item.foodName || item.name || '',
-        quantity: String(item.quantity ?? 1),
-        calories: String(item.calories ?? 0),
-        protein: String(item.protein ?? 0),
-        carbs: String(item.carbs ?? 0),
-        fats: String(item.fats ?? item.fat ?? 0),
-        unit: item.unit || 'g',
-      }));
+      return meal.items.map((it) => ({ ...it }));
     }
     return [
       {
         id: createId('meal-item'),
         foodName: meal.title || meal.name || '',
-        quantity: '1',
-        calories: String(meal.totalCalories ?? 0),
-        protein: String(meal.totalProtein ?? 0),
-        carbs: String(meal.totalCarbs ?? 0),
-        fats: String(meal.totalFat ?? meal.totalFats ?? 0),
+        name: meal.title || meal.name || '',
+        quantity: 1,
         unit: 'g',
+        portionUnit: 'g',
+        calories: meal.totalCalories ?? 0,
+        protein: meal.totalProtein ?? 0,
+        carbs: meal.totalCarbs ?? 0,
+        fats: meal.totalFat ?? meal.totalFats ?? 0,
+        fat: meal.totalFat ?? meal.totalFats ?? 0,
       },
     ];
   });
 
+  // Modals
+  const [isFoodPickerVisible, setIsFoodPickerVisible] = useState(false);
+  const [isManualModalVisible, setIsManualModalVisible] = useState(false);
+  const [editingManualItem, setEditingManualItem] = useState<MealItem | null>(null);
+
   const [titleError, setTitleError] = useState('');
   const [dateError, setDateError] = useState('');
   const [timeError, setTimeError] = useState('');
-  const [itemErrors, setItemErrors] = useState<Record<string, MealItemErrorMap>>({});
+  const [itemsError, setItemsError] = useState('');
   const [saveError, setSaveError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -104,29 +105,40 @@ export function EditMealScreen({ t, meal, onSave, onCancel }: EditMealScreenProp
     writingDirection: activeWritingDirection(),
   } as const;
 
-  // Dirty tracking
+  const { android_ripple } = getPressFeedback({
+    rippleColor: `${colors.border}4D`,
+    activeOpacity: 0.72,
+  });
+
+  // Calculate live meal totals
+  const mealTotals = useMemo(() => calculateMealTotals(items), [items]);
+
+  // Dirty check
   const isDirty = useMemo(() => {
     if (title !== (meal.title || meal.name || '')) return true;
     if (date !== (meal.date || '')) return true;
     if (time !== (meal.time || '')) return true;
+    if (mealType !== (meal.mealType || 'lunch')) return true;
+    if (notes !== (meal.notes || '')) return true;
 
     const originalItems = meal.items || [];
     if (items.length !== originalItems.length) return true;
 
     for (let i = 0; i < items.length; i++) {
-      const current = items[i];
+      const cur = items[i];
       const orig = originalItems[i];
       if (!orig) return true;
-      if (current.foodName !== (orig.foodName || orig.name || '')) return true;
-      if (current.quantity !== String(orig.quantity ?? 1)) return true;
-      if (current.calories !== String(orig.calories ?? 0)) return true;
-      if (current.protein !== String(orig.protein ?? 0)) return true;
-      if (current.carbs !== String(orig.carbs ?? 0)) return true;
-      if (current.fats !== String(orig.fats ?? orig.fat ?? 0)) return true;
+      if (cur.id !== orig.id) return true;
+      if (cur.foodName !== (orig.foodName || orig.name || '')) return true;
+      if (cur.quantity !== orig.quantity) return true;
+      if (cur.calories !== orig.calories) return true;
+      if (cur.protein !== orig.protein) return true;
+      if (cur.carbs !== orig.carbs) return true;
+      if (cur.fats !== (orig.fats ?? orig.fat ?? 0)) return true;
     }
 
     return false;
-  }, [title, date, time, items, meal]);
+  }, [title, date, time, mealType, notes, items, meal]);
 
   const handleCancel = useCallback(() => {
     if (isDirty) {
@@ -150,23 +162,61 @@ export function EditMealScreen({ t, meal, onSave, onCancel }: EditMealScreenProp
   // Android hardware back protection
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (isFoodPickerVisible) {
+        setIsFoodPickerVisible(false);
+        return true;
+      }
+      if (isManualModalVisible) {
+        setIsManualModalVisible(false);
+        return true;
+      }
       handleCancel();
       return true;
     });
     return () => sub.remove();
-  }, [handleCancel]);
+  }, [handleCancel, isFoodPickerVisible, isManualModalVisible]);
 
-  function updateItemField(id: string, field: keyof MealItemEditState, value: string) {
-    setItems((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, [field]: value } : item))
-    );
-    // Clear field-specific error
-    setItemErrors((prev) => {
-      const currentMap = prev[id];
-      if (!currentMap) return prev;
-      const nextMap = { ...currentMap };
-      delete nextMap[field as keyof MealItemErrorMap];
-      return { ...prev, [id]: nextMap };
+  // Item management
+  function handleAddCatalogFood(newItem: MealItem) {
+    setItems((prev) => [...prev, newItem]);
+    setItemsError('');
+  }
+
+  function handleSaveManualFood(savedItem: MealItem) {
+    if (editingManualItem) {
+      setItems((prev) =>
+        prev.map((it) => (it.id === savedItem.id ? savedItem : it))
+      );
+      setEditingManualItem(null);
+    } else {
+      setItems((prev) => [...prev, savedItem]);
+    }
+    setItemsError('');
+  }
+
+  function handleRemoveItem(itemId: string) {
+    setItems((prev) => prev.filter((it) => it.id !== itemId));
+  }
+
+  function handleMoveUp(index: number) {
+    if (index <= 0) return;
+    setItems((prev) => {
+      const copy = [...prev];
+      const temp = copy[index - 1];
+      copy[index - 1] = copy[index];
+      copy[index] = temp;
+      return copy;
+    });
+  }
+
+  function handleMoveDown(index: number) {
+    if (index >= items.length - 1) return;
+    setItems((prev) => {
+      const copy = [...prev];
+      const temp = copy[index + 1];
+      copy[index + 1] = copy[index];
+      copy[index] = temp;
+      return copy;
     });
   }
 
@@ -183,7 +233,7 @@ export function EditMealScreen({ t, meal, onSave, onCancel }: EditMealScreenProp
       setTitleError('');
     }
 
-    // Validate date format and calendar validity
+    // Validate date
     const trimmedDate = date.trim();
     try {
       validateMealDate(trimmedDate);
@@ -193,7 +243,7 @@ export function EditMealScreen({ t, meal, onSave, onCancel }: EditMealScreenProp
       hasError = true;
     }
 
-    // Validate time format (24-hr HH:mm or legacy format)
+    // Validate time
     const trimmedTime = time.trim();
     try {
       validateMealTime(trimmedTime);
@@ -209,79 +259,34 @@ export function EditMealScreen({ t, meal, onSave, onCancel }: EditMealScreenProp
       standardizedTime = `0${trimmedTime}`;
     }
 
-    // Validate each food item
-    const newItemErrors: Record<string, MealItemErrorMap> = {};
-    const parsedItems: Meal['items'] = [];
-
-    for (const item of items) {
-      const errors: MealItemErrorMap = {};
-
-      if (!item.foodName.trim()) {
-        errors.foodName = t('common.requiredMessage') || 'Required';
-        hasError = true;
-      }
-
-      const qResult = parseStrictQuantity(item.quantity);
-      if (!qResult.isValid) {
-        errors.quantity = t(qResult.errorMessageKey as any) || qResult.defaultMessage || 'Must be > 0';
-        hasError = true;
-      }
-
-      const calResult = parseStrictNutrient(item.calories, { allowEmpty: true });
-      if (!calResult.isValid) {
-        errors.calories = t(calResult.errorMessageKey as any) || calResult.defaultMessage || 'Must be >= 0';
-        hasError = true;
-      }
-
-      const pResult = parseStrictNutrient(item.protein, { allowEmpty: true });
-      if (!pResult.isValid) {
-        errors.protein = t(pResult.errorMessageKey as any) || pResult.defaultMessage || 'Must be >= 0';
-        hasError = true;
-      }
-
-      const cResult = parseStrictNutrient(item.carbs, { allowEmpty: true });
-      if (!cResult.isValid) {
-        errors.carbs = t(cResult.errorMessageKey as any) || cResult.defaultMessage || 'Must be >= 0';
-        hasError = true;
-      }
-
-      const fResult = parseStrictNutrient(item.fats, { allowEmpty: true });
-      if (!fResult.isValid) {
-        errors.fats = t(fResult.errorMessageKey as any) || fResult.defaultMessage || 'Must be >= 0';
-        hasError = true;
-      }
-
-      if (Object.keys(errors).length > 0) {
-        newItemErrors[item.id] = errors;
-      }
-
-      parsedItems.push({
-        id: item.id,
-        foodName: item.foodName.trim(),
-        quantity: qResult.value,
-        calories: calResult.value,
-        protein: pResult.value,
-        carbs: cResult.value,
-        fats: fResult.value,
-        unit: item.unit || 'g',
-      });
+    // Must have at least 1 item
+    if (items.length === 0) {
+      setItemsError(t('meals.emptyItemsError') || 'Please add at least one food item.');
+      hasError = true;
+    } else {
+      setItemsError('');
     }
-    setItemErrors(newItemErrors);
 
-    if (hasError) {
-      return;
-    }
+    if (hasError) return;
 
     setIsSaving(true);
     setSaveError('');
 
     try {
       const updatedMeal: Meal = {
-        id: meal.id,
+        id: meal.id, // Strictly preserve original meal ID
         title: title.trim(),
+        name: title.trim(),
         date: trimmedDate,
         time: standardizedTime,
-        items: parsedItems,
+        mealType,
+        notes: notes.trim() || undefined,
+        items,
+        totalCalories: mealTotals.calories,
+        totalProtein: mealTotals.protein,
+        totalCarbs: mealTotals.carbs,
+        totalFat: mealTotals.fats,
+        totalFats: mealTotals.fats,
       };
 
       await onSave(updatedMeal);
@@ -314,14 +319,57 @@ export function EditMealScreen({ t, meal, onSave, onCancel }: EditMealScreenProp
             />
 
             {saveError ? (
-              <View style={[styles.errorBanner, { backgroundColor: colors.card, borderColor: colors.danger }]}>
+              <View style={[styles.errorBanner, { backgroundColor: '#EF444420', borderColor: colors.danger }]}>
+                <Ionicons name="alert-circle" size={20} color={colors.danger} />
                 <Text style={[styles.errorBannerText, directionalText, { color: colors.danger }]}>
                   {saveError}
                 </Text>
               </View>
             ) : null}
 
-            {/* Meal Metadata Card */}
+            {/* Meal Slot Selector */}
+            <AppCard>
+              <Text style={[styles.sectionLabel, directionalText, { color: colors.text }]}>
+                {t('meals.mealType') || 'Meal Slot'}
+              </Text>
+              <View style={[styles.slotRow, activeRowStyle()]}>
+                {MEAL_SLOTS.map((slot) => {
+                  const isSelected = mealType === slot.id;
+                  return (
+                    <Pressable
+                      key={slot.id}
+                      onPress={() => setMealType(slot.id)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: isSelected }}
+                      style={[
+                        styles.slotChip,
+                        {
+                          backgroundColor: isSelected ? colors.primary : colors.inputBackground,
+                          borderColor: isSelected ? colors.primary : colors.border,
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name={slot.icon as any}
+                        size={16}
+                        color={isSelected ? '#FFFFFF' : colors.text}
+                        style={{ marginEnd: 4 }}
+                      />
+                      <Text
+                        style={[
+                          styles.slotChipText,
+                          { color: isSelected ? '#FFFFFF' : colors.text },
+                        ]}
+                      >
+                        {t(slot.key as any) || slot.id}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </AppCard>
+
+            {/* Metadata Card */}
             <AppCard>
               <AppInput
                 label={t('meals.mealName')}
@@ -334,137 +382,219 @@ export function EditMealScreen({ t, meal, onSave, onCancel }: EditMealScreenProp
                 }}
               />
               <View style={[styles.inputRow, activeRowStyle()]}>
-                <AppInput
-                  label={t('common.date') || 'Date'}
-                  placeholder="YYYY-MM-DD"
-                  value={date}
-                  error={dateError}
-                  onChangeText={(text) => {
-                    setDate(text);
-                    if (dateError) setDateError('');
-                  }}
-                  containerStyle={styles.halfInput}
-                />
-                <AppInput
-                  label={t('common.time') || 'Time'}
-                  placeholder="HH:mm"
-                  value={time}
-                  error={timeError}
-                  onChangeText={(text) => {
-                    setTime(text);
-                    if (timeError) setTimeError('');
-                  }}
-                  containerStyle={styles.halfInput}
-                />
+                <View style={styles.halfCol}>
+                  <AppInput
+                    label={t('common.date') || 'Date'}
+                    placeholder="YYYY-MM-DD"
+                    value={date}
+                    error={dateError}
+                    onChangeText={(text) => {
+                      setDate(text);
+                      if (dateError) setDateError('');
+                    }}
+                  />
+                </View>
+                <View style={styles.halfCol}>
+                  <AppInput
+                    label={t('common.time') || 'Time'}
+                    placeholder="HH:mm"
+                    value={time}
+                    error={timeError}
+                    onChangeText={(text) => {
+                      setTime(text);
+                      if (timeError) setTimeError('');
+                    }}
+                  />
+                </View>
               </View>
+
+              <AppInput
+                label={t('meals.notes') || 'Notes'}
+                placeholder={t('meals.notesPlaceholder') || 'Optional notes...'}
+                value={notes}
+                onChangeText={setNotes}
+                maxLength={500}
+                multiline
+                numberOfLines={2}
+              />
             </AppCard>
 
-            {/* Food Items Cards */}
-            {items.map((item, idx) => {
-              const errs = itemErrors[item.id] || {};
-              const itemTitleLabel =
-                items.length > 1
-                  ? `${t('meals.foodName')} #${idx + 1}`
-                  : t('meals.foodName');
-
-              return (
-                <AppCard key={item.id}>
-                  <Text style={[styles.itemHeaderTitle, directionalText, { color: colors.text }]}>
-                    {itemTitleLabel}
+            {/* Food Items Card */}
+            <AppCard>
+              <View style={[styles.cardHeaderRow, activeRowStyle()]}>
+                <View>
+                  <Text style={[styles.cardTitle, directionalText, { color: colors.text }]}>
+                    {t('meals.foodItems') || 'Food Items'}
                   </Text>
-                  <AppInput
-                    label={t('meals.foodName')}
-                    placeholder={t('meals.foodPlaceholder')}
-                    value={item.foodName}
-                    error={errs.foodName}
-                    onChangeText={(text) => updateItemField(item.id, 'foodName', text)}
-                  />
-                  <View style={[styles.inputRow, activeRowStyle()]}>
-                    <AppInput
-                      label={t('meals.quantity')}
-                      keyboardType="decimal-pad"
-                      value={item.quantity}
-                      error={errs.quantity}
-                      onChangeText={(text) => updateItemField(item.id, 'quantity', text)}
-                      containerStyle={styles.halfInput}
-                    />
-                    <AppInput
-                      label={t('meals.calories')}
-                      keyboardType="decimal-pad"
-                      value={item.calories}
-                      error={errs.calories}
-                      onChangeText={(text) => updateItemField(item.id, 'calories', text)}
-                      containerStyle={styles.halfInput}
-                    />
-                  </View>
-                  {isCompact ? (
-                    <>
-                      <View style={[styles.inputRow, activeRowStyle()]}>
-                        <AppInput
-                          label={t('meals.protein')}
-                          keyboardType="decimal-pad"
-                          value={item.protein}
-                          error={errs.protein}
-                          onChangeText={(text) => updateItemField(item.id, 'protein', text)}
-                          containerStyle={styles.halfInput}
-                        />
-                        <AppInput
-                          label={t('meals.carbs')}
-                          keyboardType="decimal-pad"
-                          value={item.carbs}
-                          error={errs.carbs}
-                          onChangeText={(text) => updateItemField(item.id, 'carbs', text)}
-                          containerStyle={styles.halfInput}
-                        />
-                      </View>
-                      <View style={[styles.inputRow, activeRowStyle()]}>
-                        <AppInput
-                          label={t('meals.fats')}
-                          keyboardType="decimal-pad"
-                          value={item.fats}
-                          error={errs.fats}
-                          onChangeText={(text) => updateItemField(item.id, 'fats', text)}
-                          containerStyle={styles.halfInput}
-                        />
-                      </View>
-                    </>
-                  ) : (
-                    <View style={[styles.macroRow, activeRowStyle()]}>
-                      <AppInput
-                        label={t('meals.protein')}
-                        keyboardType="decimal-pad"
-                        value={item.protein}
-                        error={errs.protein}
-                        onChangeText={(text) => updateItemField(item.id, 'protein', text)}
-                        containerStyle={styles.macroColumn}
-                        style={styles.macroInputField}
-                      />
-                      <AppInput
-                        label={t('meals.carbs')}
-                        keyboardType="decimal-pad"
-                        value={item.carbs}
-                        error={errs.carbs}
-                        onChangeText={(text) => updateItemField(item.id, 'carbs', text)}
-                        containerStyle={styles.macroColumn}
-                        style={styles.macroInputField}
-                      />
-                      <AppInput
-                        label={t('meals.fats')}
-                        keyboardType="decimal-pad"
-                        value={item.fats}
-                        error={errs.fats}
-                        onChangeText={(text) => updateItemField(item.id, 'fats', text)}
-                        containerStyle={styles.macroColumn}
-                        style={styles.macroInputField}
-                      />
-                    </View>
-                  )}
-                </AppCard>
-              );
-            })}
+                  <Text style={[styles.cardSubtitle, directionalText, { color: colors.textMuted }]}>
+                    {`${items.length} ${t('meals.itemLabel') || 'items'}`}
+                  </Text>
+                </View>
 
+                {/* Add Buttons */}
+                <View style={[styles.addButtonsGroup, activeRowStyle()]}>
+                  <Pressable
+                    android_ripple={android_ripple}
+                    onPress={() => setIsFoodPickerVisible(true)}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('meals.addFoodFromCatalog')}
+                    style={[styles.smallAddButton, { backgroundColor: colors.primary }]}
+                  >
+                    <Ionicons name="search" size={16} color="#FFFFFF" style={{ marginEnd: 4 }} />
+                    <Text style={styles.smallAddButtonText}>
+                      {t('meals.addFoodFromCatalog') || 'Search'}
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    android_ripple={android_ripple}
+                    onPress={() => {
+                      setEditingManualItem(null);
+                      setIsManualModalVisible(true);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('meals.addManually')}
+                    style={[styles.smallAddButton, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}
+                  >
+                    <Ionicons name="create-outline" size={16} color={colors.text} style={{ marginEnd: 4 }} />
+                    <Text style={[styles.smallAddButtonText, { color: colors.text }]}>
+                      {t('meals.addManually') || 'Manual'}
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+
+              {itemsError ? (
+                <Text style={[styles.errorText, directionalText, { color: colors.danger, marginVertical: spacing.xs }]}>
+                  {itemsError}
+                </Text>
+              ) : null}
+
+              {/* Items List */}
+              {items.length === 0 ? (
+                <View style={styles.emptyItemsBox}>
+                  <Ionicons name="restaurant-outline" size={36} color={colors.textMuted} />
+                  <Text style={[styles.emptyItemsText, directionalText, { color: colors.textMuted }]}>
+                    {t('meals.noItems') || 'No food items added.'}
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.itemsListContainer}>
+                  {items.map((item, index) => {
+                    const displayName = item.foodName || item.name || '';
+                    const portionDesc = `${item.quantity} ${item.unit || item.portionUnit || 'g'}`;
+                    const isFirst = index === 0;
+                    const isLast = index === items.length - 1;
+
+                    return (
+                      <View
+                        key={item.id}
+                        style={[
+                          styles.itemCard,
+                          { backgroundColor: colors.inputBackground, borderColor: colors.border },
+                        ]}
+                      >
+                        <View style={[styles.itemMainRow, activeRowStyle()]}>
+                          <View style={styles.itemInfoCol}>
+                            <Text style={[styles.itemFoodName, directionalText, { color: colors.text }]} numberOfLines={1}>
+                              {displayName}
+                            </Text>
+                            <Text style={[styles.itemPortionDesc, directionalText, { color: colors.accent }]}>
+                              {portionDesc}
+                            </Text>
+                            <Text style={[styles.itemNutrientsDesc, directionalText, { color: colors.textMuted }]}>
+                              {`${item.calories} kcal · P: ${item.protein}g · C: ${item.carbs}g · F: ${item.fats ?? item.fat ?? 0}g`}
+                            </Text>
+                          </View>
+
+                          {/* Reorder and Delete Controls */}
+                          <View style={[styles.itemActionsCol, activeRowStyle()]}>
+                            <Pressable
+                              onPress={() => handleMoveUp(index)}
+                              disabled={isFirst}
+                              accessibilityRole="button"
+                              accessibilityLabel={t('meals.moveUp')}
+                              hitSlop={6}
+                              style={[styles.itemActionBtn, { opacity: isFirst ? 0.3 : 1 }]}
+                            >
+                              <Ionicons name="chevron-up" size={18} color={colors.text} />
+                            </Pressable>
+
+                            <Pressable
+                              onPress={() => handleMoveDown(index)}
+                              disabled={isLast}
+                              accessibilityRole="button"
+                              accessibilityLabel={t('meals.moveDown')}
+                              hitSlop={6}
+                              style={[styles.itemActionBtn, { opacity: isLast ? 0.3 : 1 }]}
+                            >
+                              <Ionicons name="chevron-down" size={18} color={colors.text} />
+                            </Pressable>
+
+                            <Pressable
+                              onPress={() => handleRemoveItem(item.id)}
+                              accessibilityRole="button"
+                              accessibilityLabel={t('meals.remove')}
+                              hitSlop={6}
+                              style={styles.itemActionBtn}
+                            >
+                              <Ionicons name="trash-outline" size={18} color={colors.danger} />
+                            </Pressable>
+                          </View>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+            </AppCard>
+
+            {/* Live Meal Totals Card */}
+            {items.length > 0 && (
+              <AppCard>
+                <Text style={[styles.totalsCardTitle, directionalText, { color: colors.text }]}>
+                  {t('meals.mealTotals') || 'Meal Totals'}
+                </Text>
+                <View style={[styles.totalsCaloriesRow, activeRowStyle()]}>
+                  <Text style={[styles.totalsCaloriesValue, directionalText, { color: colors.accent }]}>
+                    {String(mealTotals.calories)}
+                  </Text>
+                  <Text style={[styles.totalsCaloriesLabel, directionalText, { color: colors.textMuted }]}>
+                    {t('common.kcal')}
+                  </Text>
+                </View>
+                <View style={[styles.totalsMacrosRow, activeRowStyle()]}>
+                  <View style={styles.totalsMacroPill}>
+                    <Text style={[styles.totalsMacroLabel, { color: colors.textMuted }]}>
+                      {t('common.protein')}
+                    </Text>
+                    <Text style={[styles.totalsMacroVal, { color: colors.text }]}>
+                      {`${mealTotals.protein}g`}
+                    </Text>
+                  </View>
+                  <View style={styles.totalsMacroPill}>
+                    <Text style={[styles.totalsMacroLabel, { color: colors.textMuted }]}>
+                      {t('common.carbs')}
+                    </Text>
+                    <Text style={[styles.totalsMacroVal, { color: colors.text }]}>
+                      {`${mealTotals.carbs}g`}
+                    </Text>
+                  </View>
+                  <View style={styles.totalsMacroPill}>
+                    <Text style={[styles.totalsMacroLabel, { color: colors.textMuted }]}>
+                      {t('common.fats')}
+                    </Text>
+                    <Text style={[styles.totalsMacroVal, { color: colors.text }]}>
+                      {`${mealTotals.fats}g`}
+                    </Text>
+                  </View>
+                </View>
+              </AppCard>
+            )}
+
+            {/* Save Button */}
             <AppButton
-              title={isSaving ? t('common.save') : t('common.save')}
+              title={isSaving ? t('common.loading') : t('common.save')}
               icon="save-outline"
               disabled={isSaving}
               onPress={handleSave}
@@ -472,6 +602,34 @@ export function EditMealScreen({ t, meal, onSave, onCancel }: EditMealScreenProp
           </View>
         </TouchableWithoutFeedback>
       </ScrollView>
+
+      {/* Catalog Food Picker Modal */}
+      <FoodPickerModal
+        visible={isFoodPickerVisible}
+        onClose={() => setIsFoodPickerVisible(false)}
+        onSelectFood={handleAddCatalogFood}
+        onAddManual={() => {
+          setIsFoodPickerVisible(false);
+          setEditingManualItem(null);
+          setIsManualModalVisible(true);
+        }}
+        t={t}
+        language={language}
+        customFoods={customFoods}
+      />
+
+      {/* Manual Food Entry Modal */}
+      <ManualFoodModal
+        visible={isManualModalVisible}
+        onClose={() => {
+          setIsManualModalVisible(false);
+          setEditingManualItem(null);
+        }}
+        onSaveFood={handleSaveManualFood}
+        t={t}
+        language={language}
+        initialItem={editingManualItem}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -491,37 +649,169 @@ const styles = StyleSheet.create({
   innerForm: {
     gap: spacing.lg,
   },
-  inputRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  halfInput: {
-    flex: 1,
-    minWidth: 0,
-  },
-  macroRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  macroColumn: {
-    flex: 1,
-    minWidth: 0,
-  },
-  macroInputField: {
-    paddingHorizontal: spacing.sm,
-  },
   errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
     borderRadius: radius.md,
     borderWidth: 1,
-    padding: spacing.md,
+    gap: spacing.sm,
   },
   errorBannerText: {
     ...typography.caption,
     fontWeight: '600',
+    flex: 1,
   },
-  itemHeaderTitle: {
-    ...typography.caption,
-    fontWeight: '700',
+  sectionLabel: {
+    fontSize: 13,
+    fontWeight: '600',
     marginBottom: spacing.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  slotRow: {
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  slotChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    minHeight: 40,
+  },
+  slotChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  inputRow: {
+    gap: spacing.md,
+  },
+  halfCol: {
+    flex: 1,
+  },
+  cardHeaderRow: {
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  cardSubtitle: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  addButtonsGroup: {
+    gap: 8,
+  },
+  smallAddButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: radius.sm,
+    minHeight: 36,
+  },
+  smallAddButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  emptyItemsBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.xl,
+    gap: spacing.xs,
+  },
+  emptyItemsText: {
+    fontSize: 14,
+  },
+  itemsListContainer: {
+    marginTop: spacing.sm,
+    gap: spacing.sm,
+  },
+  itemCard: {
+    borderRadius: radius.md,
+    borderWidth: 1,
+    padding: spacing.md,
+  },
+  itemMainRow: {
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  itemInfoCol: {
+    flex: 1,
+    marginEnd: spacing.sm,
+  },
+  itemFoodName: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  itemPortionDesc: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  itemNutrientsDesc: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  itemActionsCol: {
+    gap: 6,
+  },
+  itemActionBtn: {
+    minWidth: 32,
+    minHeight: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  totalsCardTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: spacing.xs,
+  },
+  totalsCaloriesRow: {
+    alignItems: 'baseline',
+    gap: 4,
+    marginVertical: spacing.xs,
+  },
+  totalsCaloriesValue: {
+    fontSize: 28,
+    fontWeight: '800',
+  },
+  totalsCaloriesLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  totalsMacrosRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: spacing.sm,
+    gap: 8,
+  },
+  totalsMacroPill: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 6,
+    borderRadius: radius.sm,
+    backgroundColor: 'rgba(128,128,128,0.08)',
+  },
+  totalsMacroLabel: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  totalsMacroVal: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  errorText: {
+    fontSize: 12,
   },
 });

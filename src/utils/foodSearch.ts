@@ -45,6 +45,7 @@ export interface FoodSearchOptions {
   catalog?: FoodCatalogEntry[];
   customFoods?: CustomFood[];
   limit?: number;
+  includeMismatch?: boolean;
 }
 
 /**
@@ -110,11 +111,12 @@ function scoreItem(
  */
 export function searchFoodCatalog(
   query: string,
-  options?: { category?: FoodCategory; catalog?: FoodCatalogEntry[]; limit?: number }
+  options?: { category?: FoodCategory; catalog?: FoodCatalogEntry[]; limit?: number; includeMismatch?: boolean }
 ): FoodCatalogEntry[] {
   const catalog = options?.catalog ?? FOOD_CATALOG;
   const category = options?.category;
   const limit = options?.limit ?? 50;
+  const includeMismatch = options?.includeMismatch ?? false;
 
   const normalizedQuery = normalizeSearchText(query);
   const queryTokens = normalizedQuery.split(' ').filter(Boolean);
@@ -123,6 +125,10 @@ export function searchFoodCatalog(
 
   for (const item of catalog) {
     if (category && item.category !== category) {
+      continue;
+    }
+
+    if (!includeMismatch && item.provenanceStatus === 'MISMATCH') {
       continue;
     }
 
@@ -160,6 +166,7 @@ export function searchAllFoods(
   const customFoods = options?.customFoods ?? [];
   const category = options?.category;
   const limit = options?.limit ?? 50;
+  const includeMismatch = options?.includeMismatch ?? false;
 
   const normalizedQuery = normalizeSearchText(query);
   const queryTokens = normalizedQuery.split(' ').filter(Boolean);
@@ -169,6 +176,7 @@ export function searchAllFoods(
   // Search catalog
   for (const item of catalog) {
     if (category && item.category !== category) continue;
+    if (!includeMismatch && item.provenanceStatus === 'MISMATCH') continue;
 
     if (!normalizedQuery) {
       results.push({ item: { ...item, isCustom: false }, score: 0 });
