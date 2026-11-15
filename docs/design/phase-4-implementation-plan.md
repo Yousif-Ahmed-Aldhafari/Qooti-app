@@ -130,33 +130,44 @@
 ---
 
 ### Task 4.2: Bilingual Food Catalog & Portion Scaling Engine
-- **Objective:** Build built-in bilingual food database (~150+ foods), custom foods database schema, and automatic portion scaling calculations.
-- **Pre-conditions:** Task 4.1 completed and verified.
+- **Objective:** Build built-in bilingual food database (~150+ foods), custom foods database schema, portion scaling calculations, and bilingual offline search.
+- **Pre-conditions:** Task 4.1 & Task 4.1A completed; 445 baseline tests passing.
+- **Outcome Metrics:** 480 total passing tests (+35 new tests in `foodCatalogAndPortionScaling.test.ts`), 0 failures, 0 skipped, 91.82% overall line coverage, 0 TypeScript errors, 0 ESLint warnings, 20/20 expo-doctor checks passing.
+- **Status:** COMPLETED
 - **Technical Specifications:**
   1. **Bilingual Food Catalog (`src/data/foodCatalog.ts`):**
-     - ~150 foods with `id` (slug), `nameEn`, `nameAr`, `category`, base 100g nutritional profile (calories, protein, carbs, fats).
-     - Standard serving units: `servingUnitEn`, `servingUnitAr`, `servingWeightGrams` (e.g. 1 egg = 50g, 1 piece = 60g, 1 tbsp = 15g, 1 cup = 240g).
-     - Middle Eastern staple foods: dates, labneh, lentils, ful mudammas, tahini, hummus, pita bread, grilled lamb, kabsa chicken.
+     - 158 verified foods across 10 categories with `id` (slug), `nameEn`, `nameAr`, `category`, base 100g nutritional profile (calories, protein, carbs, fats), and citations to USDA FoodData Central and SFDA.
+     - Food-specific serving options avoiding universal cup assumptions (e.g. 1 cup oats = 80g; 1 cup raw rice = 185g; 1 cup milk = 244g).
+     - Distinct entries for raw vs. cooked preparation states (`chicken-breast-raw` vs `chicken-breast-cooked`, `rice-white-raw` vs `rice-white-cooked`).
   2. **Portion Scaling Engine (`src/utils/foodScaling.ts`):**
-     - Scaled macros formula:
-       $$\text{Nutrient} = \text{round}\left(\frac{\text{BaseNutrient}_{100\text{g}} \times \text{Quantity} \times \text{UnitMultiplier}}{100}\right)$$
-     - Dynamic reciprocal scaling: updating calories or grams recalculates the corresponding portion.
-  3. **SQLite Migration 9 (`add_custom_foods_and_meal_enhancements_v9`):**
-     - Create `custom_foods` table (`id`, `name`, `calories`, `protein`, `carbs`, `fats`, `serving_size`, `serving_unit`, `created_at`).
-     - Add `catalog_id` and `portion_unit` to `meal_items`.
-     - Add `meal_type` ('breakfast' | 'lunch' | 'dinner' | 'snack') and `notes` to `meals`.
+     - Pure mass-basis calculation: $\text{scaledNutrient} = \text{nutrientPer100g} \times \text{totalGrams} / 100$.
+     - Retains high floating-point precision until snapshot generation; rounds calories to integer and macros to 1 decimal place.
+     - Immutable meal item snapshot policy: logging a meal copies absolute nutrient values into `meal_items`, decoupling logged history from future custom food or catalog changes.
+  3. **Custom Foods (`src/models/food.ts`, `src/db/repositories/customFoodRepository.ts`):**
+     - Offline custom foods repository with transaction ownership hardening and duplicate ID guards.
+  4. **Offline Search & Normalization (`src/utils/foodSearch.ts`):**
+     - Arabic normalization (stripping diacritics/tashkeel, normalizing alef variants [أإآٱ] -> ا, taa marbuta ة -> ه, alif maqsura ى -> ي).
+     - Deterministic token and substring matching with category filtering.
+  5. **SQLite Migration 9 (`add_custom_foods_and_meal_enhancements_v9`):**
+     - Created `custom_foods` table with indexes on `name` and `category`.
+     - Added `meal_type` and `notes` to `meals`.
+     - Added `catalog_id` and `portion_unit` to `meal_items`.
 - **Files Affected:**
+  - `src/models/food.ts` (new)
   - `src/data/foodCatalog.ts` (new)
   - `src/utils/foodScaling.ts` (new)
-  - `src/db/schema.ts`
+  - `src/utils/foodSearch.ts` (new)
+  - `src/db/repositories/customFoodRepository.ts` (new)
+  - `src/services/customFoodService.ts` (new)
   - `src/db/migrations.ts`
-  - `src/db/repositories/foodCatalogRepository.ts` (new)
-  - `src/models/food.ts` (new)
+  - `src/db/repositories/mealRepository.ts`
+  - `src/db/types.ts`
+  - `src/models/meal.ts`
+  - `src/__tests__/foodCatalogAndPortionScaling.test.ts` (new)
+  - `docs/design/food-catalog-and-portion-engine.md` (new)
 - **Automated Test Requirements:**
-  - Catalog search tests in English and Arabic.
-  - Portion scaling precision tests (rounding, fractional servings).
-  - Migration 9 upgrade and backward compatibility tests with legacy databases (V1–V8).
-- **Success Criteria:** Clean catalog resolution for 150+ items; bidirectional scaling accuracy; zero migration errors.
+  - 35 criteria in `src/__tests__/foodCatalogAndPortionScaling.test.ts` verified.
+- **Success Criteria:** Clean catalog resolution for 158 items; bidirectional scaling accuracy; zero migration errors.
 
 ---
 

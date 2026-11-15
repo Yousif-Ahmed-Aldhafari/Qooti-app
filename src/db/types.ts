@@ -4,6 +4,7 @@ import { UserProfile } from '../models/profile';
 import { ProgressEntry } from '../models/progress';
 import { Settings } from '../models/settings';
 import { WorkoutSession, WorkoutSet } from '../models/workoutSession';
+import { CustomFood } from '../models/food';
 
 /**
  * Standard interface for SQLite Database instance, compatible with expo-sqlite.
@@ -131,4 +132,13 @@ export interface WorkoutSessionRepository {
     notes?: string,
     txn?: IDatabase
   ): Promise<WorkoutSession>;
+}
+
+export interface CustomFoodRepository {
+  getAllCustomFoods(txn?: IDatabase): Promise<CustomFood[]>;
+  getCustomFoodById(id: string, txn?: IDatabase): Promise<CustomFood | null>;
+  insertCustomFood(food: CustomFood, txn?: IDatabase): Promise<void>;
+  updateCustomFood(food: CustomFood, txn?: IDatabase): Promise<void>;
+  deleteCustomFood(id: string, txn?: IDatabase): Promise<void>;
+  searchCustomFoods(query: string, txn?: IDatabase): Promise<CustomFood[]>;
 }

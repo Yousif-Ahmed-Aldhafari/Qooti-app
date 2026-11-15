@@ -176,11 +176,17 @@
 
 #### ISSUE-NUT-12: Absence of Built-in Food Catalog & Portion Scaling
 - **Severity:** P2 (Medium)
-- **Location:** `src/screens/AddMealScreen.tsx`, `src/data/seedData.ts` (lines 252–260)
-- **Description:** Users must manually enter calories and macros for every single item; there is no searchable catalog or portion scaling.
-- **Root Cause:** Only 6 hardcoded food items exist in `seedData.ts`; no production catalog architecture was built.
-- **Impact:** High logging friction; users must look up nutrition values externally.
-- **Proposed Remediation:** Implement `foodCatalog.ts` (bilingual English/Arabic, ~150 foods) with standard portion sizes and automatic macro scaling based on quantity.
+- **Status:** RESOLVED (Task 4.2)
+- **Location:** `src/data/foodCatalog.ts`, `src/models/food.ts`, `src/utils/foodScaling.ts`, `src/utils/foodSearch.ts`, `src/db/repositories/customFoodRepository.ts`
+- **Description:** Users previously had to manually enter calories and macros for every single item; there was no searchable catalog or portion scaling.
+- **Root Cause:** Only 6 hardcoded food items existed in `seedData.ts`; no production catalog architecture was built.
+- **Impact:** High logging friction; users had to look up nutrition values externally.
+- **Resolution & Verification:**
+  - Implemented 158 verified bilingual food items with USDA FDC and SFDA citations in `src/data/foodCatalog.ts`.
+  - Implemented portion scaling engine on pure mass basis with floating precision and display rounding in `src/utils/foodScaling.ts`.
+  - Implemented offline bilingual search with Arabic text normalization (alef variants, taa marbuta, diacritics) in `src/utils/foodSearch.ts`.
+  - Implemented `SQLiteCustomFoodRepository` and Migration 9 (`add_custom_foods_and_meal_enhancements_v9`).
+  - Verified by 35 comprehensive tests in `src/__tests__/foodCatalogAndPortionScaling.test.ts`.
 - **Target Task:** Task 4.2
 
 #### ISSUE-NUT-13: Unfiltered Infinite Meal List & Missing Date Navigation

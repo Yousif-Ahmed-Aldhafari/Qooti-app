@@ -11,6 +11,8 @@ interface MealRow {
   total_carbs: number;
   total_fat: number;
   created_at: string;
+  meal_type?: string | null;
+  notes?: string | null;
 }
 
 interface MealItemRow {
@@ -24,6 +26,13 @@ interface MealItemRow {
   carbs: number;
   fats: number;
   sort_order: number;
+  catalog_id?: string | null;
+  portion_unit?: string | null;
+}
+
+async function getTableColumns(t: IDatabase, tableName: string): Promise<Set<string>> {
+  const cols = await t.getAllAsync<{ name: string }>(`PRAGMA table_info(${tableName});`);
+  return new Set(cols.map((c) => c.name));
 }
 
 export class SQLiteMealRepository implements MealRepository {
@@ -52,6 +61,8 @@ export class SQLiteMealRepository implements MealRepository {
         protein: item.protein,
         carbs: item.carbs,
         fats: item.fats,
+        catalogId: item.catalog_id ?? undefined,
+        portionUnit: item.portion_unit ?? undefined,
       });
 
       const list = itemsByMealId.get(item.meal_id) || [];
@@ -69,6 +80,8 @@ export class SQLiteMealRepository implements MealRepository {
         totalProtein: m.total_protein,
         totalCarbs: m.total_carbs,
         totalFat: m.total_fat,
+        mealType: m.meal_type ?? undefined,
+        notes: m.notes ?? undefined,
         items: itemsByMealId.get(m.id) || [],
       })
     );
@@ -98,6 +111,8 @@ export class SQLiteMealRepository implements MealRepository {
         protein: item.protein,
         carbs: item.carbs,
         fats: item.fats,
+        catalogId: item.catalog_id ?? undefined,
+        portionUnit: item.portion_unit ?? undefined,
       })
     );
 
@@ -110,6 +125,8 @@ export class SQLiteMealRepository implements MealRepository {
       totalProtein: mealRow.total_protein,
       totalCarbs: mealRow.total_carbs,
       totalFat: mealRow.total_fat,
+      mealType: mealRow.meal_type ?? undefined,
+      notes: mealRow.notes ?? undefined,
       items,
     });
   }
@@ -128,36 +145,76 @@ export class SQLiteMealRepository implements MealRepository {
         throw new Error(`Cannot insert meal: Meal with id "${normalized.id}" already exists.`);
       }
 
-      await t.runAsync(
-        `INSERT INTO meals (id, title, date, time, total_calories, total_protein, total_carbs, total_fat, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`,
-        normalized.id,
-        normalized.title,
-        normalized.date,
-        normalized.time,
-        normalized.totalCalories,
-        normalized.totalProtein,
-        normalized.totalCarbs,
-        normalized.totalFat,
-        now
-      );
+      const mealCols = await getTableColumns(t, 'meals');
+      const itemCols = await getTableColumns(t, 'meal_items');
+
+      if (mealCols.has('meal_type') && mealCols.has('notes')) {
+        await t.runAsync(
+          `INSERT INTO meals (id, title, date, time, total_calories, total_protein, total_carbs, total_fat, meal_type, notes, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+          normalized.id,
+          normalized.title,
+          normalized.date,
+          normalized.time,
+          normalized.totalCalories,
+          normalized.totalProtein,
+          normalized.totalCarbs,
+          normalized.totalFat,
+          normalized.mealType ?? null,
+          normalized.notes ?? null,
+          now
+        );
+      } else {
+        await t.runAsync(
+          `INSERT INTO meals (id, title, date, time, total_calories, total_protein, total_carbs, total_fat, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+          normalized.id,
+          normalized.title,
+          normalized.date,
+          normalized.time,
+          normalized.totalCalories,
+          normalized.totalProtein,
+          normalized.totalCarbs,
+          normalized.totalFat,
+          now
+        );
+      }
 
       for (let i = 0; i < normalized.items.length; i++) {
         const item = normalizeMealItem(normalized.items[i]);
-        await t.runAsync(
-          `INSERT INTO meal_items (id, meal_id, name, quantity, unit, calories, protein, carbs, fats, sort_order)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
-          item.id,
-          normalized.id,
-          item.name,
-          item.quantity,
-          item.unit || 'g',
-          item.calories,
-          item.protein,
-          item.carbs,
-          item.fats,
-          i
-        );
+        if (itemCols.has('catalog_id') && itemCols.has('portion_unit')) {
+          await t.runAsync(
+            `INSERT INTO meal_items (id, meal_id, name, quantity, unit, calories, protein, carbs, fats, sort_order, catalog_id, portion_unit)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+            item.id,
+            normalized.id,
+            item.name,
+            item.quantity,
+            item.unit || 'g',
+            item.calories,
+            item.protein,
+            item.carbs,
+            item.fats,
+            i,
+            item.catalogId ?? null,
+            item.portionUnit ?? null
+          );
+        } else {
+          await t.runAsync(
+            `INSERT INTO meal_items (id, meal_id, name, quantity, unit, calories, protein, carbs, fats, sort_order)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+            item.id,
+            normalized.id,
+            item.name,
+            item.quantity,
+            item.unit || 'g',
+            item.calories,
+            item.protein,
+            item.carbs,
+            item.fats,
+            i
+          );
+        }
       }
     };
 
@@ -181,45 +238,93 @@ export class SQLiteMealRepository implements MealRepository {
         throw new Error(`Cannot update meal: Meal with id "${normalized.id}" not found.`);
       }
 
-      await t.runAsync(
-        `UPDATE meals SET
-           title = ?,
-           date = ?,
-           time = ?,
-           total_calories = ?,
-           total_protein = ?,
-           total_carbs = ?,
-           total_fat = ?
-         WHERE id = ?;`,
-        normalized.title,
-        normalized.date,
-        normalized.time,
-        normalized.totalCalories,
-        normalized.totalProtein,
-        normalized.totalCarbs,
-        normalized.totalFat,
-        normalized.id
-      );
+      const mealCols = await getTableColumns(t, 'meals');
+      const itemCols = await getTableColumns(t, 'meal_items');
+
+      if (mealCols.has('meal_type') && mealCols.has('notes')) {
+        await t.runAsync(
+          `UPDATE meals SET
+             title = ?,
+             date = ?,
+             time = ?,
+             total_calories = ?,
+             total_protein = ?,
+             total_carbs = ?,
+             total_fat = ?,
+             meal_type = ?,
+             notes = ?
+           WHERE id = ?;`,
+          normalized.title,
+          normalized.date,
+          normalized.time,
+          normalized.totalCalories,
+          normalized.totalProtein,
+          normalized.totalCarbs,
+          normalized.totalFat,
+          normalized.mealType ?? null,
+          normalized.notes ?? null,
+          normalized.id
+        );
+      } else {
+        await t.runAsync(
+          `UPDATE meals SET
+             title = ?,
+             date = ?,
+             time = ?,
+             total_calories = ?,
+             total_protein = ?,
+             total_carbs = ?,
+             total_fat = ?
+           WHERE id = ?;`,
+          normalized.title,
+          normalized.date,
+          normalized.time,
+          normalized.totalCalories,
+          normalized.totalProtein,
+          normalized.totalCarbs,
+          normalized.totalFat,
+          normalized.id
+        );
+      }
 
       // Re-synchronize child items atomically
       await t.runAsync('DELETE FROM meal_items WHERE meal_id = ?;', normalized.id);
 
       for (let i = 0; i < normalized.items.length; i++) {
         const item = normalizeMealItem(normalized.items[i]);
-        await t.runAsync(
-          `INSERT INTO meal_items (id, meal_id, name, quantity, unit, calories, protein, carbs, fats, sort_order)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
-          item.id,
-          normalized.id,
-          item.name,
-          item.quantity,
-          item.unit || 'g',
-          item.calories,
-          item.protein,
-          item.carbs,
-          item.fats,
-          i
-        );
+        if (itemCols.has('catalog_id') && itemCols.has('portion_unit')) {
+          await t.runAsync(
+            `INSERT INTO meal_items (id, meal_id, name, quantity, unit, calories, protein, carbs, fats, sort_order, catalog_id, portion_unit)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+            item.id,
+            normalized.id,
+            item.name,
+            item.quantity,
+            item.unit || 'g',
+            item.calories,
+            item.protein,
+            item.carbs,
+            item.fats,
+            i,
+            item.catalogId ?? null,
+            item.portionUnit ?? null
+          );
+        } else {
+          await t.runAsync(
+            `INSERT INTO meal_items (id, meal_id, name, quantity, unit, calories, protein, carbs, fats, sort_order)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+            item.id,
+            normalized.id,
+            item.name,
+            item.quantity,
+            item.unit || 'g',
+            item.calories,
+            item.protein,
+            item.carbs,
+            item.fats,
+            i
+          );
+        }
       }
     };
 
@@ -267,38 +372,78 @@ export class SQLiteMealRepository implements MealRepository {
       await t.runAsync('DELETE FROM meal_items;');
       await t.runAsync('DELETE FROM meals;');
 
+      const mealCols = await getTableColumns(t, 'meals');
+      const itemCols = await getTableColumns(t, 'meal_items');
+
       for (const meal of meals) {
         const normalized = normalizeMeal(meal);
-        await t.runAsync(
-          `INSERT INTO meals (id, title, date, time, total_calories, total_protein, total_carbs, total_fat, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`,
-          normalized.id,
-          normalized.title,
-          normalized.date,
-          normalized.time,
-          normalized.totalCalories,
-          normalized.totalProtein,
-          normalized.totalCarbs,
-          normalized.totalFat,
-          now
-        );
+        if (mealCols.has('meal_type') && mealCols.has('notes')) {
+          await t.runAsync(
+            `INSERT INTO meals (id, title, date, time, total_calories, total_protein, total_carbs, total_fat, meal_type, notes, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+            normalized.id,
+            normalized.title,
+            normalized.date,
+            normalized.time,
+            normalized.totalCalories,
+            normalized.totalProtein,
+            normalized.totalCarbs,
+            normalized.totalFat,
+            normalized.mealType ?? null,
+            normalized.notes ?? null,
+            now
+          );
+        } else {
+          await t.runAsync(
+            `INSERT INTO meals (id, title, date, time, total_calories, total_protein, total_carbs, total_fat, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+            normalized.id,
+            normalized.title,
+            normalized.date,
+            normalized.time,
+            normalized.totalCalories,
+            normalized.totalProtein,
+            normalized.totalCarbs,
+            normalized.totalFat,
+            now
+          );
+        }
 
         for (let i = 0; i < normalized.items.length; i++) {
           const item = normalizeMealItem(normalized.items[i]);
-          await t.runAsync(
-            `INSERT INTO meal_items (id, meal_id, name, quantity, unit, calories, protein, carbs, fats, sort_order)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
-            item.id,
-            normalized.id,
-            item.name,
-            item.quantity,
-            item.unit || 'g',
-            item.calories,
-            item.protein,
-            item.carbs,
-            item.fats,
-            i
-          );
+          if (itemCols.has('catalog_id') && itemCols.has('portion_unit')) {
+            await t.runAsync(
+              `INSERT INTO meal_items (id, meal_id, name, quantity, unit, calories, protein, carbs, fats, sort_order, catalog_id, portion_unit)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+              item.id,
+              normalized.id,
+              item.name,
+              item.quantity,
+              item.unit || 'g',
+              item.calories,
+              item.protein,
+              item.carbs,
+              item.fats,
+              i,
+              item.catalogId ?? null,
+              item.portionUnit ?? null
+            );
+          } else {
+            await t.runAsync(
+              `INSERT INTO meal_items (id, meal_id, name, quantity, unit, calories, protein, carbs, fats, sort_order)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+              item.id,
+              normalized.id,
+              item.name,
+              item.quantity,
+              item.unit || 'g',
+              item.calories,
+              item.protein,
+              item.carbs,
+              item.fats,
+              i
+            );
+          }
         }
       }
     };

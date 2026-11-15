@@ -208,6 +208,48 @@ export const MIGRATIONS: SchemaMigration[] = [
       );
     },
   },
+  {
+    version: 9,
+    name: 'add_custom_foods_and_meal_enhancements_v9',
+    up: async (db: IDatabase) => {
+      // 1. Add meal_type and notes columns to meals table if missing
+      await addMissingColumns(db, 'meals', [
+        { name: 'meal_type', ddl: 'ALTER TABLE meals ADD COLUMN meal_type TEXT;' },
+        { name: 'notes', ddl: 'ALTER TABLE meals ADD COLUMN notes TEXT;' },
+      ]);
+
+      // 2. Add catalog_id and portion_unit columns to meal_items table if missing
+      await addMissingColumns(db, 'meal_items', [
+        { name: 'catalog_id', ddl: 'ALTER TABLE meal_items ADD COLUMN catalog_id TEXT;' },
+        { name: 'portion_unit', ddl: 'ALTER TABLE meal_items ADD COLUMN portion_unit TEXT;' },
+      ]);
+
+      // 3. Create custom_foods table
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS custom_foods (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          name_ar TEXT,
+          calories REAL NOT NULL DEFAULT 0,
+          protein REAL NOT NULL DEFAULT 0,
+          carbs REAL NOT NULL DEFAULT 0,
+          fats REAL NOT NULL DEFAULT 0,
+          serving_size REAL NOT NULL DEFAULT 100,
+          serving_unit TEXT NOT NULL DEFAULT 'g',
+          category TEXT DEFAULT 'custom',
+          notes TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+      `);
+
+      // 4. Create performance indexes
+      await db.execAsync(`
+        CREATE INDEX IF NOT EXISTS idx_custom_foods_name ON custom_foods(name);
+        CREATE INDEX IF NOT EXISTS idx_meal_items_catalog_id ON meal_items(catalog_id);
+      `);
+    },
+  },
 ];
 
 /**

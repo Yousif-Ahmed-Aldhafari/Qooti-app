@@ -1,5 +1,7 @@
 import { parseStrictQuantity } from '../utils/nutrition';
 
+export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'other';
+
 /**
  * Canonical Meal domain model.
  */
@@ -14,6 +16,8 @@ export type MealItem = {
   carbs: number;
   fats: number;
   fat?: number;
+  catalogId?: string;
+  portionUnit?: string;
 };
 
 export type FoodItem = MealItem;
@@ -30,6 +34,7 @@ export type Meal = {
   totalCarbs?: number;
   totalFat?: number;
   totalFats?: number;
+  mealType?: MealType | string;
   notes?: string;
 };
 
@@ -41,22 +46,74 @@ export class MealValidationError extends Error {
 }
 
 export function normalizeMealItem(
-  item: Partial<MealItem> & { id: string; quantity?: number | string; calories: number; protein: number; carbs: number }
+  item: Omit<Partial<MealItem>, 'quantity'> & { id: string; quantity?: number | string; calories: number; protein: number; carbs: number }
 ): MealItem {
   const name = item.foodName || item.name || '';
   const fats = item.fats ?? item.fat ?? 0;
-  let quantity = typeof item.quantity === 'number' ? item.quantity : parseFloat(String(item.quantity ?? 1));
-  if (!Number.isFinite(quantity) || quantity <= 0) {
-    quantity = typeof item.quantity === 'number' ? item.quantity : 1;
+  let unit = item.unit;
+  let portionUnit = item.portionUnit;
+  let quantity: number;
+
+  if (typeof item.quantity === 'number') {
+    if (!Number.isFinite(item.quantity) || item.quantity <= 0) {
+      throw new MealValidationError(
+        `Meal item quantity "${item.quantity}" is invalid. Quantity must be a valid positive number.`,
+        'quantity'
+      );
+    }
+    quantity = item.quantity;
+  } else if (typeof item.quantity === 'string') {
+    const trimmed = item.quantity.trim();
+    if (trimmed === '') {
+      throw new MealValidationError('Meal item quantity cannot be empty.', 'quantity');
+    }
+    const strictParsed = parseStrictQuantity(trimmed);
+    if (strictParsed.isValid) {
+      quantity = strictParsed.value;
+    } else {
+      // Support legacy strings with separated unit (e.g. "1 scoop", "100 g", "2 pieces")
+      const legacyMatch = trimmed.match(/^([+-]?(?:(?:\d+([.,]\d+)?)|([.,]\d+)))\s+([a-zA-Z\u0600-\u06FF]+)$/);
+      if (legacyMatch) {
+        const numPart = legacyMatch[1];
+        const unitPart = legacyMatch[4];
+        const parsedNum = parseStrictQuantity(numPart);
+        if (parsedNum.isValid && unitPart) {
+          quantity = parsedNum.value;
+          if (!unit) {
+            unit = unitPart;
+          }
+          if (!portionUnit) {
+            portionUnit = unitPart;
+          }
+        } else {
+          throw new MealValidationError(
+            `Meal item quantity "${item.quantity}" is invalid. Quantity must be a valid positive number.`,
+            'quantity'
+          );
+        }
+      } else {
+        throw new MealValidationError(
+          `Meal item quantity "${item.quantity}" is invalid. Quantity must be a valid positive number.`,
+          'quantity'
+        );
+      }
+    }
+  } else if (item.quantity === undefined || item.quantity === null) {
+    quantity = 1;
+  } else {
+    throw new MealValidationError('Meal item quantity must be a valid positive number.', 'quantity');
   }
 
   return {
     ...item,
     quantity,
+    unit,
     foodName: name,
     name,
     fats,
     fat: fats,
+    catalogId: item.catalogId,
+    portionUnit,
   };
 }
 
@@ -83,6 +140,8 @@ export function normalizeMeal(
     totalCarbs: hasItems ? computedCarbs : (meal.totalCarbs ?? computedCarbs),
     totalFat: hasItems ? computedFats : (meal.totalFat ?? meal.totalFats ?? computedFats),
     totalFats: hasItems ? computedFats : (meal.totalFats ?? meal.totalFat ?? computedFats),
+    mealType: meal.mealType,
+    notes: meal.notes,
   };
 }
 
@@ -194,6 +253,18 @@ export function validateMealItem(item: MealItem, index?: number): void {
   const fats = item.fats ?? item.fat;
   if (typeof fats !== 'number' || !Number.isFinite(fats) || fats < 0 || fats > 100_000) {
     throw new MealValidationError(`${prefix} fats must be a valid non-negative finite number.`, 'fats');
+  }
+
+  if (item.catalogId !== undefined && item.catalogId !== null) {
+    if (typeof item.catalogId !== 'string' || !item.catalogId.trim()) {
+      throw new MealValidationError(`${prefix} catalogId must be a valid non-empty string.`, 'catalogId');
+    }
+  }
+
+  if (item.portionUnit !== undefined && item.portionUnit !== null) {
+    if (typeof item.portionUnit !== 'string' || !item.portionUnit.trim()) {
+      throw new MealValidationError(`${prefix} portionUnit must be a valid non-empty string.`, 'portionUnit');
+    }
   }
 }
 

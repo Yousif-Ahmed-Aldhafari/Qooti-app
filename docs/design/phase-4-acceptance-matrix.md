@@ -16,7 +16,7 @@
 | **Baseline (Task 4.0)** | Pre-Flight Environment | **388** | 100% Phase 1–3 test preservation, zero TypeScript errors, zero lint warnings. |
 | **Task 4.1** | Meal Lifecycle, Granular Persistence & Editing | **402** (+14) | **423 Passed (+35)** — Granular SQLite CRUD without `saveAllMeals`, domain validation, local date bounds, atomic delete cascade. |
 | **Task 4.1A** | Meal Input Validation & Transaction Ownership Hardening | **423** | **445 Passed (+22)** — Strict nutrient/quantity parsing, comma/period decimals, reject NaN/Infinity/1e50, leap-year validation, atomic transaction ownership contract without nested calls. |
-| **Task 4.2** | Bilingual Food Catalog & Portion Scaling | **455** (+10) | Catalog lookups in EN/AR, portion multipliers, reciprocal scaling, Migration 9 schema safety. |
+| **Task 4.2** | Bilingual Food Catalog & Portion Scaling | **455** (+10) | **480 Passed (+35)** — 158 verified bilingual catalog entries, pure mass-basis portion scaling, custom foods persistence, Arabic search normalization, Migration 9 schema safety. |
 | **Task 4.3** | Multi-Food Meal Creation & Search UX | **424** (+10) | Multi-item meal serialization, search filtering, category pills, date switcher queries. |
 | **Task 4.4** | Nutrition Analytics & Daily Targets | **434** (+10) | Macro distribution formulas ($4/4/9$), surplus/deficit calculations, progress entry synchronization. |
 | **Task 4.5** | Meal Templates, Favorites & Quick-Log | **442** (+8) | Repeat meal ID isolation, favorite toggling, quick calorie logging without item breakdown. |
@@ -44,9 +44,9 @@
 - [x] **AC-DAT-04:** Meal dates strictly validate exact `YYYY-MM-DD` without trailing spaces, timestamps, or invalid leap days (e.g. rejecting 2026-02-29, accepting 2024-02-29). Standardized 24-hr `HH:mm` on save while supporting legacy read formats.
 
 ### 2.3 Food Catalog & Calculation Acceptance Criteria
-- [ ] **AC-CAT-01:** Bilingual food catalog contains $\ge 150$ verified foods with accurate 100g base profiles (calories, protein, carbs, fats).
-- [ ] **AC-CAT-02:** Catalog foods offer standard serving sizes (e.g. piece, cup, scoop, tbsp) with accurate gram conversion multipliers.
-- [ ] **AC-CAT-03:** Scaling food quantity proportionally updates calories and macros in real-time.
+- [x] **AC-CAT-01:** Bilingual food catalog contains $\ge 150$ verified foods (158 implemented) with accurate 100g base profiles (calories, protein, carbs, fats).
+- [x] **AC-CAT-02:** Catalog foods offer standard serving sizes (e.g. piece, cup, scoop, tbsp) with accurate gram conversion multipliers.
+- [x] **AC-CAT-03:** Scaling food quantity proportionally updates calories and macros in real-time.
 - [x] **AC-CAT-04:** Domain validation strictly rejects negative calories, negative quantities, `NaN`, and `Infinity`.
 - [x] **AC-CAT-05:** Total meal calories equal the sum of child food item calories ($\pm 1\text{ kcal}$ due to integer rounding).
 - [x] **AC-CAT-06:** Strict UI nutrient input parsing distinguishes entered 0 from empty inputs, supports comma/period decimal separators, rejects scientific notation (`1e50`), bounds inputs ($\le 100,000$), and preserves raw user input with localized inline errors.
@@ -66,7 +66,7 @@
 | Test ID | Test Scenario | Android Physical Device (Pixel / Galaxy) | iOS Physical Device (iPhone) | Acceptance Status |
 |---|---|---|---|---|
 | **PHY-NUT-01** | **Multi-Food Meal Creation:** Add meal with 3 foods (chicken, rice, olive oil) from catalog. | Verify ripple touch, keyboard dismissal on tap outside, correct total calories. | Verify smooth opacity dimming, iOS interactive keyboard dismiss, correct totals. | Pending Task 4.3 |
-| **PHY-NUT-02** | **Portion Scaling:** Adjust chicken from 100g to 250g. | Instant macro calculation update, keyboard stays responsive. | Instant calculation update, no layout jank or flicker. | Pending Task 4.2 |
+| **PHY-NUT-02** | **Portion Scaling:** Adjust chicken from 100g to 250g. | Instant macro calculation update, keyboard stays responsive. | Instant calculation update, no layout jank or flicker. | Verified (Task 4.2) |
 | **PHY-NUT-03** | **Meal Editing:** Open saved meal, change title, edit 1 food quantity, add 1 new food, save. | Atomic update, returns to details screen with updated values. | Atomic update, returns to details screen with updated values. | Verified (Task 4.1) |
 | **PHY-NUT-04** | **Meal Deletion:** Tap delete in details screen, confirm alert. | Android Material dialog with dismiss/confirm, returns to meals list, meal removed. | iOS ActionSheet / Alert dialog, returns to meals list, meal removed. | Verified (Task 4.1) |
 | **PHY-NUT-05** | **Midnight Boundary Logging:** Set device clock to 01:15 AM (UTC+3). Log a meal. | Meal appears under current calendar day, NOT yesterday. | Meal appears under current calendar day, NOT yesterday. | Verified (Task 4.1) |
