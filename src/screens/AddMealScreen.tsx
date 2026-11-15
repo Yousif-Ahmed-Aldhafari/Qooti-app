@@ -22,7 +22,7 @@ import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import type { Meal } from '../types';
 import { createId } from '../utils/id';
-import { formatLocalDate, formatLocalTime, parseInputNumber } from '../utils/nutrition';
+import { formatLocalDate, formatLocalTime, parseStrictNutrient, parseStrictQuantity } from '../utils/nutrition';
 import { activeRowStyle, activeTextAlign, activeWritingDirection } from '../utils/rtl';
 
 type AddMealScreenProps = {
@@ -84,45 +84,45 @@ export function AddMealScreen({ t, onSave }: AddMealScreenProps) {
     }
 
     // Validate quantity (> 0, finite)
-    const parsedQuantity = parseInputNumber(quantity);
-    if (quantity.trim() === '' || !Number.isFinite(parsedQuantity) || parsedQuantity <= 0) {
-      setQuantityError(t('common.invalidNumber') || 'Must be > 0');
+    const quantityResult = parseStrictQuantity(quantity);
+    if (!quantityResult.isValid) {
+      setQuantityError(t(quantityResult.errorMessageKey as any) || quantityResult.defaultMessage || 'Must be > 0');
       hasError = true;
     } else {
       setQuantityError('');
     }
 
     // Validate calories (>= 0, finite)
-    const parsedCalories = calories.trim() === '' ? 0 : parseInputNumber(calories);
-    if (!Number.isFinite(parsedCalories) || parsedCalories < 0 || (calories.trim() !== '' && Number.isNaN(Number(calories.replace(',', '.'))))) {
-      setCaloriesError(t('common.invalidNumber') || 'Must be >= 0');
+    const caloriesResult = parseStrictNutrient(calories, { allowEmpty: true });
+    if (!caloriesResult.isValid) {
+      setCaloriesError(t(caloriesResult.errorMessageKey as any) || caloriesResult.defaultMessage || 'Must be >= 0');
       hasError = true;
     } else {
       setCaloriesError('');
     }
 
     // Validate protein (>= 0, finite)
-    const parsedProtein = protein.trim() === '' ? 0 : parseInputNumber(protein);
-    if (!Number.isFinite(parsedProtein) || parsedProtein < 0 || (protein.trim() !== '' && Number.isNaN(Number(protein.replace(',', '.'))))) {
-      setProteinError(t('common.invalidNumber') || 'Must be >= 0');
+    const proteinResult = parseStrictNutrient(protein, { allowEmpty: true });
+    if (!proteinResult.isValid) {
+      setProteinError(t(proteinResult.errorMessageKey as any) || proteinResult.defaultMessage || 'Must be >= 0');
       hasError = true;
     } else {
       setProteinError('');
     }
 
     // Validate carbs (>= 0, finite)
-    const parsedCarbs = carbs.trim() === '' ? 0 : parseInputNumber(carbs);
-    if (!Number.isFinite(parsedCarbs) || parsedCarbs < 0 || (carbs.trim() !== '' && Number.isNaN(Number(carbs.replace(',', '.'))))) {
-      setCarbsError(t('common.invalidNumber') || 'Must be >= 0');
+    const carbsResult = parseStrictNutrient(carbs, { allowEmpty: true });
+    if (!carbsResult.isValid) {
+      setCarbsError(t(carbsResult.errorMessageKey as any) || carbsResult.defaultMessage || 'Must be >= 0');
       hasError = true;
     } else {
       setCarbsError('');
     }
 
     // Validate fats (>= 0, finite)
-    const parsedFats = fats.trim() === '' ? 0 : parseInputNumber(fats);
-    if (!Number.isFinite(parsedFats) || parsedFats < 0 || (fats.trim() !== '' && Number.isNaN(Number(fats.replace(',', '.'))))) {
-      setFatsError(t('common.invalidNumber') || 'Must be >= 0');
+    const fatsResult = parseStrictNutrient(fats, { allowEmpty: true });
+    if (!fatsResult.isValid) {
+      setFatsError(t(fatsResult.errorMessageKey as any) || fatsResult.defaultMessage || 'Must be >= 0');
       hasError = true;
     } else {
       setFatsError('');
@@ -146,11 +146,11 @@ export function AddMealScreen({ t, onSave }: AddMealScreenProps) {
           {
             id: draftItemIdRef.current,
             foodName: foodName.trim(),
-            quantity: parsedQuantity,
-            calories: parsedCalories,
-            protein: parsedProtein,
-            carbs: parsedCarbs,
-            fats: parsedFats,
+            quantity: quantityResult.value,
+            calories: caloriesResult.value,
+            protein: proteinResult.value,
+            carbs: carbsResult.value,
+            fats: fatsResult.value,
             unit: 'g',
           },
         ],

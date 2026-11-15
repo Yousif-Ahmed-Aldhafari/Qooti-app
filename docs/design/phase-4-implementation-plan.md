@@ -28,6 +28,9 @@
 [ Task 4.1: Meal Lifecycle Integrity, Granular Persistence & Editing ] ──► (COMPLETE - 423 Tests)
        │
        ▼
+[ Task 4.1A: Meal Input Validation & Transaction Ownership Hardening ] ──► (COMPLETE - 445 Tests)
+       │
+       ▼
 [ Task 4.2: Bilingual Food Catalog & Portion Scaling Engine ] ──► (NEXT)
        │
        ▼
@@ -89,6 +92,40 @@
   - UTC vs local calendar date boundary regression tests.
   - Deletion rollback and cascade verification tests.
 - **Success Criteria:** Zero `saveAllMeals` invocations during logging; full CRUD operational in UI; all 388 baseline tests + new tests passing.
+
+---
+
+### Task 4.1A: Meal Input Validation & Transaction Ownership Hardening [COMPLETED]
+- **Status:** COMPLETED
+- **Objective:** Harden numeric nutrient input parsing, date/time contracts, and repository transaction ownership without expanding feature scope or altering schema.
+- **Pre-conditions:** Task 4.1 completed; 423 baseline tests passing.
+- **Outcome Metrics:** 445 total passing tests (+22 new tests in `mealInputValidationAndTxnHardening.test.ts`), 0 failures, 0 skipped, 89.74% overall line coverage, 99.04% `mealRepository.ts` line coverage, 0 TypeScript errors, 0 ESLint warnings, 20/20 expo-doctor checks passing.
+- **Technical Specifications:**
+  1. **Strict UI Nutrient & Quantity Parsing (`src/utils/nutrition.ts`):**
+     - Implemented `parseStrictNutrientInput`, `parseStrictQuantity`, and `parseStrictNutrient` returning typed `StrictParseResult` with explicit `isEmpty`, `parsedValue`, and typed error codes.
+     - Support both `.` and `,` as decimal separators.
+     - Reject non-finite values (`NaN`, `Infinity`, `-Infinity`, scientific notation `1e50`), negative quantities/macros, zero quantities, and unbounded inputs ($> 100,000$).
+     - Distinguish empty input from entered zero.
+     - Added localized error strings in English and Arabic (`cannotBeNegative`, `mustBePositive`, `valueTooLarge`, `invalidNumber`, `invalidDate`, `invalidTime`).
+  2. **Exact Date and Time Contract (`src/models/meal.ts`):**
+     - Exact `YYYY-MM-DD` date validation rejecting trailing whitespace, timestamps, slashes, and impossible leap-day dates (e.g. 2026-02-29 rejected, 2024-02-29 accepted).
+     - Standardized 24-hr `HH:mm` format for persistent records while maintaining backward-compatible read support for legacy formats.
+  3. **Repository Transaction Ownership (`src/db/repositories/mealRepository.ts`):**
+     - In `insertMeal`, `updateMeal`, `deleteMeal`, and `saveAllMeals`, if caller provides an active transaction `txn`, execute queries directly on `txn` without invoking `target.withExclusiveTransactionAsync()`.
+     - When `txn` is absent, open exactly one exclusive transaction on `this.db`.
+  4. **UI Validation & State Preservation:**
+     - `AddMealScreen` and `EditMealScreen` validate fields on-the-fly and upon submit, preserving raw typed input and preventing navigation/submission when validation fails.
+- **Files Affected:**
+  - `src/i18n/en.ts`, `src/i18n/ar.ts`
+  - `src/utils/nutrition.ts`
+  - `src/models/meal.ts`
+  - `src/db/repositories/mealRepository.ts`
+  - `src/screens/AddMealScreen.tsx`
+  - `src/screens/EditMealScreen.tsx`
+  - `src/__tests__/dailyNutritionTargets.test.ts`
+  - `src/__tests__/targetIntegrityAcceptance.test.ts`
+  - `src/__tests__/mealInputValidationAndTxnHardening.test.ts` (new)
+- **Success Criteria:** All 445 tests passing; clean static analysis; safe SQLite transactions.
 
 ---
 

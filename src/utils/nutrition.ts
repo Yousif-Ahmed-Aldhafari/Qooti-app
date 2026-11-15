@@ -74,6 +74,178 @@ export function safeNumber(value: number | undefined): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
+export interface StrictParseResult {
+  isValid: boolean;
+  value: number;
+  isEmpty: boolean;
+  error?: 'EMPTY' | 'INVALID_CHARACTERS' | 'INVALID_DECIMAL' | 'OVERFLOW' | 'NEGATIVE' | 'ZERO' | 'NON_FINITE';
+  errorMessageKey?: string;
+  defaultMessage?: string;
+}
+
+export interface StrictParseOptions {
+  allowEmpty?: boolean;
+  defaultValue?: number;
+  allowZero?: boolean;
+  max?: number;
+}
+
+/**
+ * Strict parser for nutrient inputs and quantities.
+ * - Rejects NaN, Infinity, -Infinity.
+ * - Rejects non-numeric characters, scientific notation (e.g. 1e50), extra signs, and malformed decimals.
+ * - Supports both '.' and ',' as decimal separators.
+ * - Enforces non-negative values and bounds checking.
+ * - Distinguishes between empty fields and explicit 0.
+ */
+export function parseStrictNutrientInput(
+  input: string | number | undefined | null,
+  options: StrictParseOptions = {}
+): StrictParseResult {
+  const {
+    allowEmpty = false,
+    defaultValue = 0,
+    allowZero = true,
+    max = 100_000,
+  } = options;
+
+  if (input === undefined || input === null) {
+    if (allowEmpty) {
+      return { isValid: true, value: defaultValue, isEmpty: true };
+    }
+    return {
+      isValid: false,
+      value: 0,
+      isEmpty: true,
+      error: 'EMPTY',
+      errorMessageKey: 'common.requiredMessage',
+      defaultMessage: 'Required',
+    };
+  }
+
+  const str = typeof input === 'number' ? String(input) : String(input).trim();
+
+  if (str === '') {
+    if (allowEmpty) {
+      return { isValid: true, value: defaultValue, isEmpty: true };
+    }
+    return {
+      isValid: false,
+      value: 0,
+      isEmpty: true,
+      error: 'EMPTY',
+      errorMessageKey: 'common.requiredMessage',
+      defaultMessage: 'Required',
+    };
+  }
+
+  // Reject literal "Infinity", "-Infinity", "NaN" (case-insensitive)
+  const lower = str.toLowerCase();
+  if (lower.includes('infinity') || lower === 'nan') {
+    return {
+      isValid: false,
+      value: 0,
+      isEmpty: false,
+      error: 'NON_FINITE',
+      errorMessageKey: 'common.invalidNumber',
+      defaultMessage: 'Invalid number',
+    };
+  }
+
+  // Strictly enforce decimal format with either '.' or ',' as separator.
+  // Rejects scientific notation (e.g. 1e50), extra signs, mixed letters, malformed decimals.
+  const decimalRegex = /^[+-]?((\d+([.,]\d+)?)|([.,]\d+))$/;
+  if (!decimalRegex.test(str)) {
+    return {
+      isValid: false,
+      value: 0,
+      isEmpty: false,
+      error: 'INVALID_CHARACTERS',
+      errorMessageKey: 'common.invalidNumber',
+      defaultMessage: 'Invalid number',
+    };
+  }
+
+  const normalizedStr = str.replace(',', '.');
+  const num = Number(normalizedStr);
+
+  if (!Number.isFinite(num) || Number.isNaN(num)) {
+    return {
+      isValid: false,
+      value: 0,
+      isEmpty: false,
+      error: 'NON_FINITE',
+      errorMessageKey: 'common.invalidNumber',
+      defaultMessage: 'Invalid number',
+    };
+  }
+
+  if (num < 0) {
+    return {
+      isValid: false,
+      value: num,
+      isEmpty: false,
+      error: 'NEGATIVE',
+      errorMessageKey: 'common.cannotBeNegative',
+      defaultMessage: 'Cannot be negative',
+    };
+  }
+
+  if (!allowZero && num === 0) {
+    return {
+      isValid: false,
+      value: 0,
+      isEmpty: false,
+      error: 'ZERO',
+      errorMessageKey: 'common.mustBePositive',
+      defaultMessage: 'Must be greater than 0',
+    };
+  }
+
+  if (num > max) {
+    return {
+      isValid: false,
+      value: num,
+      isEmpty: false,
+      error: 'OVERFLOW',
+      errorMessageKey: 'common.valueTooLarge',
+      defaultMessage: 'Value is too large',
+    };
+  }
+
+  return {
+    isValid: true,
+    value: num,
+    isEmpty: false,
+  };
+}
+
+/**
+ * Strict parser for food quantity (must be > 0, cannot be empty).
+ */
+export function parseStrictQuantity(input: string | number | undefined | null): StrictParseResult {
+  return parseStrictNutrientInput(input, {
+    allowEmpty: false,
+    allowZero: false,
+    max: 100_000,
+  });
+}
+
+/**
+ * Strict parser for nutrient macros and calories (can be 0, can default to 0 if empty).
+ */
+export function parseStrictNutrient(
+  input: string | number | undefined | null,
+  options?: { allowEmpty?: boolean; max?: number }
+): StrictParseResult {
+  return parseStrictNutrientInput(input, {
+    allowEmpty: options?.allowEmpty ?? true,
+    defaultValue: 0,
+    allowZero: true,
+    max: options?.max ?? 100_000,
+  });
+}
+
 export function parseInputNumber(value: string): number {
   const parsed = Number(value.replace(',', '.'));
   return Number.isFinite(parsed) ? parsed : 0;

@@ -20,21 +20,22 @@
 
 ### P0: Critical Architecture & Data Loss Flaws
 
-#### ISSUE-NUT-01: Whole-Table Wipe on Every Meal Mutation (`saveAllMeals`)
+#### ISSUE-NUT-01: Whole-Table Wipe on Every Meal Mutation (`saveAllMeals`) & Nested Transaction Safety
 - **Severity:** P0 (Critical)
-- **Status:** RESOLVED (Task 4.1)
+- **Status:** RESOLVED (Task 4.1 & Hardened in Task 4.1A)
 - **Location:** `src/store/AppContext.tsx` (lines 519–537), `src/services/mealService.ts` (lines 31–45), `src/db/repositories/mealRepository.ts` (lines 213–256)
-- **Description:** Every addition, update, or deletion of a meal triggers `saveMeals(state.meals)` via a React `useEffect`, which invokes `saveAllMeals`. `saveAllMeals` executes `DELETE FROM meal_items; DELETE FROM meals;` and re-inserts the entire meal history in one batch.
-- **Root Cause:** Retained legacy persistence pattern from early prototype phase before granular SQLite repositories were established.
+- **Description:** Every addition, update, or deletion of a meal triggered `saveMeals(state.meals)` via a React `useEffect`, which invoked `saveAllMeals`. Furthermore, `mealRepository` invoked `target.withExclusiveTransactionAsync()` even when an outer `txn` was already supplied, creating hazardous nested transactions on real SQLite adapters.
+- **Root Cause:** Retained legacy persistence pattern from early prototype phase; lack of explicit outer transaction ownership contract.
 - **Impact:**
   - High risk of catastrophic data loss if app terminates, crashes, or runs out of storage mid-transaction.
-  - Severe O(N) write amplification and UI stutter as meal history accumulates.
+  - Severe O(N) write amplification and potential deadlock or runtime exceptions under nested transaction calls.
 - **Resolution & Verification:**
   - Removed `useEffect` calling `saveMeals(state.meals)` in `AppContext`.
   - Added async `insertMeal`, `updateMeal`, and `deleteMeal` actions to `AppContext` which execute database-first against SQLite before dispatching in-memory state.
-  - Hardened `SQLiteMealRepository` and `MealService` with atomic transactions (`withExclusiveTransactionAsync`) and migration metadata timestamps.
-  - Verified by 35 unit/integration tests in `mealLifecycleIntegrity.test.ts` (Tests 1, 2, 7, 8, 13).
-- **Target Task:** Task 4.1
+  - Explicit transaction ownership contract: if `txn` is supplied, execute queries directly through `txn`; if `txn` is absent, open exactly one exclusive transaction on `this.db`.
+  - Atomic parent-child persistence, cascade child item cleanup, and `migration_meta` updates preserved.
+  - Verified by 35 tests in `mealLifecycleIntegrity.test.ts` and Tests 15–20 in `mealInputValidationAndTxnHardening.test.ts`.
+- **Target Task:** Task 4.1 & Task 4.1A
 
 #### ISSUE-NUT-02: Fire-and-Forget Asynchronous Save in `AppNavigator`
 - **Severity:** P0 (Critical)
@@ -55,31 +56,33 @@
 
 ### P1: High Priority Data Integrity & Correctness Defects
 
-#### ISSUE-NUT-03: UTC Date Generation Leading to Local Midnight Boundary Errors
+#### ISSUE-NUT-03: UTC Date Generation Leading to Local Midnight Boundary Errors & Date Trailing Suffixes
 - **Severity:** P1 (High)
-- **Status:** RESOLVED (Task 4.1)
-- **Location:** `src/screens/AddMealScreen.tsx`, `src/screens/MealsScreen.tsx`, `src/utils/nutrition.ts`
-- **Description:** New meals were stamped with `date: new Date().toISOString().slice(0, 10)`, and `MealsScreen` filtered today's meals using the same UTC slice.
-- **Root Cause:** Using ISO string UTC representation instead of local calendar date.
-- **Impact:** For users in timezones east of UTC (e.g., UTC+3 Saudi Arabia, Egypt, UAE), any meal logged after midnight (e.g. 00:01 to 02:59) is assigned to the previous calendar day.
+- **Status:** RESOLVED (Task 4.1 & Hardened in Task 4.1A)
+- **Location:** `src/screens/AddMealScreen.tsx`, `src/screens/MealsScreen.tsx`, `src/utils/nutrition.ts`, `src/models/meal.ts`
+- **Description:** New meals were stamped with `date: new Date().toISOString().slice(0, 10)`, and `MealsScreen` filtered today's meals using the same UTC slice. Additionally, dates with trailing suffixes or impossible leap-day dates (e.g. 2026-02-29) were not strictly rejected by domain validation.
+- **Root Cause:** Using ISO string UTC representation instead of local calendar date; incomplete leap-year date validation regex.
+- **Impact:** For users in timezones east of UTC (e.g., UTC+3 Saudi Arabia, Egypt, UAE), any meal logged after midnight was assigned to the previous calendar day; malformed dates could corrupt database indexing.
 - **Resolution & Verification:**
   - Implemented `formatLocalDate(date)` in `src/utils/nutrition.ts` generating `YYYY-MM-DD` using local calendar methods.
+  - Implemented `validateMealDate(date)` enforcing exact `YYYY-MM-DD` regex (rejecting trailing suffixes, timestamps, slashes) and full calendar validation (checking leap years for Feb 29).
   - Adopted `formatLocalDate` in `AddMealScreen.tsx`, `EditMealScreen.tsx`, and `MealsScreen.tsx`.
-  - Verified by Tests 22 and 23 in `mealLifecycleIntegrity.test.ts` for UTC+3 and UTC-5 boundaries.
-- **Target Task:** Task 4.1
+  - Verified by Tests 22 and 23 in `mealLifecycleIntegrity.test.ts` and Tests 12–14 in `mealInputValidationAndTxnHardening.test.ts`.
+- **Target Task:** Task 4.1 & Task 4.1A
 
 #### ISSUE-NUT-04: Non-Standardized Local Time String Formatting
 - **Severity:** P1 (High)
-- **Status:** RESOLVED (Task 4.1)
-- **Location:** `src/screens/AddMealScreen.tsx`, `src/utils/nutrition.ts`, `src/models/meal.ts`
+- **Status:** RESOLVED (Task 4.1 & Hardened in Task 4.1A)
+- **Location:** `src/screens/AddMealScreen.tsx`, `src/screens/EditMealScreen.tsx`, `src/utils/nutrition.ts`, `src/models/meal.ts`
 - **Description:** `time` was generated via `new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })`.
 - **Root Cause:** Relying on host environment locale formatting for persistent database records.
 - **Impact:** Produces inconsistent strings across platforms and locales (e.g., "1:30 PM", "13:30", "٠١:٣٠"), preventing lexicographical sorting and SQL queries.
 - **Resolution & Verification:**
   - Implemented `formatLocalTime(date)` standardizing persistent time to 24-hr `HH:mm` format with leading zeros.
-  - Added strict time validation in `validateMeal` supporting 24-hr `HH:mm` and 12-hr with AM/PM while rejecting invalid hours/minutes (e.g. `99:99`, `25:00`).
-  - Verified by Tests 21 and 24 in `mealLifecycleIntegrity.test.ts`.
-- **Target Task:** Task 4.1
+  - Added strict time validation in `validateMealTime` supporting 24-hr `HH:mm`, legacy 12-hr with AM/PM, and legacy single-digit hour 24-hr while strictly rejecting invalid times (e.g. `25:00`, `99:99`, `12:60`, `14:00 PM`).
+  - Standardized new/edited times to zero-padded `HH:mm` on save.
+  - Verified by Tests 21 and 24 in `mealLifecycleIntegrity.test.ts` and Test 21 in `mealInputValidationAndTxnHardening.test.ts`.
+- **Target Task:** Task 4.1 & Task 4.1A
 
 #### ISSUE-NUT-05: Collision-Prone Timestamp IDs (`Date.now()`)
 - **Severity:** P1 (High)
@@ -96,16 +99,18 @@
 
 #### ISSUE-NUT-06: Unbounded Numerical Inputs & Negative Value Corruption
 - **Severity:** P1 (High)
-- **Status:** RESOLVED (Task 4.1)
-- **Location:** `src/models/meal.ts`, `src/screens/AddMealScreen.tsx`, `src/screens/EditMealScreen.tsx`
-- **Description:** `parseInputNumber` and `safeNumber` accepted negative numbers and returned non-finite values without validation or bounding.
-- **Root Cause:** Lack of strict domain validation guards in `models/meal.ts`.
-- **Impact:** Negative calories or macros could be logged, corrupting daily summaries, progress ratios, and calorie balance calculations.
+- **Status:** RESOLVED (Task 4.1 & Hardened in Task 4.1A)
+- **Location:** `src/models/meal.ts`, `src/utils/nutrition.ts`, `src/screens/AddMealScreen.tsx`, `src/screens/EditMealScreen.tsx`
+- **Description:** `parseInputNumber` and `safeNumber` accepted negative numbers and could return or map non-finite values (such as Infinity or 1e50) to numeric zero or allow corrupted states. Form validation did not consistently distinguish an entered zero from an empty field or reject malformed decimals/scientific notation.
+- **Root Cause:** Lack of strict domain validation guards and robust numeric input parsing contract.
+- **Impact:** Negative calories or macros could be logged, corrupting daily summaries, progress ratios, and calorie balance calculations; malformed scientific notation or infinite quantities could be saved.
 - **Resolution & Verification:**
-  - Implemented `validateMealItem` and `validateMeal` in `src/models/meal.ts`, throwing typed `MealValidationError` for negative macros, non-positive quantities, `NaN`, or `Infinity`.
-  - Added live field validation and inline error messaging in `AddMealScreen` and `EditMealScreen`.
-  - Verified by Tests 18, 19, 20 in `mealLifecycleIntegrity.test.ts`.
-- **Target Task:** Task 4.1
+  - Implemented `parseStrictNutrientInput`, `parseStrictQuantity`, and `parseStrictNutrient` in `src/utils/nutrition.ts`, returning typed `StrictParseResult` with explicit `isEmpty`, `parsedValue`, and typed error codes (`EMPTY`, `INVALID_FORMAT`, `NEGATIVE`, `NOT_POSITIVE`, `TOO_LARGE`).
+  - Supported comma `,` and period `.` decimal separators, rejected scientific notation (`1e50`), `NaN`, `Infinity`, `-Infinity`, negative numbers, zero quantities, and unbounded values (>100,000).
+  - Preserved raw user typing in UI forms without auto-erasing; displayed localized inline error messages in English and Arabic.
+  - Implemented `validateMealItem` and `validateMeal` in `src/models/meal.ts`, throwing typed `MealValidationError` for any violated bounds or non-finite values.
+  - Verified by Tests 18, 19, 20 in `mealLifecycleIntegrity.test.ts` and Tests 1–11 in `mealInputValidationAndTxnHardening.test.ts`.
+- **Target Task:** Task 4.1 & Task 4.1A
 
 #### ISSUE-NUT-07: Inconsistency Between `calculateDailyNutrition` and Itemless Meals
 - **Severity:** P1 (High)

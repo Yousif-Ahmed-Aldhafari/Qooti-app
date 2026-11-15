@@ -372,7 +372,7 @@ test('Daily Targets 13: Profile target changes never mutate or destroy existing 
   const meal = normalizeMeal({
     id: 'preserved-meal-1',
     title: 'Post-Workout Shake',
-    date: '2026-11-12T10:00:00.000Z',
+    date: '2026-11-12',
     time: '10:00',
     items: [{ id: 'item-1', foodName: 'Whey Protein', quantity: 1, calories: 150, protein: 30, carbs: 3, fats: 2 }],
   });

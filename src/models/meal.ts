@@ -1,3 +1,5 @@
+import { parseStrictQuantity } from '../utils/nutrition';
+
 /**
  * Canonical Meal domain model.
  */
@@ -85,6 +87,72 @@ export function normalizeMeal(
 }
 
 /**
+ * Strictly validates a meal date string.
+ * Must be in exact YYYY-MM-DD format (no trailing characters, timestamps, or suffixes).
+ * Validates real calendar bounds including leap-year February rules.
+ */
+export function validateMealDate(dateStr: string): void {
+  if (!dateStr || typeof dateStr !== 'string') {
+    throw new MealValidationError('Meal date is required.', 'date');
+  }
+
+  // Strictly enforce exact YYYY-MM-DD format (no trailing characters, whitespace, timestamps, or suffixes)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    throw new MealValidationError('Meal date must be in exact YYYY-MM-DD format.', 'date');
+  }
+
+  const [yStr, mStr, dStr] = dateStr.split('-');
+  const year = parseInt(yStr, 10);
+  const month = parseInt(mStr, 10);
+  const day = parseInt(dStr, 10);
+
+  if (month < 1 || month > 12) {
+    throw new MealValidationError('Meal date month must be between 01 and 12.', 'date');
+  }
+
+  const isLeapYear = (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+  const daysInMonths = [31, isLeapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  const maxDays = daysInMonths[month - 1];
+
+  if (day < 1 || day > maxDays) {
+    if (month === 2 && day === 29 && !isLeapYear) {
+      throw new MealValidationError(`February ${year} is not a leap year and only has 28 days.`, 'date');
+    }
+    throw new MealValidationError(`Meal date day must be between 01 and ${maxDays} for month ${month}.`, 'date');
+  }
+
+  const dateObj = new Date(year, month - 1, day);
+  if (
+    dateObj.getFullYear() !== year ||
+    dateObj.getMonth() !== month - 1 ||
+    dateObj.getDate() !== day
+  ) {
+    throw new MealValidationError('Meal date is invalid or does not exist.', 'date');
+  }
+}
+
+/**
+ * Validates a meal time string against supported formats:
+ * 1. Standard 24-hr zero-padded HH:mm (e.g. 08:30, 14:00, 00:00)
+ * 2. Documented legacy single-digit hour 24-hr H:mm (e.g. 8:30)
+ * 3. Documented legacy 12-hr with AM/PM (e.g. 1:30 PM, 08:30 am)
+ */
+export function validateMealTime(timeStr: string): void {
+  if (!timeStr || typeof timeStr !== 'string' || !timeStr.trim()) {
+    throw new MealValidationError('Meal time is required.', 'time');
+  }
+
+  const trimmed = timeStr.trim();
+  const is24Hr = /^([01]\d|2[0-3]):[0-5]\d$/.test(trimmed);
+  const isLegacy24Hr = /^[0-9]:[0-5]\d$/.test(trimmed);
+  const isLegacy12Hr = /^(0?[1-9]|1[0-2]):[0-5]\d\s*(AM|PM|am|pm)$/i.test(trimmed);
+
+  if (!is24Hr && !isLegacy24Hr && !isLegacy12Hr) {
+    throw new MealValidationError('Meal time format is invalid.', 'time');
+  }
+}
+
+/**
  * Validates a meal item domain object strictly without silent numerical coercion.
  */
 export function validateMealItem(item: MealItem, index?: number): void {
@@ -101,26 +169,30 @@ export function validateMealItem(item: MealItem, index?: number): void {
 
   let quantity = item.quantity;
   if (typeof quantity === 'string') {
-    quantity = parseFloat(quantity);
+    const parseResult = parseStrictQuantity(quantity);
+    if (!parseResult.isValid) {
+      throw new MealValidationError(`${prefix} quantity must be a positive finite number.`, 'quantity');
+    }
+    quantity = parseResult.value;
   }
-  if (typeof quantity !== 'number' || !Number.isFinite(quantity) || quantity <= 0) {
+  if (typeof quantity !== 'number' || !Number.isFinite(quantity) || quantity <= 0 || quantity > 100_000) {
     throw new MealValidationError(`${prefix} quantity must be a positive finite number.`, 'quantity');
   }
 
-  if (typeof item.calories !== 'number' || !Number.isFinite(item.calories) || item.calories < 0) {
+  if (typeof item.calories !== 'number' || !Number.isFinite(item.calories) || item.calories < 0 || item.calories > 100_000) {
     throw new MealValidationError(`${prefix} calories must be a valid non-negative finite number.`, 'calories');
   }
 
-  if (typeof item.protein !== 'number' || !Number.isFinite(item.protein) || item.protein < 0) {
+  if (typeof item.protein !== 'number' || !Number.isFinite(item.protein) || item.protein < 0 || item.protein > 100_000) {
     throw new MealValidationError(`${prefix} protein must be a valid non-negative finite number.`, 'protein');
   }
 
-  if (typeof item.carbs !== 'number' || !Number.isFinite(item.carbs) || item.carbs < 0) {
+  if (typeof item.carbs !== 'number' || !Number.isFinite(item.carbs) || item.carbs < 0 || item.carbs > 100_000) {
     throw new MealValidationError(`${prefix} carbs must be a valid non-negative finite number.`, 'carbs');
   }
 
   const fats = item.fats ?? item.fat;
-  if (typeof fats !== 'number' || !Number.isFinite(fats) || fats < 0) {
+  if (typeof fats !== 'number' || !Number.isFinite(fats) || fats < 0 || fats > 100_000) {
     throw new MealValidationError(`${prefix} fats must be a valid non-negative finite number.`, 'fats');
   }
 }
@@ -139,40 +211,8 @@ export function validateMeal(meal: Meal): void {
     throw new MealValidationError('Meal title is required.', 'title');
   }
 
-  if (!meal.date || typeof meal.date !== 'string' || !meal.date.trim()) {
-    throw new MealValidationError('Meal date is required.', 'date');
-  }
-
-  const trimmedDate = meal.date.trim();
-  const datePart = trimmedDate.slice(0, 10);
-  if (!/^\d{4}-\d{2}-\d{2}/.test(trimmedDate)) {
-    throw new MealValidationError('Meal date must be in YYYY-MM-DD format.', 'date');
-  }
-
-  const [yearStr, monthStr, dayStr] = datePart.split('-');
-  const year = parseInt(yearStr, 10);
-  const month = parseInt(monthStr, 10);
-  const day = parseInt(dayStr, 10);
-  const dateObj = new Date(year, month - 1, day);
-  if (
-    dateObj.getFullYear() !== year ||
-    dateObj.getMonth() !== month - 1 ||
-    dateObj.getDate() !== day
-  ) {
-    throw new MealValidationError('Meal date format is invalid.', 'date');
-  }
-
-  if (!meal.time || typeof meal.time !== 'string' || !meal.time.trim()) {
-    throw new MealValidationError('Meal time is required.', 'time');
-  }
-
-  const trimmedTime = meal.time.trim();
-  // Support 24-hr HH:mm and 12-hr with AM/PM (e.g. 1:30 PM, 01:30)
-  const is24Hr = /^([01]?\d|2[0-3]):[0-5]\d$/.test(trimmedTime);
-  const is12Hr = /^(0?[1-9]|1[0-2]):[0-5]\d\s*(AM|PM|am|pm)$/i.test(trimmedTime);
-  if (!is24Hr && !is12Hr) {
-    throw new MealValidationError('Meal time format is invalid.', 'time');
-  }
+  validateMealDate(meal.date);
+  validateMealTime(meal.time);
 
   if (!Array.isArray(meal.items)) {
     throw new MealValidationError('Meal items must be an array.', 'items');
@@ -195,7 +235,8 @@ export function validateMeal(meal: Meal): void {
     if (
       typeof meal.totalCalories !== 'number' ||
       !Number.isFinite(meal.totalCalories) ||
-      meal.totalCalories < 0
+      meal.totalCalories < 0 ||
+      meal.totalCalories > 100_000
     ) {
       throw new MealValidationError(
         'Meal total calories must be a valid non-negative finite number.',
@@ -208,7 +249,8 @@ export function validateMeal(meal: Meal): void {
     if (
       typeof meal.totalProtein !== 'number' ||
       !Number.isFinite(meal.totalProtein) ||
-      meal.totalProtein < 0
+      meal.totalProtein < 0 ||
+      meal.totalProtein > 100_000
     ) {
       throw new MealValidationError(
         'Meal total protein must be a valid non-negative finite number.',
@@ -221,7 +263,8 @@ export function validateMeal(meal: Meal): void {
     if (
       typeof meal.totalCarbs !== 'number' ||
       !Number.isFinite(meal.totalCarbs) ||
-      meal.totalCarbs < 0
+      meal.totalCarbs < 0 ||
+      meal.totalCarbs > 100_000
     ) {
       throw new MealValidationError(
         'Meal total carbs must be a valid non-negative finite number.',
@@ -235,7 +278,8 @@ export function validateMeal(meal: Meal): void {
     if (
       typeof totalFats !== 'number' ||
       !Number.isFinite(totalFats) ||
-      totalFats < 0
+      totalFats < 0 ||
+      totalFats > 100_000
     ) {
       throw new MealValidationError(
         'Meal total fats must be a valid non-negative finite number.',

@@ -24,7 +24,8 @@ import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import type { Meal } from '../types';
 import { createId } from '../utils/id';
-import { formatLocalDate, formatLocalTime, parseInputNumber } from '../utils/nutrition';
+import { formatLocalDate, formatLocalTime, parseStrictNutrient, parseStrictQuantity } from '../utils/nutrition';
+import { validateMealDate, validateMealTime } from '../models/meal';
 import { activeRowStyle, activeTextAlign, activeWritingDirection } from '../utils/rtl';
 
 type MealItemEditState = {
@@ -182,36 +183,36 @@ export function EditMealScreen({ t, meal, onSave, onCancel }: EditMealScreenProp
       setTitleError('');
     }
 
-    // Validate date format YYYY-MM-DD
+    // Validate date format and calendar validity
     const trimmedDate = date.trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmedDate)) {
-      setDateError(t('common.invalidDate') || 'YYYY-MM-DD required');
+    try {
+      validateMealDate(trimmedDate);
+      setDateError('');
+    } catch (err: any) {
+      setDateError(err.message || t('common.invalidDate') || 'YYYY-MM-DD required');
       hasError = true;
-    } else {
-      const [y, m, d] = trimmedDate.split('-').map(Number);
-      const testDate = new Date(y, m - 1, d);
-      if (testDate.getFullYear() !== y || testDate.getMonth() !== m - 1 || testDate.getDate() !== d) {
-        setDateError(t('common.invalidDate') || 'Invalid date');
-        hasError = true;
-      } else {
-        setDateError('');
-      }
     }
 
     // Validate time format (24-hr HH:mm or legacy format)
     const trimmedTime = time.trim();
-    if (
-      !/^([01]\d|2[0-3]):[0-5]\d$/.test(trimmedTime) &&
-      !/^\d{1,2}:\d{2}(\s*(AM|PM|am|pm))?$/.test(trimmedTime)
-    ) {
-      setTimeError(t('common.invalidTime') || 'HH:mm required');
-      hasError = true;
-    } else {
+    try {
+      validateMealTime(trimmedTime);
       setTimeError('');
+    } catch (err: any) {
+      setTimeError(err.message || t('common.invalidTime') || 'HH:mm required');
+      hasError = true;
+    }
+
+    // Persist new times as zero-padded HH:mm
+    let standardizedTime = trimmedTime;
+    if (/^[0-9]:[0-5]\d$/.test(trimmedTime)) {
+      standardizedTime = `0${trimmedTime}`;
     }
 
     // Validate each food item
     const newItemErrors: Record<string, MealItemErrorMap> = {};
+    const parsedItems: Meal['items'] = [];
+
     for (const item of items) {
       const errors: MealItemErrorMap = {};
 
@@ -220,39 +221,50 @@ export function EditMealScreen({ t, meal, onSave, onCancel }: EditMealScreenProp
         hasError = true;
       }
 
-      const q = parseInputNumber(item.quantity);
-      if (item.quantity.trim() === '' || !Number.isFinite(q) || q <= 0) {
-        errors.quantity = t('common.invalidNumber') || 'Must be > 0';
+      const qResult = parseStrictQuantity(item.quantity);
+      if (!qResult.isValid) {
+        errors.quantity = t(qResult.errorMessageKey as any) || qResult.defaultMessage || 'Must be > 0';
         hasError = true;
       }
 
-      const cal = item.calories.trim() === '' ? 0 : parseInputNumber(item.calories);
-      if (!Number.isFinite(cal) || cal < 0 || (item.calories.trim() !== '' && Number.isNaN(Number(item.calories.replace(',', '.'))))) {
-        errors.calories = t('common.invalidNumber') || 'Must be >= 0';
+      const calResult = parseStrictNutrient(item.calories, { allowEmpty: true });
+      if (!calResult.isValid) {
+        errors.calories = t(calResult.errorMessageKey as any) || calResult.defaultMessage || 'Must be >= 0';
         hasError = true;
       }
 
-      const p = item.protein.trim() === '' ? 0 : parseInputNumber(item.protein);
-      if (!Number.isFinite(p) || p < 0 || (item.protein.trim() !== '' && Number.isNaN(Number(item.protein.replace(',', '.'))))) {
-        errors.protein = t('common.invalidNumber') || 'Must be >= 0';
+      const pResult = parseStrictNutrient(item.protein, { allowEmpty: true });
+      if (!pResult.isValid) {
+        errors.protein = t(pResult.errorMessageKey as any) || pResult.defaultMessage || 'Must be >= 0';
         hasError = true;
       }
 
-      const c = item.carbs.trim() === '' ? 0 : parseInputNumber(item.carbs);
-      if (!Number.isFinite(c) || c < 0 || (item.carbs.trim() !== '' && Number.isNaN(Number(item.carbs.replace(',', '.'))))) {
-        errors.carbs = t('common.invalidNumber') || 'Must be >= 0';
+      const cResult = parseStrictNutrient(item.carbs, { allowEmpty: true });
+      if (!cResult.isValid) {
+        errors.carbs = t(cResult.errorMessageKey as any) || cResult.defaultMessage || 'Must be >= 0';
         hasError = true;
       }
 
-      const f = item.fats.trim() === '' ? 0 : parseInputNumber(item.fats);
-      if (!Number.isFinite(f) || f < 0 || (item.fats.trim() !== '' && Number.isNaN(Number(item.fats.replace(',', '.'))))) {
-        errors.fats = t('common.invalidNumber') || 'Must be >= 0';
+      const fResult = parseStrictNutrient(item.fats, { allowEmpty: true });
+      if (!fResult.isValid) {
+        errors.fats = t(fResult.errorMessageKey as any) || fResult.defaultMessage || 'Must be >= 0';
         hasError = true;
       }
 
       if (Object.keys(errors).length > 0) {
         newItemErrors[item.id] = errors;
       }
+
+      parsedItems.push({
+        id: item.id,
+        foodName: item.foodName.trim(),
+        quantity: qResult.value,
+        calories: calResult.value,
+        protein: pResult.value,
+        carbs: cResult.value,
+        fats: fResult.value,
+        unit: item.unit || 'g',
+      });
     }
     setItemErrors(newItemErrors);
 
@@ -268,17 +280,8 @@ export function EditMealScreen({ t, meal, onSave, onCancel }: EditMealScreenProp
         id: meal.id,
         title: title.trim(),
         date: trimmedDate,
-        time: trimmedTime,
-        items: items.map((item) => ({
-          id: item.id,
-          foodName: item.foodName.trim(),
-          quantity: parseInputNumber(item.quantity),
-          calories: item.calories.trim() === '' ? 0 : parseInputNumber(item.calories),
-          protein: item.protein.trim() === '' ? 0 : parseInputNumber(item.protein),
-          carbs: item.carbs.trim() === '' ? 0 : parseInputNumber(item.carbs),
-          fats: item.fats.trim() === '' ? 0 : parseInputNumber(item.fats),
-          unit: item.unit || 'g',
-        })),
+        time: standardizedTime,
+        items: parsedItems,
       };
 
       await onSave(updatedMeal);

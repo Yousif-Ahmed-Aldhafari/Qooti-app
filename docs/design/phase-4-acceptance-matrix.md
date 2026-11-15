@@ -15,7 +15,8 @@
 |---|---|---|---|
 | **Baseline (Task 4.0)** | Pre-Flight Environment | **388** | 100% Phase 1–3 test preservation, zero TypeScript errors, zero lint warnings. |
 | **Task 4.1** | Meal Lifecycle, Granular Persistence & Editing | **402** (+14) | **423 Passed (+35)** — Granular SQLite CRUD without `saveAllMeals`, domain validation, local date bounds, atomic delete cascade. |
-| **Task 4.2** | Bilingual Food Catalog & Portion Scaling | **414** (+12) | Catalog lookups in EN/AR, portion multipliers, reciprocal scaling, Migration 9 schema safety. |
+| **Task 4.1A** | Meal Input Validation & Transaction Ownership Hardening | **423** | **445 Passed (+22)** — Strict nutrient/quantity parsing, comma/period decimals, reject NaN/Infinity/1e50, leap-year validation, atomic transaction ownership contract without nested calls. |
+| **Task 4.2** | Bilingual Food Catalog & Portion Scaling | **455** (+10) | Catalog lookups in EN/AR, portion multipliers, reciprocal scaling, Migration 9 schema safety. |
 | **Task 4.3** | Multi-Food Meal Creation & Search UX | **424** (+10) | Multi-item meal serialization, search filtering, category pills, date switcher queries. |
 | **Task 4.4** | Nutrition Analytics & Daily Targets | **434** (+10) | Macro distribution formulas ($4/4/9$), surplus/deficit calculations, progress entry synchronization. |
 | **Task 4.5** | Meal Templates, Favorites & Quick-Log | **442** (+8) | Repeat meal ID isolation, favorite toggling, quick calorie logging without item breakdown. |
@@ -34,11 +35,13 @@
 - [x] **AC-PER-05:** Meal and food item identifiers use `createId` with monotonic counter and UUID entropy, rejecting naive timestamp IDs (`Date.now()`).
 - [x] **AC-PER-06:** Meal creation and persistence in `AppNavigator` is asynchronous, awaiting confirmation before navigating away from the edit/create form.
 - [x] **AC-PER-07:** Any SQLite database write failure preserves the user's draft in UI state and displays a retryable error banner.
+- [x] **AC-PER-08:** `SQLiteMealRepository` honors caller transactions (`txn`) directly and only opens exclusive transactions when `txn` is absent, preventing dangerous nested transaction calls.
 
 ### 2.2 Date & Time Integrity Acceptance Criteria
 - [x] **AC-DAT-01:** Meals logged across midnight boundaries (e.g., 00:01 to 02:59 in UTC+3) use the local calendar date (`YYYY-MM-DD`), never shifting to the prior UTC day.
 - [x] **AC-DAT-02:** Meal timestamps are stored in standardized 24-hr `HH:mm` format, enabling accurate chronological sorting.
 - [x] **AC-DAT-03:** `MealsScreen` date navigation displays meals matching the selected calendar date without timezone distortion.
+- [x] **AC-DAT-04:** Meal dates strictly validate exact `YYYY-MM-DD` without trailing spaces, timestamps, or invalid leap days (e.g. rejecting 2026-02-29, accepting 2024-02-29). Standardized 24-hr `HH:mm` on save while supporting legacy read formats.
 
 ### 2.3 Food Catalog & Calculation Acceptance Criteria
 - [ ] **AC-CAT-01:** Bilingual food catalog contains $\ge 150$ verified foods with accurate 100g base profiles (calories, protein, carbs, fats).
@@ -46,6 +49,7 @@
 - [ ] **AC-CAT-03:** Scaling food quantity proportionally updates calories and macros in real-time.
 - [x] **AC-CAT-04:** Domain validation strictly rejects negative calories, negative quantities, `NaN`, and `Infinity`.
 - [x] **AC-CAT-05:** Total meal calories equal the sum of child food item calories ($\pm 1\text{ kcal}$ due to integer rounding).
+- [x] **AC-CAT-06:** Strict UI nutrient input parsing distinguishes entered 0 from empty inputs, supports comma/period decimal separators, rejects scientific notation (`1e50`), bounds inputs ($\le 100,000$), and preserves raw user input with localized inline errors.
 
 ### 2.4 User Experience & Workflow Acceptance Criteria
 - [ ] **AC-UI-01:** Users can add multiple food items to a single meal draft before saving.
