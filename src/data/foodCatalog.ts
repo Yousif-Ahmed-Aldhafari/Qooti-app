@@ -4631,7 +4631,16 @@ export const FOOD_CATALOG: FoodCatalogEntry[] = [
   }
 ];
 
-// Enrich entries with backward-compatible aliases and bilingual labels
+// Enrich entries with backward-compatible aliases, bilingual labels, and provenance metadata
+const ESTIMATED_REGIONAL_DISH_NOTES: Record<string, string> = {
+  'kabsa-rice-cooked': 'Estimated recipe composite: Long-grain spiced rice cooked with tomato, onions, and standard vegetable oil (3g fat / 100g).',
+  'shawarma-chicken-meat': 'Estimated recipe composite: Marinated roasted chicken shaved from vertical spit, trimmed of excess surface oil.',
+  'shish-tawook-grilled': 'Estimated recipe composite: Skinless chicken breast cubes marinated in low-fat yogurt, lemon, garlic, and olive oil, then charcoal grilled.',
+  'kebab-beef-grilled': 'Estimated recipe composite: Minced beef mixed with parsley, onion, and spices, skewered and flame grilled.',
+  'moutabal-eggplant': 'Estimated recipe composite: Fire-roasted eggplant blended with tahini paste, garlic, and lemon juice (~8.7g fat from tahini).',
+  'tabbouleh-salad': 'Estimated recipe composite: Chopped parsley, fine bulgur, tomato, and mint tossed in olive oil and lemon dressing (~7.2g fat).',
+};
+
 FOOD_CATALOG.forEach((item) => {
   if (item.source === undefined) {
     item.source = `${item.sourceName} (${item.sourceReference})`;
@@ -4643,6 +4652,23 @@ FOOD_CATALOG.forEach((item) => {
     // Also mark as regional_middle_eastern for category queries
     (item as any).category = 'regional_middle_eastern';
   }
+
+  // Provenance categorization
+  if (item.sourceName.includes('USDA')) {
+    item.provenanceStatus = 'VERIFIED';
+    const fdcNum = item.sourceReference.replace(/^FDC\s+/, '').trim();
+    item.sourceUrl = `https://fdc.nal.usda.gov/fdc-app.html#/food-details/${fdcNum}/nutrients`;
+  } else if (ESTIMATED_REGIONAL_DISH_NOTES[item.id]) {
+    item.provenanceStatus = 'ESTIMATED';
+    item.recipeNotes = ESTIMATED_REGIONAL_DISH_NOTES[item.id];
+    item.sourceUrl = 'https://www.sfda.gov.sa/sites/default/files/2026-04/SFCT-E.pdf';
+  } else {
+    // SFDA staple entries with synthetic identifiers
+    item.provenanceStatus = 'UNVERIFIED';
+    item.recipeNotes = 'Source reference code is an unverified placeholder awaiting official SFDA database alphanumeric key mapping.';
+    item.sourceUrl = 'https://fd.sfda.gov.sa/';
+  }
+
   item.servingOptions.forEach((opt) => {
     if (opt.labelEn === undefined) {
       opt.labelEn = opt.nameEn;

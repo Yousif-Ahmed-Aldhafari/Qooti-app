@@ -189,6 +189,21 @@
   - Verified by 35 comprehensive tests in `src/__tests__/foodCatalogAndPortionScaling.test.ts`.
 - **Target Task:** Task 4.2
 
+#### ISSUE-NUT-12A: Food Catalog Data Provenance Gaps, Portion Scaling Overflow & Snapshot ID Hardening
+- **Severity:** P1 (High)
+- **Status:** RESOLVED (Task 4.2A)
+- **Location:** `src/data/foodCatalog.ts`, `src/models/food.ts`, `src/utils/foodScaling.ts`
+- **Description:** Food catalog entries contained unverified synthetic citation codes (e.g. `SFDA-DATE-001`, `SFDA-RICE-001`) that lacked verification against official databases. In addition, portion scaling calculation functions lacked boundary checks against extreme numerical inputs, non-finite values (`NaN`, `Infinity`), or negative quantities, and `createMealItemSnapshot` used non-monotonic `Date.now() + Math.random()` string keys.
+- **Root Cause:** Placeholder data references from mock generation; omission of arithmetic upper bounds and centralized `createId` utility in snapshot creation.
+- **Impact:** Misleading data provenance claims for regional foods; potential numerical overflow or NaN propagation in portion scaling; risk of primary key collisions during batch meal item creation.
+- **Resolution & Verification:**
+  - Audited all 158 food entries item-by-item: categorized 143 as `VERIFIED` (USDA FoodData Central with direct URLs), 6 as `ESTIMATED` (Saudi traditional composite dishes with documented recipe formulations), 9 as `UNVERIFIED` (SFDA staple single foods with synthetic codes awaiting official alphanumeric key mapping), and 0 `MISMATCH`. Published machine-readable audit report in `docs/design/food-catalog-source-audit.md`.
+  - Added typed `ProvenanceStatus = 'VERIFIED' | 'ESTIMATED' | 'UNVERIFIED' | 'MISMATCH'` and optional `sourceUrl` / `recipeNotes` to `FoodCatalogEntry`.
+  - Hardened portion scaling with `SCALING_LIMITS` enforcing positive finite numbers and strict bounds (`MAX_QUANTITY = 10_000`, `MAX_SERVING_GRAMS = 100_000`, `MAX_TOTAL_GRAMS = 1_000_000`, `MAX_SCALED_CALORIES = 10_000_000`, `MAX_SCALED_MACROS = 1_000_000`).
+  - Standardized meal item snapshot IDs on `createId('meal-item')` with monotonic entropy and crypto UUID fallback.
+  - Verified by 20 focused tests in `src/__tests__/foodCatalogProvenanceAndScalingSafety.test.ts`.
+- **Target Task:** Task 4.2A
+
 #### ISSUE-NUT-13: Unfiltered Infinite Meal List & Missing Date Navigation
 - **Severity:** P2 (Medium)
 - **Location:** `src/screens/MealsScreen.tsx`

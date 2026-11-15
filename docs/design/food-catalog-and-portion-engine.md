@@ -17,6 +17,15 @@ All 158 verified entries in `src/data/foodCatalog.ts` are derived from authorita
 - **Preparation States:** Food states are strictly differentiated by preparation method (`raw`, `cooked`, `fresh`, `dried`, `canned`, `roasted`). Cooked versions account for water absorption/loss and fat retention (e.g. cooked rice has ~130 kcal/100g vs raw rice at 365 kcal/100g due to hydration).
 - **Physical Density Multipliers:** Serving options avoid universal cup assumptions. Serving weights are food-specific (e.g., 1 cup dry rolled oats = 80g; 1 cup raw white rice = 185g; 1 cup whole milk = 244g).
 
+### 2.3 Provenance Classification & Verification Audit (Task 4.2A)
+Every catalog entry is audited and explicitly tagged with a `provenanceStatus` (`VERIFIED`, `ESTIMATED`, `UNVERIFIED`, `MISMATCH`), optional `sourceUrl`, and `recipeNotes` where applicable:
+1. **VERIFIED (143 items / 90.5%):** Exact match against authoritative public datasets (USDA FoodData Central Foundation Foods / SR Legacy), with direct URL link `https://fdc.nal.usda.gov/food-details/<fdcId>/nutrients`.
+2. **ESTIMATED (6 items / 3.8%):** Regional mixed composite traditional dishes (e.g. Kabsa, Mandi, Saleeg, Sayadieh, Jareesh, Machboos) derived from the Saudi Food Composition Tables (SFCT) published by the National Nutrition Committee (NNC) of the SFDA. Documented standard composite recipe proportions and cooking hydration factors are provided in `recipeNotes`.
+3. **UNVERIFIED (9 items / 5.7%):** Regional single-ingredient staple foods (e.g. dates, labneh, Arabic flatbread, cardamom coffee) referencing placeholder codes (`SFDA-DATE-001`, `SFDA-RICE-001`, etc.) awaiting official SFDA alphanumeric dataset keys. Transparently flagged as `UNVERIFIED` and excluded from verified-source metrics until key mapping is confirmed.
+4. **MISMATCH (0 items / 0.0%):** Zero conflicting or incompatible nutrient profiles.
+
+The complete item-by-item verification audit is published in [food-catalog-source-audit.md](file:///mnt/samsungSSD/Projects/Qooti-app/docs/design/food-catalog-source-audit.md).
+
 ---
 
 ## 3. Portion Scaling Engine
@@ -28,7 +37,16 @@ Pure mass-basis calculation functions in `src/utils/foodScaling.ts`:
    $$\text{scaledNutrient} = \frac{\text{nutrientPer100g} \times \text{totalGrams}}{100}$$
 3. `scaleCustomFoodNutrients(customFood, quantity)`:
    Scales custom food nutrients per serving size cleanly without rounding drift.
-4. **Precision and Rounding Policy:**
+4. **Scaling Limits & Overflow Safety (Task 4.2A):**
+   - Strictly bounded by `SCALING_LIMITS`:
+     - `MAX_QUANTITY`: 10,000
+     - `MAX_SERVING_GRAMS`: 100,000 g
+     - `MAX_TOTAL_GRAMS`: 1,000,000 g
+     - `MAX_SCALED_CALORIES`: 10,000,000 kcal
+     - `MAX_SCALED_MACROS`: 1,000,000 g
+   - Rejects zero, negative, NaN, Infinity, and non-finite quantities or serving sizes.
+   - Throws descriptive errors for unsupported serving units.
+5. **Precision and Rounding Policy:**
    - Pure floating-point math during calculation.
    - Snapshot display rounding: Calories rounded to nearest whole integer (`Math.round`), macronutrients rounded to 1 decimal place (`roundTo1Decimal`).
 
@@ -37,6 +55,7 @@ Pure mass-basis calculation functions in `src/utils/foodScaling.ts`:
 ## 4. Historical Snapshot Preservation Policy
 
 - **Logged Meals are Immutable Snapshots:** When a meal item is added from the catalog or custom foods via `createMealItemSnapshot` or `createCustomFoodMealItemSnapshot`, all nutrients are copied into the `meal_items` row.
+- **Monotonic Snapshot Identifier Safety (Task 4.2A):** Snapshot items use `createId('meal-item')` from `src/utils/id.ts`, guaranteeing collision resistance and monotonic ordering across all meal entries (replacing naive timestamp/random concatenation).
 - **Modification Immunity:** Subsequent edits, renamings, or deletions of custom foods or catalog definitions never alter historical `meal_items` records.
 - **Relational Integrity:** `meals` cascades to `meal_items` on deletion. Custom foods exist independently in `custom_foods` table and do not hold foreign key locks on historical meals.
 

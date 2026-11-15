@@ -6,6 +6,7 @@
 
 import { FoodCatalogEntry, ServingOption, CustomFood, FoodValidationError } from '../models/food';
 import { MealItem, normalizeMealItem } from '../models/meal';
+import { createId } from './id';
 
 export type ScaledNutrients = {
   totalGrams: number;
@@ -32,6 +33,17 @@ export class ScalingValidationError extends FoodValidationError {
 }
 
 /**
+ * Bounds on numerical inputs to prevent arithmetic overflow and irrational values.
+ */
+export const SCALING_LIMITS = {
+  MAX_QUANTITY: 10_000,
+  MAX_SERVING_GRAMS: 100_000,
+  MAX_TOTAL_GRAMS: 1_000_000,
+  MAX_SCALED_CALORIES: 10_000_000,
+  MAX_SCALED_MACROS: 1_000_000,
+};
+
+/**
  * Rounds a macronutrient value to 1 decimal place for clean display.
  */
 export function roundTo1Decimal(val: number): number {
@@ -40,6 +52,7 @@ export function roundTo1Decimal(val: number): number {
 
 /**
  * Calculates total mass in grams from a serving option and portion quantity.
+ * Supports both (servingOption, quantity) and (quantity, servingOption) argument orders.
  */
 export function calculateServingGrams(
   arg1: ServingOption | number,
@@ -62,6 +75,13 @@ export function calculateServingGrams(
       'quantity'
     );
   }
+  if (quantity > SCALING_LIMITS.MAX_QUANTITY) {
+    throw new ScalingValidationError(
+      `Portion quantity cannot exceed ${SCALING_LIMITS.MAX_QUANTITY}.`,
+      'quantity'
+    );
+  }
+
   if (
     !servingOption ||
     typeof servingOption.grams !== 'number' ||
@@ -73,7 +93,26 @@ export function calculateServingGrams(
       'grams'
     );
   }
-  return quantity * servingOption.grams;
+  if (servingOption.grams > SCALING_LIMITS.MAX_SERVING_GRAMS) {
+    throw new ScalingValidationError(
+      `Serving option grams cannot exceed ${SCALING_LIMITS.MAX_SERVING_GRAMS}g.`,
+      'grams'
+    );
+  }
+
+  const totalGrams = quantity * servingOption.grams;
+  if (
+    !Number.isFinite(totalGrams) ||
+    totalGrams <= 0 ||
+    totalGrams > SCALING_LIMITS.MAX_TOTAL_GRAMS
+  ) {
+    throw new ScalingValidationError(
+      `Calculated total mass must be a finite positive number not exceeding ${SCALING_LIMITS.MAX_TOTAL_GRAMS}g.`,
+      'totalGrams'
+    );
+  }
+
+  return totalGrams;
 }
 
 /**
@@ -88,6 +127,12 @@ export function scaleFoodNutrients(
   if (typeof quantity !== 'number' || !Number.isFinite(quantity) || quantity <= 0) {
     throw new ScalingValidationError(
       'Quantity must be a positive finite number.',
+      'quantity'
+    );
+  }
+  if (quantity > SCALING_LIMITS.MAX_QUANTITY) {
+    throw new ScalingValidationError(
+      `Quantity cannot exceed ${SCALING_LIMITS.MAX_QUANTITY}.`,
       'quantity'
     );
   }
@@ -135,6 +180,31 @@ export function scaleFoodNutrients(
   const carbs = entry.carbsPer100g * factor;
   const fats = entry.fatsPer100g * factor;
 
+  if (!Number.isFinite(calories) || calories < 0 || calories > SCALING_LIMITS.MAX_SCALED_CALORIES) {
+    throw new ScalingValidationError(
+      'Scaled calories calculation exceeded allowable bounds or resulted in non-finite value.',
+      'calories'
+    );
+  }
+  if (!Number.isFinite(protein) || protein < 0 || protein > SCALING_LIMITS.MAX_SCALED_MACROS) {
+    throw new ScalingValidationError(
+      'Scaled protein calculation exceeded allowable bounds or resulted in non-finite value.',
+      'protein'
+    );
+  }
+  if (!Number.isFinite(carbs) || carbs < 0 || carbs > SCALING_LIMITS.MAX_SCALED_MACROS) {
+    throw new ScalingValidationError(
+      'Scaled carbs calculation exceeded allowable bounds or resulted in non-finite value.',
+      'carbs'
+    );
+  }
+  if (!Number.isFinite(fats) || fats < 0 || fats > SCALING_LIMITS.MAX_SCALED_MACROS) {
+    throw new ScalingValidationError(
+      'Scaled fats calculation exceeded allowable bounds or resulted in non-finite value.',
+      'fats'
+    );
+  }
+
   return {
     totalGrams,
     calories,
@@ -166,12 +236,48 @@ export function scaleCustomFoodNutrients(
       'quantity'
     );
   }
+  if (quantity > SCALING_LIMITS.MAX_QUANTITY) {
+    throw new ScalingValidationError(
+      `Quantity cannot exceed ${SCALING_LIMITS.MAX_QUANTITY}.`,
+      'quantity'
+    );
+  }
+
+  if (
+    typeof customFood.servingSize !== 'number' ||
+    !Number.isFinite(customFood.servingSize) ||
+    customFood.servingSize <= 0 ||
+    customFood.servingSize > SCALING_LIMITS.MAX_SERVING_GRAMS
+  ) {
+    throw new ScalingValidationError(
+      'Custom food serving size must be a positive finite number within limits.',
+      'servingSize'
+    );
+  }
 
   const totalGrams = quantity * customFood.servingSize;
   const calories = customFood.calories * quantity;
   const protein = customFood.protein * quantity;
   const carbs = customFood.carbs * quantity;
   const fats = customFood.fats * quantity;
+
+  if (
+    !Number.isFinite(totalGrams) ||
+    totalGrams > SCALING_LIMITS.MAX_TOTAL_GRAMS ||
+    !Number.isFinite(calories) ||
+    calories > SCALING_LIMITS.MAX_SCALED_CALORIES ||
+    !Number.isFinite(protein) ||
+    protein > SCALING_LIMITS.MAX_SCALED_MACROS ||
+    !Number.isFinite(carbs) ||
+    carbs > SCALING_LIMITS.MAX_SCALED_MACROS ||
+    !Number.isFinite(fats) ||
+    fats > SCALING_LIMITS.MAX_SCALED_MACROS
+  ) {
+    throw new ScalingValidationError(
+      'Custom food scaled results exceeded allowable numerical bounds.',
+      'overflow'
+    );
+  }
 
   return {
     totalGrams,
@@ -212,7 +318,7 @@ export function createMealItemSnapshot(
   let preferredLanguage: 'en' | 'ar' = 'en';
 
   if (typeof arg1 === 'string') {
-    id = arg1;
+    id = arg1.trim();
     entry = arg2 as FoodCatalogEntry;
     quantity = arg3 as number;
     servingUnitId = arg4;
@@ -222,7 +328,11 @@ export function createMealItemSnapshot(
     quantity = arg2 as number;
     servingUnitId = arg3 as string | ServingOption;
     preferredLanguage = (typeof arg4 === 'string' && (arg4 === 'en' || arg4 === 'ar') ? arg4 : 'en');
-    id = `item_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    id = '';
+  }
+
+  if (!id) {
+    id = createId('meal-item');
   }
 
   const scaled = scaleFoodNutrients(entry, quantity, servingUnitId);
@@ -263,7 +373,7 @@ export function createCustomFoodMealItemSnapshot(
   let preferredLanguage: 'en' | 'ar' = 'en';
 
   if (typeof arg1 === 'string') {
-    id = arg1;
+    id = arg1.trim();
     customFood = arg2 as CustomFood;
     quantity = arg3 as number;
     preferredLanguage = (typeof arg4 === 'string' && (arg4 === 'en' || arg4 === 'ar') ? arg4 : 'en');
@@ -271,7 +381,11 @@ export function createCustomFoodMealItemSnapshot(
     customFood = arg1 as CustomFood;
     quantity = arg2 as number;
     preferredLanguage = (typeof arg4 === 'string' && (arg4 === 'en' || arg4 === 'ar') ? arg4 : (typeof arg3 === 'string' && (arg3 === 'en' || arg3 === 'ar') ? arg3 : 'en'));
-    id = `cf_item_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    id = '';
+  }
+
+  if (!id) {
+    id = createId('meal-item');
   }
 
   const scaled = scaleCustomFoodNutrients(customFood, quantity);

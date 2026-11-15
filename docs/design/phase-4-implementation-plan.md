@@ -31,10 +31,13 @@
 [ Task 4.1A: Meal Input Validation & Transaction Ownership Hardening ] ──► (COMPLETE - 445 Tests)
        │
        ▼
-[ Task 4.2: Bilingual Food Catalog & Portion Scaling Engine ] ──► (NEXT)
+[ Task 4.2: Bilingual Food Catalog & Portion Scaling Engine ] ──► (COMPLETE - 480 Tests)
        │
        ▼
-[ Task 4.3: Multi-Food Meal Creation, Search UX & Day Navigation ]
+[ Task 4.2A: Food Data Provenance & Portion Scaling Safety ] ──► (COMPLETE - 500 Tests)
+       │
+       ▼
+[ Task 4.3: Multi-Food Meal Creation, Search UX & Day Navigation ] ──► (NEXT)
        │
        ▼
 [ Task 4.4: Nutrition Analytics, Daily Targets & Macro Distribution ]
@@ -168,6 +171,39 @@
 - **Automated Test Requirements:**
   - 35 criteria in `src/__tests__/foodCatalogAndPortionScaling.test.ts` verified.
 - **Success Criteria:** Clean catalog resolution for 158 items; bidirectional scaling accuracy; zero migration errors.
+
+---
+
+### Task 4.2A: Food Data Provenance & Portion Scaling Safety [COMPLETED]
+- **Status:** COMPLETED
+- **Objective:** Verify the authenticity, accuracy, and traceability of Qooti's 158 catalog food records; classify provenance without inventing references; harden portion scaling against overflow and non-finite values; and standardize monotonic snapshot IDs.
+- **Pre-conditions:** Task 4.2 completed; 480 baseline tests passing.
+- **Outcome Metrics:** 500 total passing tests (+20 new tests in `foodCatalogProvenanceAndScalingSafety.test.ts`), 0 failures, 0 skipped, 92.27% overall line coverage, 0 TypeScript errors, 0 ESLint warnings, 20/20 expo-doctor checks passing.
+- **Technical Specifications:**
+  1. **Food Catalog Provenance Audit (`src/data/foodCatalog.ts`, `src/models/food.ts`, `docs/design/food-catalog-source-audit.md`):**
+     - Audited all 158 foods item-by-item against official databases.
+     - Added typed `ProvenanceStatus` (`VERIFIED` | `ESTIMATED` | `UNVERIFIED` | `MISMATCH`) to food models.
+     - 143 verified foods (USDA FoodData Central Foundation and SR Legacy) with direct URLs.
+     - 6 estimated composite regional dishes (SFDA / SFCT) with documented recipe formulations.
+     - 9 unverified single staple foods with transparent placeholder disclaimer.
+     - 0 mismatches.
+     - Generated machine-readable audit catalog in `docs/design/food-catalog-source-audit.md`.
+  2. **Portion Scaling Arithmetic Safety (`src/utils/foodScaling.ts`):**
+     - Enforced `SCALING_LIMITS` (`MAX_QUANTITY = 10_000`, `MAX_SERVING_GRAMS = 100_000`, `MAX_TOTAL_GRAMS = 1_000_000`, `MAX_SCALED_CALORIES = 10_000_000`, `MAX_SCALED_MACROS = 1_000_000`).
+     - Hardened `calculateServingGrams`, `scaleFoodNutrients`, and `scaleCustomFoodNutrients` against non-finite values (`NaN`, `Infinity`, `-Infinity`), negative quantities, and zero quantities.
+     - Thrown descriptive errors on unsupported serving units.
+  3. **Snapshot Monotonic ID Safety (`src/utils/foodScaling.ts`):**
+     - Replaced naive string concatenation (`Date.now() + Math.random()`) in `createMealItemSnapshot` and `createCustomFoodMealItemSnapshot` with `createId('meal-item')`.
+- **Files Affected:**
+  - `src/models/food.ts`
+  - `src/data/foodCatalog.ts`
+  - `src/utils/foodScaling.ts`
+  - `docs/design/food-catalog-source-audit.md` (new)
+  - `src/__tests__/foodCatalogProvenanceAndScalingSafety.test.ts` (new)
+  - `docs/design/food-catalog-and-portion-engine.md`
+- **Automated Test Requirements:**
+  - 20 criteria in `src/__tests__/foodCatalogProvenanceAndScalingSafety.test.ts` verified.
+- **Success Criteria:** 100% of 158 foods cataloged with explicit provenance status; zero scaling overflow; 500 passing tests.
 
 ---
 

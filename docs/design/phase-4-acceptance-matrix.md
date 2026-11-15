@@ -17,7 +17,8 @@
 | **Task 4.1** | Meal Lifecycle, Granular Persistence & Editing | **402** (+14) | **423 Passed (+35)** — Granular SQLite CRUD without `saveAllMeals`, domain validation, local date bounds, atomic delete cascade. |
 | **Task 4.1A** | Meal Input Validation & Transaction Ownership Hardening | **423** | **445 Passed (+22)** — Strict nutrient/quantity parsing, comma/period decimals, reject NaN/Infinity/1e50, leap-year validation, atomic transaction ownership contract without nested calls. |
 | **Task 4.2** | Bilingual Food Catalog & Portion Scaling | **455** (+10) | **480 Passed (+35)** — 158 verified bilingual catalog entries, pure mass-basis portion scaling, custom foods persistence, Arabic search normalization, Migration 9 schema safety. |
-| **Task 4.3** | Multi-Food Meal Creation & Search UX | **424** (+10) | Multi-item meal serialization, search filtering, category pills, date switcher queries. |
+| **Task 4.2A** | Food Data Provenance & Portion Scaling Safety | **480** | **500 Passed (+20)** — 158-item provenance audit (143 verified, 6 estimated, 9 unverified, 0 mismatch), scaling bounds/overflow protection, monotonic `createId('meal-item')`. |
+| **Task 4.3** | Multi-Food Meal Creation & Search UX | **510** (+10) | Multi-item meal serialization, search filtering, category pills, date switcher queries. |
 | **Task 4.4** | Nutrition Analytics & Daily Targets | **434** (+10) | Macro distribution formulas ($4/4/9$), surplus/deficit calculations, progress entry synchronization. |
 | **Task 4.5** | Meal Templates, Favorites & Quick-Log | **442** (+8) | Repeat meal ID isolation, favorite toggling, quick calorie logging without item breakdown. |
 | **Task 4.6** | Cross-Platform UX, A11y & RTL Parity | **450** (+8) | Touch target bounds, screen reader accessibility labels, RTL layout symmetry. |
@@ -50,6 +51,8 @@
 - [x] **AC-CAT-04:** Domain validation strictly rejects negative calories, negative quantities, `NaN`, and `Infinity`.
 - [x] **AC-CAT-05:** Total meal calories equal the sum of child food item calories ($\pm 1\text{ kcal}$ due to integer rounding).
 - [x] **AC-CAT-06:** Strict UI nutrient input parsing distinguishes entered 0 from empty inputs, supports comma/period decimal separators, rejects scientific notation (`1e50`), bounds inputs ($\le 100,000$), and preserves raw user input with localized inline errors.
+- [x] **AC-CAT-07:** All 158 food catalog entries have documented provenance status (`VERIFIED`, `ESTIMATED`, `UNVERIFIED`, `MISMATCH`) with verified sources linked to authoritative public databases (USDA FoodData Central / SFDA SFCT) and synthetic codes transparently classified.
+- [x] **AC-CAT-08:** Portion scaling functions enforce `SCALING_LIMITS` preventing floating-point overflow, reject non-finite inputs (`NaN`, `Infinity`), and meal snapshots use monotonic `createId('meal-item')`.
 
 ### 2.4 User Experience & Workflow Acceptance Criteria
 - [ ] **AC-UI-01:** Users can add multiple food items to a single meal draft before saving.

@@ -29,6 +29,8 @@ export type ServingOption = {
   grams: number; // Mass basis in grams
 };
 
+export type ProvenanceStatus = 'VERIFIED' | 'ESTIMATED' | 'UNVERIFIED' | 'MISMATCH';
+
 export type FoodCatalogEntry = {
   id: string; // Canonical stable slug (e.g. 'chicken-breast-cooked')
   nameEn: string;
@@ -42,9 +44,12 @@ export type FoodCatalogEntry = {
   servingOptions: ServingOption[];
   sourceName: string; // e.g. 'USDA FoodData Central' or 'SFDA'
   sourceReference: string; // e.g. FDC ID or published table code
+  sourceUrl?: string;
   source?: string;
   dataVersion: string; // e.g. '1.0.0'
   preparationState?: PreparationState | string;
+  provenanceStatus?: ProvenanceStatus;
+  recipeNotes?: string;
 };
 
 export type CustomFood = {
