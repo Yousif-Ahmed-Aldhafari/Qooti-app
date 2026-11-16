@@ -1,4 +1,5 @@
 import type { DailyNutritionSummary, Meal, MealItem, Workout } from '../types';
+import type { EffectiveNutritionTargets, TargetSource, TargetState } from './nutritionTargets';
 
 export function calculateMealTotals(items: MealItem[]): DailyNutritionSummary {
   return (items || []).reduce(
@@ -72,6 +73,326 @@ export function formatWeightGainKg(kg: number, unit = 'kg'): string {
 
 export function safeNumber(value: number | undefined): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+export interface DailyNutritionSummaryResult {
+  date: string;
+  mealCount: number;
+  loggedFoodCount: number;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fats: number;
+  hasLoggedMeals: boolean;
+  dataQualityFlags: string[];
+}
+
+/**
+ * Pure, authoritative daily nutrition aggregator.
+ * - Filters strictly by selected local calendar date (YYYY-MM-DD).
+ * - Excludes undated and missing-date meals.
+ * - Aggregates stored nutrient snapshots without recalculating or re-scaling.
+ * - Handles both multi-food items and itemless legacy meals.
+ * - Flags invalid numeric values (NaN, Infinity, negative) and sanitizes safely.
+ * - Distinguishes between zero measured intake and no logged meals.
+ */
+export function getDailyNutritionSummary(
+  meals: Meal[] | undefined | null,
+  selectedDate: string
+): DailyNutritionSummaryResult {
+  const targetDate = (selectedDate || '').trim();
+  const dataQualityFlags: string[] = [];
+
+  function checkAndSanitize(val: unknown, fieldName: string): number {
+    if (typeof val !== 'number' || !Number.isFinite(val)) {
+      const flag = `INVALID_${fieldName.toUpperCase()}`;
+      if (!dataQualityFlags.includes(flag)) {
+        dataQualityFlags.push(flag);
+      }
+      return 0;
+    }
+    if (val < 0) {
+      const flag = `NEGATIVE_${fieldName.toUpperCase()}`;
+      if (!dataQualityFlags.includes(flag)) {
+        dataQualityFlags.push(flag);
+      }
+      return 0;
+    }
+    return val;
+  }
+
+  if (!meals || meals.length === 0 || !targetDate) {
+    return {
+      date: targetDate,
+      mealCount: 0,
+      loggedFoodCount: 0,
+      calories: 0,
+      protein: 0,
+      carbs: 0,
+      fats: 0,
+      hasLoggedMeals: false,
+      dataQualityFlags,
+    };
+  }
+
+  // Filter strictly for the active date (excluding undated meals)
+  const mealsOnDate = meals.filter((m) => {
+    if (!m.date || typeof m.date !== 'string') return false;
+    const trimmed = m.date.trim();
+    if (!trimmed) return false;
+    return trimmed.slice(0, 10) === targetDate;
+  });
+
+  if (mealsOnDate.length === 0) {
+    return {
+      date: targetDate,
+      mealCount: 0,
+      loggedFoodCount: 0,
+      calories: 0,
+      protein: 0,
+      carbs: 0,
+      fats: 0,
+      hasLoggedMeals: false,
+      dataQualityFlags,
+    };
+  }
+
+  let totalCalories = 0;
+  let totalProtein = 0;
+  let totalCarbs = 0;
+  let totalFats = 0;
+  let loggedFoodCount = 0;
+
+  for (const meal of mealsOnDate) {
+    if (meal.items && meal.items.length > 0) {
+      loggedFoodCount += meal.items.length;
+      for (const item of meal.items) {
+        totalCalories += checkAndSanitize(item.calories, 'calories');
+        totalProtein += checkAndSanitize(item.protein, 'protein');
+        totalCarbs += checkAndSanitize(item.carbs, 'carbs');
+        totalFats += checkAndSanitize(item.fats ?? item.fat, 'fats');
+      }
+    } else {
+      // Legacy itemless meal fallback
+      const cal = checkAndSanitize(meal.totalCalories, 'calories');
+      const prot = checkAndSanitize(meal.totalProtein, 'protein');
+      const carb = checkAndSanitize(meal.totalCarbs, 'carbs');
+      const fat = checkAndSanitize(meal.totalFat ?? meal.totalFats, 'fats');
+      if (cal > 0 || prot > 0 || carb > 0 || fat > 0) {
+        loggedFoodCount += 1;
+      }
+      totalCalories += cal;
+      totalProtein += prot;
+      totalCarbs += carb;
+      totalFats += fat;
+    }
+  }
+
+  return {
+    date: targetDate,
+    mealCount: mealsOnDate.length,
+    loggedFoodCount,
+    calories: totalCalories,
+    protein: totalProtein,
+    carbs: totalCarbs,
+    fats: totalFats,
+    hasLoggedMeals: true,
+    dataQualityFlags,
+  };
+}
+
+export interface TargetProgressItem {
+  consumed: number;
+  target: number | null;
+  rawRatio: number | null;
+  boundedRatio: number | null;
+  isExceeded: boolean;
+  isReached: boolean;
+  remaining: number | null;
+  overage: number | null;
+  hasTarget: boolean;
+}
+
+export interface NutritionTargetProgress {
+  hasActiveTarget: boolean;
+  state: TargetState;
+  source: TargetSource;
+  isCustomOverride: boolean;
+  calories: TargetProgressItem;
+  protein: TargetProgressItem;
+  carbs: TargetProgressItem;
+  fats: TargetProgressItem;
+}
+
+/**
+ * Calculates accessible progress metrics against authoritative nutrition targets.
+ * - Returns raw ratios for textual display and bounded (0..1) ratios for visual progress bars.
+ * - Respects target authorization states; does NOT fabricate progress when hasActiveTarget is false.
+ * - Handles custom overrides where individual macro targets might not be specified.
+ * - Exposes neutral, non-judgmental remaining and overage values.
+ */
+export function calculateNutritionTargetProgress(
+  intake: { calories: number; protein: number; carbs: number; fats: number; hasLoggedMeals?: boolean },
+  effectiveTargets: EffectiveNutritionTargets
+): NutritionTargetProgress {
+  const hasActive = effectiveTargets.hasActiveTarget === true;
+
+  function buildProgressItem(consumedVal: number, targetVal: number | null | undefined): TargetProgressItem {
+    const consumed = Math.max(0, safeNumber(consumedVal));
+    if (!hasActive || targetVal == null || !Number.isFinite(targetVal) || targetVal <= 0) {
+      return {
+        consumed,
+        target: null,
+        rawRatio: null,
+        boundedRatio: null,
+        isExceeded: false,
+        isReached: false,
+        remaining: null,
+        overage: null,
+        hasTarget: false,
+      };
+    }
+
+    const target = targetVal;
+    const rawRatio = target > 0 ? consumed / target : null;
+    const boundedRatio = rawRatio !== null ? Math.min(1, Math.max(0, rawRatio)) : null;
+    const isReached = consumed >= target;
+    const isExceeded = consumed > target;
+    const remaining = Math.max(0, target - consumed);
+    const overage = Math.max(0, consumed - target);
+
+    return {
+      consumed,
+      target,
+      rawRatio,
+      boundedRatio,
+      isExceeded,
+      isReached,
+      remaining,
+      overage,
+      hasTarget: true,
+    };
+  }
+
+  const calorieTarget = hasActive
+    ? (effectiveTargets.rawCalories ?? effectiveTargets.calories)
+    : null;
+
+  // In custom override mode, only evaluate macro targets that the user explicitly configured
+  const proteinTarget = hasActive
+    ? (effectiveTargets.isCustomOverride ? effectiveTargets.rawProtein : (effectiveTargets.rawProtein ?? effectiveTargets.protein))
+    : null;
+
+  const carbsTarget = hasActive
+    ? (effectiveTargets.isCustomOverride ? effectiveTargets.rawCarbs : (effectiveTargets.rawCarbs ?? effectiveTargets.carbs))
+    : null;
+
+  const fatsTarget = hasActive
+    ? (effectiveTargets.isCustomOverride ? effectiveTargets.rawFats : (effectiveTargets.rawFats ?? effectiveTargets.fats))
+    : null;
+
+  return {
+    hasActiveTarget: hasActive,
+    state: effectiveTargets.state,
+    source: effectiveTargets.source,
+    isCustomOverride: effectiveTargets.isCustomOverride,
+    calories: buildProgressItem(intake.calories, calorieTarget),
+    protein: buildProgressItem(intake.protein, proteinTarget),
+    carbs: buildProgressItem(intake.carbs, carbsTarget),
+    fats: buildProgressItem(intake.fats, fatsTarget),
+  };
+}
+
+export interface MacroDistribution {
+  proteinKcal: number;
+  carbsKcal: number;
+  fatsKcal: number;
+  totalMacroKcal: number;
+  proteinPct: number;
+  carbsPct: number;
+  fatsPct: number;
+  rawProteinPct: number;
+  rawCarbsPct: number;
+  rawFatsPct: number;
+  loggedCalories: number;
+  calorieDifference: number;
+}
+
+/**
+ * Computes macronutrient energy distribution using Atwater general factors:
+ * Protein: 4 kcal/g, Carbohydrates: 4 kcal/g, Fats: 9 kcal/g.
+ * - Handles zero macro-energy safely (all percentages 0).
+ * - Ensures integer percentages sum cleanly to 100% when total macro energy > 0.
+ * - Preserves independence between logged food calories and derived macro calories.
+ */
+export function calculateMacroDistribution(intake: {
+  protein: number;
+  carbs: number;
+  fats: number;
+  calories?: number;
+}): MacroDistribution {
+  const protGrams = Math.max(0, safeNumber(intake.protein));
+  const carbGrams = Math.max(0, safeNumber(intake.carbs));
+  const fatGrams = Math.max(0, safeNumber(intake.fats));
+  const loggedCal = Math.max(0, safeNumber(intake.calories));
+
+  const proteinKcal = protGrams * 4;
+  const carbsKcal = carbGrams * 4;
+  const fatsKcal = fatGrams * 9;
+  const totalMacroKcal = proteinKcal + carbsKcal + fatsKcal;
+
+  if (totalMacroKcal <= 0) {
+    return {
+      proteinKcal: 0,
+      carbsKcal: 0,
+      fatsKcal: 0,
+      totalMacroKcal: 0,
+      proteinPct: 0,
+      carbsPct: 0,
+      fatsPct: 0,
+      rawProteinPct: 0,
+      rawCarbsPct: 0,
+      rawFatsPct: 0,
+      loggedCalories: loggedCal,
+      calorieDifference: loggedCal,
+    };
+  }
+
+  const rawProteinPct = (proteinKcal / totalMacroKcal) * 100;
+  const rawCarbsPct = (carbsKcal / totalMacroKcal) * 100;
+  const rawFatsPct = (fatsKcal / totalMacroKcal) * 100;
+
+  let p = Math.round(rawProteinPct);
+  let c = Math.round(rawCarbsPct);
+  let f = Math.round(rawFatsPct);
+
+  // Largest-remainder / sum adjustment to guarantee exactly 100%
+  const sum = p + c + f;
+  if (sum !== 100) {
+    const diff = 100 - sum;
+    if (p >= c && p >= f) {
+      p += diff;
+    } else if (c >= p && c >= f) {
+      c += diff;
+    } else {
+      f += diff;
+    }
+  }
+
+  return {
+    proteinKcal,
+    carbsKcal,
+    fatsKcal,
+    totalMacroKcal,
+    proteinPct: Math.max(0, p),
+    carbsPct: Math.max(0, c),
+    fatsPct: Math.max(0, f),
+    rawProteinPct,
+    rawCarbsPct,
+    rawFatsPct,
+    loggedCalories: loggedCal,
+    calorieDifference: loggedCal - totalMacroKcal,
+  };
 }
 
 export interface StrictParseResult {

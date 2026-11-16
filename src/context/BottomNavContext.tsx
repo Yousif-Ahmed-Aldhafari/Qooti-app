@@ -43,38 +43,40 @@ export function useBottomNav() {
 }
 
 export function useBottomNavScrollHandler() {
-  const { setBottomNavCompact } = useBottomNav();
+  const context = useContext(BottomNavContext);
   const previousYRef = useRef(0);
 
   useEffect(() => {
-    previousYRef.current = 0;
-    setBottomNavCompact(false);
-
-    return () => setBottomNavCompact(false);
-  }, [setBottomNavCompact]);
+    if (context) {
+      previousYRef.current = 0;
+      context.setBottomNavCompact(false);
+      return () => context.setBottomNavCompact(false);
+    }
+  }, [context]);
 
   return useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      if (!context) return;
       const currentY = Math.max(0, event.nativeEvent.contentOffset.y);
       const previousY = previousYRef.current;
 
       if (currentY <= SCROLL_THRESHOLD) {
         previousYRef.current = currentY;
-        setBottomNavCompact(false);
+        context.setBottomNavCompact(false);
         return;
       }
 
       if (currentY > previousY + SCROLL_THRESHOLD) {
         previousYRef.current = currentY;
-        setBottomNavCompact(true);
+        context.setBottomNavCompact(true);
         return;
       }
 
       if (currentY < previousY - SCROLL_THRESHOLD) {
         previousYRef.current = currentY;
-        setBottomNavCompact(false);
+        context.setBottomNavCompact(false);
       }
     },
-    [setBottomNavCompact],
+    [context],
   );
 }

@@ -20,7 +20,7 @@
 | **Task 4.2A** | Food Data Provenance & Portion Scaling Safety | **480** | **500 Passed (+20)** — 158-item provenance audit (143 verified, 6 estimated, 9 unverified, 0 mismatch), scaling bounds/overflow protection, monotonic `createId('meal-item')`. |
 | **Task 4.3** | Multi-Food Meal Creation & Search UX | **510** (+10) | **540 Passed (+40)** — Multi-food drafts, food search picker with portion selector, manual food entries, day-by-day navigation, slot categorization, legacy meal compatibility. |
 | **Task 4.3A** | Daily Diary Date Integrity & Navigation Hardening | **540** | **565 Passed (+25)** — Undated legacy meal isolation, zero daily totals inflation, live local midnight rollover, AppState resume listener, persistent selected date across Add/Edit/Delete, tabs, and language switches. |
-| **Task 4.4** | Nutrition Analytics & Daily Targets | **575** (+10) | Macro distribution formulas ($4/4/9$), surplus/deficit calculations, progress entry synchronization. |
+| **Task 4.4** | Nutrition Analytics & Daily Targets | **575** (+10) | **605 Passed (+40)** — Pure aggregator `getDailyNutritionSummary`, target progress engine with fallback handling, Atwater 4/4/9 macro distribution with 100% integer normalization, `MacroDistributionBar` component, `MealsScreen` dashboard card, and `ProgressScreen` real meal aggregation. |
 | **Task 4.5** | Meal Templates, Favorites & Quick-Log | **442** (+8) | Repeat meal ID isolation, favorite toggling, quick calorie logging without item breakdown. |
 | **Task 4.6** | Cross-Platform UX, A11y & RTL Parity | **450** (+8) | Touch target bounds, screen reader accessibility labels, RTL layout symmetry. |
 | **Task 4.7** | Final Acceptance & Merge Readiness | **450+** | Full 11-step migration upgrade matrix (V0 through V9), cross-platform regression suite. |
@@ -62,6 +62,16 @@
 - [x] **AC-UI-04:** Users can delete any previously logged meal with a two-step confirmation dialog.
 - [x] **AC-UI-05:** Meals screen supports day-by-day navigation with today, yesterday, and calendar selector.
 - [x] **AC-UI-06:** Empty state displays friendly illustrations and quick-add actions when no meals are logged for a selected date.
+
+### 2.5 Nutrition Analytics & Target Acceptance Criteria
+- [x] **AC-ANL-01:** `getDailyNutritionSummary` aggregates only meals matching the exact `YYYY-MM-DD` date and strictly excludes undated meals (`date: ''`) without mutating or dropping them.
+- [x] **AC-ANL-02:** When meal child items are absent, `getDailyNutritionSummary` cleanly falls back to meal-level total calories and macros.
+- [x] **AC-ANL-03:** Non-finite or negative nutritional values (`NaN`, `Infinity`, `< 0`) are sanitized to zero for summaries, flagged via `hasInvalidNutrients`, and leave persisted SQLite rows untouched.
+- [x] **AC-ANL-04:** `calculateNutritionTargetProgress` reuses authoritative `resolveEffectiveNutritionTargets(profile)` without creating redundant calculation logic, correctly honoring all target statuses (`ready`, `unconfirmed`, `unsupported`, `conflicting`, `invalid`, `missing`).
+- [x] **AC-ANL-05:** When `hasActiveTarget === false`, `SAFE_FALLBACK_TARGETS` are never presented as approved user goals, and UI setup banners guide the user to complete profile setup.
+- [x] **AC-ANL-06:** `calculateMacroDistribution` derives macro energy via Atwater factors ($4\text{ kcal/g}$ protein, $4\text{ kcal/g}$ carbs, $9\text{ kcal/g}$ fats) and guarantees integer percentages sum strictly to $100\%$ via largest-remainder normalization (or $0\%$ when no macros are logged).
+- [x] **AC-ANL-07:** Label calories logged by the user remain completely independent from macro-derived energy estimates.
+- [x] **AC-ANL-08:** `ProgressScreen` accepts live meals from `AppContext` and computes real daily calories and weekly averages strictly over logged days (`-- kcal` when unlogged), while maintaining authoritative weight and workout metrics from `progress`.
 
 ---
 

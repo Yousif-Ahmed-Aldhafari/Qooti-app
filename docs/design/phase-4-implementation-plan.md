@@ -43,10 +43,10 @@
 [ Task 4.3A: Daily Diary Date Integrity & Navigation Hardening ] ──► (COMPLETE - 565 Tests)
        │
        ▼
-[ Task 4.4: Nutrition Analytics, Daily Targets & Macro Distribution ] ──► (NEXT)
+[ Task 4.4: Nutrition Analytics, Daily Targets & Macro Distribution ] ──► (COMPLETE - 605 Tests)
        │
        ▼
-[ Task 4.5: Meal Templates, Favorites & Quick-Log ]
+[ Task 4.5: Meal Templates, Favorites & Quick-Log ] ──► (NEXT)
        │
        ▼
 [ Task 4.6: Cross-Platform UI/UX, A11y & Arabic Parity Hardening ]
@@ -284,30 +284,61 @@
 
 ---
 
-### Task 4.4: Nutrition Analytics, Daily Targets & Macro Distribution
-- **Objective:** Synchronize logged meals with daily targets, calculate macronutrient percentage distributions, and update historical progress entries.
-- **Pre-conditions:** Task 4.3 completed and verified.
+### Task 4.4: Nutrition Analytics, Daily Targets & Macro Distribution [COMPLETED]
+- **Status:** COMPLETED
+- **Objective:** Synchronize logged meals with daily personalization targets, compute Atwater-based macronutrient distributions, display non-judgmental adherence metrics, and integrate real daily nutrition intake into the Progress Screen weekly trends.
+- **Pre-conditions:** Task 4.3 and Task 4.3A completed and verified; 565 baseline tests passing.
+- **Outcome Metrics:** 605 total passing tests (+40 new tests in `nutritionAnalyticsAndTargets.test.ts`), 0 failures, 0 skipped, 0 TypeScript errors, 0 ESLint warnings, 88.76% line coverage, 20/20 expo-doctor checks passing.
 - **Technical Specifications:**
-  1. **Macro Distribution & Analytics Engine (`src/utils/nutritionAnalytics.ts`):**
-     - Compute calorie percentages from macros:
-       $$\%P = \frac{\text{Protein} \times 4}{\text{Total kcal}} \times 100, \quad \%C = \frac{\text{Carbs} \times 4}{\text{Total kcal}} \times 100, \quad \%F = \frac{\text{Fats} \times 9}{\text{Total kcal}} \times 100$$
-     - Calorie balance comparison vs effective target from `resolveEffectiveNutritionTargets`.
-     - Surplus/deficit calculation with safe weekly weight change estimates.
-  2. **Progress Synchronization:**
-     - Automatically update or aggregate `progress_entries` in SQLite when meals are saved or deleted.
-     - Connect `ProgressScreen` weekly chart to actual logged nutrition history.
-  3. **Visual Macro Breakdown Card (`MacroDistributionCard.tsx`):**
-     - Render visual macro split bar (Protein/Carbs/Fats) on `MealDetailsScreen` and `MealsScreen`.
+  1. **Daily Nutrition Aggregation (`getDailyNutritionSummary` in `src/utils/nutrition.ts`):**
+     - Pure functional aggregation over `Meal[]` for specified calendar date (`YYYY-MM-DD`).
+     - Strict date boundary isolation; excludes undated legacy meals (`date: ''`) without mutating or dropping them.
+     - Preserves itemless meal totals fallback when child items are absent.
+     - Counts total distinct meals and total food items logged.
+     - Sanitizes non-finite or negative numbers (`NaN`, `Infinity`, `< 0`), flagging invalid numbers via `hasInvalidNutrients` while preserving stored snapshots.
+  2. **Authoritative Target Integration & Adherence Engine (`calculateNutritionTargetProgress` in `src/utils/nutrition.ts`):**
+     - Reuses authoritative `resolveEffectiveNutritionTargets(profile)` without redundant target logic.
+     - Honors all target statuses (`ready`, `unconfirmed`, `unsupported`, `conflicting`, `invalid`, `missing`).
+     - Never presents fallback targets (`SAFE_FALLBACK_TARGETS`) as confirmed goals when `hasActiveTarget === false`.
+     - Computes raw ratio and visually bounded progress ratio ($[0, 1.0]$) for UI bars.
+     - Computes non-judgmental adherence values: `remainingCalories`, `overTargetCalories`, `isTargetReached`, and macro progress items.
+     - Handles custom overrides where individual macro targets are unconfigured (`null`).
+  3. **Macronutrient Energy Distribution (`calculateMacroDistribution` in `src/utils/nutrition.ts`):**
+     - Computes macro energy using Atwater factors: Protein $4\text{ kcal/g}$, Carbs $4\text{ kcal/g}$, Fats $9\text{ kcal/g}$.
+     - Normalizes integer percentages to sum strictly to $100\%$ using the largest-remainder method.
+     - Handles zero total macro energy safely ($0\% / 0\% / 0\%$) without division by zero.
+     - Keeps logged label calories independent from macro-derived energy estimates.
+  4. **Macro Distribution UI Component (`src/components/MacroDistributionBar.tsx`):**
+     - Multi-segment horizontal pill bar (Protein: Purple, Carbs: Primary Green, Fats: Orange).
+     - Individual macro breakdown chips with localized gram, kcal, and integer percentage badges.
+     - Explanatory footnote referencing standard $4/4/9\text{ kcal/g}$ conversion.
+     - Full VoiceOver/TalkBack accessibility labels and RTL/LTR layout mirroring.
+  5. **Daily Nutrition Dashboard in `MealsScreen.tsx`:**
+     - Replaced basic summary with comprehensive Daily Nutrition Dashboard card.
+     - Hero calorie section displaying consumed vs target, calorie progress bar, and status badge (`Over target`, `Remaining`, `Target reached`).
+     - Actionable profile setup banners for `unconfirmed`, `unsupported`, and `conflicting` target states.
+     - Responsive macro grid (`MacroCard`s) and embedded `MacroDistributionBar`.
+     - Friendly empty-day card with quick "Add Food" action when no meals are logged.
+  6. **Progress Screen Live Meal Aggregation (`src/screens/ProgressScreen.tsx`):**
+     - Accepts optional `meals?: Meal[]` prop, connected via `AppNavigator.tsx`.
+     - Derives real daily calorie consumption for each day of the week using `getDailyNutritionSummary`.
+     - Averages weekly calories strictly across logged days, displaying `-- kcal` when unlogged.
+     - Renders real calorie heights and distinct unlogged placeholders in Weekly Trend chart.
+     - Preserves authoritative weight and workout days unchanged from `progress` models.
 - **Files Affected:**
-  - `src/utils/nutritionAnalytics.ts` (new)
-  - `src/components/MacroDistributionCard.tsx` (new)
-  - `src/screens/ProgressScreen.tsx`
-  - `src/screens/HomeScreen.tsx`
-  - `src/services/progressService.ts`
-- **Automated Test Requirements:**
-  - Macro percentage calculation tests (handling 0 total calories without division by zero).
-  - Target remaining / over-target calculation tests.
-  - Progress entry synchronization tests.
+  - `src/utils/nutrition.ts` (updated)
+  - `src/components/MacroDistributionBar.tsx` (new)
+  - `src/screens/MealsScreen.tsx` (updated)
+  - `src/screens/ProgressScreen.tsx` (updated)
+  - `src/navigation/AppNavigator.tsx` (updated)
+  - `src/context/BottomNavContext.tsx` (updated)
+  - `src/i18n/en.ts` & `src/i18n/ar.ts` (updated)
+  - `src/__tests__/mocks/react-native.ts` (updated)
+  - `src/__tests__/mocks/vector-icons.ts` (new)
+  - `src/__tests__/mocks/expo-blur.ts` (new)
+  - `tsconfig.test.json` (updated)
+  - `src/__tests__/nutritionAnalyticsAndTargets.test.ts` (new - 40 tests)
+- **Success Criteria:** Verified pure read-only analytics, target adherence calculation, 100% macro distribution normalization, Progress screen real-meal aggregation, and dual-platform UI parity. All 605 tests passing.
 - **Success Criteria:** Accurate macro distribution charts; real meal data reflected in ProgressScreen.
 
 ---

@@ -5,6 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { AppButton } from '../components/AppButton';
 import { AppHeader } from '../components/AppHeader';
 import { EmptyState } from '../components/EmptyState';
+import { MacroCard } from '../components/MacroCard';
+import { MacroDistributionBar } from '../components/MacroDistributionBar';
 import { MealCard } from '../components/MealCard';
 import { useBottomNavScrollHandler } from '../context/BottomNavContext';
 import { useLiveLocalDate } from '../hooks/useLiveLocalDate';
@@ -20,7 +22,11 @@ import {
   getNextCalendarDate,
   getPreviousCalendarDate,
 } from '../utils/date';
-import { calculateDailyNutrition } from '../utils/nutrition';
+import {
+  calculateMacroDistribution,
+  calculateNutritionTargetProgress,
+  getDailyNutritionSummary,
+} from '../utils/nutrition';
 import { resolveEffectiveNutritionTargets } from '../utils/nutritionTargets';
 import { activeRowStyle, activeTextAlign, activeWritingDirection } from '../utils/rtl';
 
@@ -101,12 +107,20 @@ export function MealsScreen({
     });
   }, [meals]);
 
-  // Calculate actual daily nutrition totals strictly for selected day
-  const dailyTotals = useMemo(
-    () => calculateDailyNutrition(selectedDateMeals),
-    [selectedDateMeals]
+  // Pure authoritative daily nutrition summary for selected date
+  const dailySummary = useMemo(
+    () => getDailyNutritionSummary(meals, activeDate),
+    [meals, activeDate]
   );
   const effectiveTargets = useMemo(() => resolveEffectiveNutritionTargets(profile), [profile]);
+  const targetProgress = useMemo(
+    () => calculateNutritionTargetProgress(dailySummary, effectiveTargets),
+    [dailySummary, effectiveTargets]
+  );
+  const macroDistribution = useMemo(
+    () => calculateMacroDistribution(dailySummary),
+    [dailySummary]
+  );
 
   // Group meals by mealType
   const groupedMeals = useMemo(() => {
@@ -230,36 +244,159 @@ export function MealsScreen({
         </Pressable>
       </View>
 
-      {/* Daily Nutrition Summary Card for Selected Date */}
-      {effectiveTargets.hasActiveTarget ? (
-        <View style={[styles.summaryCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.summaryTitle, directionalText, { color: colors.text }]}>
-            {t('nutrition.title')}
+      {/* Daily Nutrition Dashboard for Selected Date */}
+      <View style={[styles.dashboardCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={[styles.dashboardHeader, activeRowStyle()]}>
+          <Text style={[styles.dashboardTitle, directionalText, { color: colors.text }]}>
+            {t('nutrition.title') || 'Daily Nutrition Summary'}
           </Text>
-          <View style={[styles.summaryRow, activeRowStyle()]}>
-            <Text style={[styles.summaryMetric, directionalText, { color: colors.accent }]}>
-              {`${Math.round(dailyTotals.calories)} / ${effectiveTargets.calories} ${t('common.kcal')}`}
+          {effectiveTargets.hasActiveTarget ? (
+            <View style={[styles.targetBadge, { backgroundColor: `${colors.primary}15` }]}>
+              <Text style={[styles.targetBadgeText, { color: colors.primary }]}>
+                {effectiveTargets.isCustomOverride
+                  ? (t('targets.customTarget') || 'Custom Goal')
+                  : (t('targets.activeGoal') || 'Daily Goal')}
+              </Text>
+            </View>
+          ) : (
+            <View style={[styles.targetBadge, { backgroundColor: `${colors.warning}15` }]}>
+              <Text style={[styles.targetBadgeText, { color: colors.warning }]}>
+                {effectiveTargets.setupPrompt?.titleKey
+                  ? (t(effectiveTargets.setupPrompt.titleKey) || 'Unconfirmed')
+                  : (t('personalization.unconfirmedStatus') || 'Unconfirmed')}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {!dailySummary.hasLoggedMeals ? (
+          <View style={styles.emptyDayWrap}>
+            <Text style={[styles.emptyDayTitle, directionalText, { color: colors.textSecondary }]}>
+              {t('meals.noMealsForDate') || 'No meals logged for this day.'}
             </Text>
-            <Text style={[styles.summarySub, directionalText, { color: colors.textMuted }]}>
-              {`${Math.round(dailyTotals.protein)}g ${t('common.protein')} · ${Math.round(dailyTotals.carbs)}g ${t('common.carbs')} · ${Math.round(dailyTotals.fats)}g ${t('common.fats')}`}
+            <Text style={[styles.emptyDaySubtitle, directionalText, { color: colors.textMuted }]}>
+              {t('nutrition.emptyMessage') || 'Add your first meal to see nutrition totals.'}
             </Text>
           </View>
-        </View>
-      ) : (
-        <View style={[styles.summaryCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.summaryTitle, directionalText, { color: colors.text }]}>
-            {t('nutrition.title')}
-          </Text>
-          <View style={[styles.summaryRow, activeRowStyle()]}>
-            <Text style={[styles.summaryMetric, directionalText, { color: colors.accent }]}>
-              {`${Math.round(dailyTotals.calories)} ${t('common.kcal')}`}
-            </Text>
-            <Text style={[styles.summarySub, directionalText, { color: colors.textMuted }]}>
-              {`${Math.round(dailyTotals.protein)}g ${t('common.protein')} · ${Math.round(dailyTotals.carbs)}g ${t('common.carbs')} · ${Math.round(dailyTotals.fats)}g ${t('common.fats')}`}
-            </Text>
-          </View>
-        </View>
-      )}
+        ) : (
+          <>
+            <View style={styles.calorieHeroWrap}>
+              <View style={[styles.calorieHeroRow, activeRowStyle()]}>
+                <View>
+                  <Text style={[styles.heroConsumedNumber, directionalText, { color: colors.accent }]}>
+                    {Math.round(dailySummary.calories)}
+                    <Text style={[styles.heroUnit, { color: colors.textMuted }]}>
+                      {effectiveTargets.hasActiveTarget && targetProgress.calories.hasTarget
+                        ? ` / ${targetProgress.calories.target} ${t('common.kcal') || 'kcal'}`
+                        : ` ${t('common.kcal') || 'kcal'}`}
+                    </Text>
+                  </Text>
+                  <Text style={[styles.heroFoodCount, directionalText, { color: colors.textMuted }]}>
+                    {`${dailySummary.mealCount} ${t('nutrition.mealsCount', { count: dailySummary.mealCount }) || 'meals'} · ${dailySummary.loggedFoodCount} ${t('nutrition.foodItemsCount', { count: dailySummary.loggedFoodCount }) || 'foods'}`}
+                  </Text>
+                </View>
+
+                {effectiveTargets.hasActiveTarget && targetProgress.calories.hasTarget && (
+                  <View
+                    style={[
+                      styles.adherenceBadge,
+                      {
+                        backgroundColor: targetProgress.calories.isExceeded
+                          ? `${colors.warning}20`
+                          : `${colors.primary}15`,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.adherenceBadgeText,
+                        {
+                          color: targetProgress.calories.isExceeded ? colors.warning : colors.primary,
+                        },
+                      ]}
+                    >
+                      {targetProgress.calories.isExceeded
+                        ? (t('nutrition.overTarget', { amount: Math.round(targetProgress.calories.overage ?? 0) }) || `+${Math.round(targetProgress.calories.overage ?? 0)} kcal over`)
+                        : targetProgress.calories.isReached
+                        ? (t('nutrition.targetReached') || 'Target reached')
+                        : (t('nutrition.remaining', { amount: Math.round(targetProgress.calories.remaining ?? 0) }) || `${Math.round(targetProgress.calories.remaining ?? 0)} kcal remaining`)}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              {effectiveTargets.hasActiveTarget && targetProgress.calories.hasTarget && (
+                <View style={[styles.calorieBarTrack, { backgroundColor: colors.cardMuted }]}>
+                  <View
+                    style={[
+                      styles.calorieBarFill,
+                      {
+                        width: `${(targetProgress.calories.boundedRatio ?? 0) * 100}%`,
+                        backgroundColor: targetProgress.calories.isExceeded ? colors.warning : colors.accent,
+                      },
+                    ]}
+                  />
+                </View>
+              )}
+            </View>
+
+            {!effectiveTargets.hasActiveTarget && (
+              <View
+                style={[
+                  styles.unconfirmedBanner,
+                  activeRowStyle(),
+                  { backgroundColor: `${colors.warning}10`, borderColor: `${colors.warning}30` },
+                ]}
+              >
+                <Ionicons name="information-circle-outline" size={18} color={colors.warning} />
+                <Text style={[styles.unconfirmedBannerText, directionalText, { color: colors.textSecondary }]}>
+                  {effectiveTargets.setupPrompt?.messageKey
+                    ? t(effectiveTargets.setupPrompt.messageKey)
+                    : (t('nutrition.unconfirmedTargetsBanner') || 'Targets not yet active. Set up your profile to enable personalized nutrition targets.')}
+                </Text>
+              </View>
+            )}
+
+            <View style={[styles.macroGrid, activeRowStyle()]}>
+              <MacroCard
+                label={t('common.protein') || 'Protein'}
+                value={dailySummary.protein}
+                target={targetProgress.protein.hasTarget ? targetProgress.protein.target : null}
+                hasTarget={targetProgress.protein.hasTarget}
+                unavailableLabel={t('personalization.unconfirmedStatus') || 'Unconfirmed'}
+                unit={t('common.grams') || 'g'}
+                accent={colors.purple}
+              />
+              <MacroCard
+                label={t('common.carbs') || 'Carbs'}
+                value={dailySummary.carbs}
+                target={targetProgress.carbs.hasTarget ? targetProgress.carbs.target : null}
+                hasTarget={targetProgress.carbs.hasTarget}
+                unavailableLabel={t('personalization.unconfirmedStatus') || 'Unconfirmed'}
+                unit={t('common.grams') || 'g'}
+                accent={colors.primary}
+              />
+              <MacroCard
+                label={t('common.fats') || 'Fats'}
+                value={dailySummary.fats}
+                target={targetProgress.fats.hasTarget ? targetProgress.fats.target : null}
+                hasTarget={targetProgress.fats.hasTarget}
+                unavailableLabel={t('personalization.unconfirmedStatus') || 'Unconfirmed'}
+                unit={t('common.grams') || 'g'}
+                accent={colors.orange}
+              />
+            </View>
+
+            <View style={[styles.distributionWrap, { borderTopColor: colors.border }]}>
+              <MacroDistributionBar
+                distribution={macroDistribution}
+                t={t}
+                showFootnote={true}
+              />
+            </View>
+          </>
+        )}
+      </View>
 
       {/* Meals Grouped by Slot */}
       {selectedDateMeals.length > 0 ? (
@@ -396,29 +533,103 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
-  summaryCard: {
+  dashboardCard: {
     borderRadius: radius.md,
     borderWidth: 1,
     padding: spacing.md,
-    gap: spacing.xs,
+    gap: spacing.md,
   },
-  summaryTitle: {
+  dashboardHeader: {
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  dashboardTitle: {
     ...typography.caption,
     fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  summaryRow: {
+  targetBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+  },
+  targetBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  emptyDayWrap: {
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  emptyDayTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  emptyDaySubtitle: {
+    ...typography.caption,
+    textAlign: 'center',
+  },
+  calorieHeroWrap: {
+    gap: spacing.sm,
+  },
+  calorieHeroRow: {
     justifyContent: 'space-between',
-    alignItems: 'baseline',
+    alignItems: 'center',
     flexWrap: 'wrap',
     gap: spacing.xs,
   },
-  summaryMetric: {
+  heroConsumedNumber: {
+    ...typography.h2,
+    fontWeight: '800',
+  },
+  heroUnit: {
     ...typography.h3,
+    fontWeight: '500',
+  },
+  heroFoodCount: {
+    ...typography.caption,
+    marginTop: 2,
+  },
+  adherenceBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+  },
+  adherenceBadgeText: {
+    fontSize: 12,
     fontWeight: '700',
   },
-  summarySub: {
+  calorieBarTrack: {
+    height: 8,
+    borderRadius: radius.pill,
+    overflow: 'hidden',
+    width: '100%',
+  },
+  calorieBarFill: {
+    height: '100%',
+    borderRadius: radius.pill,
+  },
+  unconfirmedBanner: {
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.sm,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+  },
+  unconfirmedBannerText: {
     ...typography.caption,
+    flex: 1,
     fontSize: 12,
+  },
+  macroGrid: {
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  distributionWrap: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: spacing.sm,
   },
   slotSection: {
     gap: spacing.sm,

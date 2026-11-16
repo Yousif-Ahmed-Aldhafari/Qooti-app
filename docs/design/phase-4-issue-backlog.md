@@ -126,11 +126,18 @@
 
 #### ISSUE-NUT-08: Progress Screen Disconnect from Meal History
 - **Severity:** P1 (High)
-- **Location:** `src/screens/ProgressScreen.tsx` (lines 28–34), `src/db/repositories/progressRepository.ts`
-- **Description:** `ProgressScreen` calculates weekly calorie trends from static `progress_entries` table rows rather than actual logged meals.
+- **Status:** RESOLVED (Task 4.4)
+- **Location:** `src/screens/ProgressScreen.tsx`, `src/navigation/AppNavigator.tsx`, `src/utils/nutrition.ts`
+- **Description:** `ProgressScreen` previously calculated weekly calorie trends from static `progress_entries` table rows rather than actual logged meals.
 - **Root Cause:** Historical progress entries were never synchronized with real-time meal aggregations.
-- **Impact:** Users who log meals see no reflection of their actual daily calorie intake in the progress charts.
-- **Proposed Remediation:** Implement real-time daily nutrition aggregation or automatic `progress_entries` synchronization when meals are added/edited/deleted.
+- **Impact:** Users who logged meals saw no reflection of their actual daily calorie intake in the progress charts.
+- **Resolution & Verification:**
+  - Extended `ProgressScreen` to accept `meals?: Meal[]` and derived enriched daily calorie data using pure aggregator `getDailyNutritionSummary(meals, entry.date)`.
+  - Passed live `meals` from `AppContext` in `AppNavigator.tsx`.
+  - Computed weekly average intake strictly across logged days, displaying `-- kcal` when zero days have logs.
+  - Displayed real calories and distinct unlogged day indicators in the Weekly Trend chart while maintaining authoritative weight and workout data from `progress`.
+  - Zero SQLite mutation: read-only pure derivation preserving performance and data integrity.
+  - Verified by Tests 38, 39, and 40 in `src/__tests__/nutritionAnalyticsAndTargets.test.ts`.
 - **Target Task:** Task 4.4
 
 ---

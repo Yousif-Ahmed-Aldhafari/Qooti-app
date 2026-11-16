@@ -7,7 +7,9 @@
       "react-native": ["src/__tests__/mocks/react-native.ts"],
       "@react-native-async-storage/async-storage": ["src/__tests__/mocks/async-storage.ts"],
       "expo-sqlite": ["src/__tests__/mocks/expo-sqlite.ts"],
-      "expo-localization": ["src/__tests__/mocks/expo-localization.ts"]
+      "expo-localization": ["src/__tests__/mocks/expo-localization.ts"],
+      "@expo/vector-icons": ["src/__tests__/mocks/vector-icons.ts"],
+      "expo-blur": ["src/__tests__/mocks/expo-blur.ts"]
     }
   },
   "include": [

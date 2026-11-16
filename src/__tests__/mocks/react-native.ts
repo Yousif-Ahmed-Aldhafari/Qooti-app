@@ -109,6 +109,7 @@ export const BackHandler = {
 
 export const StyleSheet = {
   create: <T extends Record<string, any>>(styles: T): T => styles,
+  hairlineWidth: 1,
   absoluteFill: {
     position: 'absolute' as const,
     left: 0,
@@ -117,6 +118,26 @@ export const StyleSheet = {
     bottom: 0,
   },
 };
+
+export const View = 'View';
+export const Text = 'Text';
+export const ScrollView = 'ScrollView';
+export const Pressable = 'Pressable';
+export const TextInput = 'TextInput';
+export const TouchableOpacity = 'TouchableOpacity';
+export const Modal = 'Modal';
+export const FlatList = 'FlatList';
+export const ActivityIndicator = 'ActivityIndicator';
+
+export type NativeSyntheticEvent<T> = {
+  nativeEvent: T;
+};
+
+export type NativeScrollEvent = {
+  contentOffset: { x: number; y: number };
+};
+
+export type StyleProp<T> = T | undefined | null | false | (T | undefined | null | false)[];
 
 export type TextStyle = {
   textAlign?: 'auto' | 'left' | 'right' | 'center' | 'justify';

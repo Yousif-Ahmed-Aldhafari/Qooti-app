@@ -639,7 +639,7 @@ export function AppNavigator() {
           />
         );
       case 'progress':
-        return <ProgressScreen key={language} t={t} profile={profile} progress={progressEntries} />;
+        return <ProgressScreen key={language} t={t} profile={profile} progress={progressEntries} meals={meals} />;
       case 'profile':
         return (
           <ProfileScreen
