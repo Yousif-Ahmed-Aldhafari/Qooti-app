@@ -169,6 +169,9 @@ export const en = {
     "noLogsForDate": "No meals logged for this date.",
     "noLogsForWeek": "No meals logged this week",
     "unloggedDay": "No logs",
+    "mealDataUnavailable": "Meal data unavailable",
+    "noMealsLoggedDay": "No meals logged",
+    "loggedZeroCalories": "0 kcal (logged)",
     "foodItemsCount": "{{count}} foods logged",
     "mealsCount": "{{count}} meals",
     "dailyIntake": "Daily intake"

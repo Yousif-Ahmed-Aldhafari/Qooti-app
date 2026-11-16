@@ -1,4 +1,6 @@
-import type { DailyNutritionSummary, Meal, MealItem, Workout } from '../types';
+import type { DailyNutritionSummary, Meal, MealItem, ProgressEntry, Workout } from '../types';
+import type { Language } from '../models/settings';
+import { formatShortWeekday, getCalendarDateRange } from './date';
 import type { EffectiveNutritionTargets, TargetSource, TargetState } from './nutritionTargets';
 
 export function calculateMealTotals(items: MealItem[]): DailyNutritionSummary {
@@ -362,22 +364,51 @@ export function calculateMacroDistribution(intake: {
   const rawCarbsPct = (carbsKcal / totalMacroKcal) * 100;
   const rawFatsPct = (fatsKcal / totalMacroKcal) * 100;
 
-  let p = Math.round(rawProteinPct);
-  let c = Math.round(rawCarbsPct);
-  let f = Math.round(rawFatsPct);
+  // Genuine largest-remainder method (Hamilton-Hare method)
+  // 1. Take integer floor of each raw percentage
+  const floorP = Math.floor(rawProteinPct);
+  const floorC = Math.floor(rawCarbsPct);
+  const floorF = Math.floor(rawFatsPct);
 
-  // Largest-remainder / sum adjustment to guarantee exactly 100%
-  const sum = p + c + f;
-  if (sum !== 100) {
-    const diff = 100 - sum;
-    if (p >= c && p >= f) {
-      p += diff;
-    } else if (c >= p && c >= f) {
-      c += diff;
-    } else {
-      f += diff;
+  // 2. Compute fractional remainders
+  const remainderP = rawProteinPct - floorP;
+  const remainderC = rawCarbsPct - floorC;
+  const remainderF = rawFatsPct - floorF;
+
+  // 3. Compute unassigned percentage points
+  const assigned = floorP + floorC + floorF;
+  let unassignedPoints = 100 - assigned;
+
+  // 4. Distribute unassigned points by descending fractional remainder
+  // Deterministic tie-breaking priority: Protein (1), Carbs (2), Fats (3)
+  const items = [
+    { key: 'protein', remainder: remainderP, order: 1 },
+    { key: 'carbs', remainder: remainderC, order: 2 },
+    { key: 'fats', remainder: remainderF, order: 3 },
+  ];
+
+  items.sort((a, b) => {
+    const diff = b.remainder - a.remainder;
+    if (Math.abs(diff) > 1e-9) {
+      return diff;
     }
+    return a.order - b.order;
+  });
+
+  const finalPercentages: Record<string, number> = {
+    protein: floorP,
+    carbs: floorC,
+    fats: floorF,
+  };
+
+  for (let i = 0; i < items.length && unassignedPoints > 0; i++) {
+    finalPercentages[items[i].key] += 1;
+    unassignedPoints -= 1;
   }
+
+  const p = finalPercentages.protein;
+  const c = finalPercentages.carbs;
+  const f = finalPercentages.fats;
 
   return {
     proteinKcal,
@@ -392,6 +423,117 @@ export function calculateMacroDistribution(intake: {
     rawFatsPct,
     loggedCalories: loggedCal,
     calorieDifference: loggedCal - totalMacroKcal,
+  };
+}
+
+/**
+ * Canonical model for a single calendar day in the 7-day nutrition trend chart.
+ */
+export interface NutritionChartDay {
+  date: string; // YYYY-MM-DD
+  label: string; // Localized short weekday e.g. 'Mon', 'Tue' or 'الإثنين'
+  calories: number; // Real aggregated meal intake calories (0 if unlogged or 0 kcal logged)
+  hasLogs: boolean; // True if >= 1 meal was logged on this calendar date
+  isUnavailable: boolean; // True if meal history is unavailable (meals === undefined)
+  progressEntry?: ProgressEntry; // Original progress entry matching this date, if any
+}
+
+/**
+ * Summary metrics computed strictly over the 7-day nutrition chart days.
+ */
+export interface WeeklyNutritionTrendSummary {
+  days: NutritionChartDay[];
+  averageCalories: number | null; // Average intake strictly across days with logged meals
+  loggedDaysCount: number;
+  totalCalories: number;
+  isUnavailable: boolean;
+  maxCalories: number;
+}
+
+/**
+ * Builds an explicit, testable 7-day calendar series ending on the specified reference date.
+ * - Always generates 7 consecutive local calendar days using date helpers (never UTC slicing).
+ * - Aggregates persisted meals independently for each date without requiring progress_entries.
+ * - Distinguishes unlogged days (hasLogs: false) from days with recorded zero calories (hasLogs: true, calories: 0).
+ * - Excludes undated legacy meals (date: '') without mutating or deleting them.
+ * - Preserves itemless legacy meal totals via getDailyNutritionSummary.
+ * - Never double-scales food snapshots.
+ * - Leaves authoritative workout and weight data in original progressEntries intact.
+ */
+export function buildWeeklyNutritionChartDays(
+  referenceDate: string,
+  meals: Meal[] | undefined,
+  progressEntries: ProgressEntry[] = [],
+  language: Language = 'en'
+): NutritionChartDay[] {
+  const dates = getCalendarDateRange(referenceDate, 7);
+  const isUnavailable = meals === undefined;
+
+  return dates.map((dateStr) => {
+    const label = formatShortWeekday(dateStr, language);
+    const matchingProgress = progressEntries.find(
+      (p) => p.date === dateStr || p.label === dateStr
+    );
+
+    if (isUnavailable) {
+      return {
+        date: dateStr,
+        label: matchingProgress?.label || label,
+        calories: 0,
+        hasLogs: false,
+        isUnavailable: true,
+        progressEntry: matchingProgress,
+      };
+    }
+
+    const summary = getDailyNutritionSummary(meals, dateStr);
+    const hasLogs = summary.hasLoggedMeals;
+    const calories = hasLogs ? summary.calories : 0;
+
+    return {
+      date: dateStr,
+      label: matchingProgress?.label || label,
+      calories,
+      hasLogs,
+      isUnavailable: false,
+      progressEntry: matchingProgress,
+    };
+  });
+}
+
+/**
+ * Computes weekly trend summary strictly from authoritative chart days.
+ * - Calculates average intake ONLY across days where hasLogs === true.
+ * - Distinguishes unlogged days from recorded 0.
+ * - Returns averageCalories: null when no days have logs or when meal data is unavailable.
+ */
+export function calculateWeeklyNutritionTrend(
+  days: NutritionChartDay[]
+): WeeklyNutritionTrendSummary {
+  const isUnavailable = days.length > 0 && days.every((d) => d.isUnavailable);
+  if (isUnavailable) {
+    return {
+      days,
+      averageCalories: null,
+      loggedDaysCount: 0,
+      totalCalories: 0,
+      isUnavailable: true,
+      maxCalories: 1,
+    };
+  }
+
+  const loggedDays = days.filter((d) => d.hasLogs);
+  const totalCalories = loggedDays.reduce((sum, d) => sum + d.calories, 0);
+  const averageCalories = loggedDays.length > 0 ? Math.round(totalCalories / loggedDays.length) : null;
+  const maxCalories = Math.max(...days.map((d) => d.calories), 1);
+
+  return {
+    days,
+    averageCalories,
+    loggedDaysCount: loggedDays.length,
+    totalCalories,
+    isUnavailable: false,
+    maxCalories,
   };
 }
 

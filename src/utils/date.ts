@@ -90,3 +90,36 @@ export function getNextCalendarDate(dateStr: string): string {
   d.setDate(d.getDate() + 1);
   return toDateInputValue(d);
 }
+
+/**
+ * Generates an array of consecutive local calendar dates (YYYY-MM-DD)
+ * ending on the specified reference date.
+ *
+ * @param endDateStr Reference end date string in YYYY-MM-DD format.
+ * @param count Number of consecutive calendar days (defaults to 7).
+ */
+export function getCalendarDateRange(endDateStr: string, count = 7): string[] {
+  if (count <= 0) return [];
+  const cleanEnd = endDateStr.slice(0, 10);
+  const result: string[] = [cleanEnd];
+  let curr = cleanEnd;
+  for (let i = 1; i < count; i++) {
+    curr = getPreviousCalendarDate(curr);
+    result.unshift(curr);
+  }
+  return result;
+}
+
+/**
+ * Returns the short localized weekday label (e.g. 'Mon', 'Tue' or 'الإثنين').
+ */
+export function formatShortWeekday(dateStr: string, language: Language = 'en'): string {
+  const parts = dateStr.slice(0, 10).split('-');
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1;
+  const day = parseInt(parts[2], 10);
+  const d = new Date(year, month, day);
+  return new Intl.DateTimeFormat(language === 'ar' ? 'ar-SA-u-nu-latn' : 'en-US', {
+    weekday: 'short',
+  }).format(d);
+}

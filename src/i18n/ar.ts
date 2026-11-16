@@ -169,6 +169,9 @@ export const ar = {
     "noLogsForDate": "لم يتم تسجيل أي وجبات في هذا اليوم.",
     "noLogsForWeek": "لا توجد وجبات مسجلة هذا الأسبوع",
     "unloggedDay": "لا توجد سجلات",
+    "mealDataUnavailable": "بيانات الوجبات غير متوفرة",
+    "noMealsLoggedDay": "لم يتم تسجيل وجبات",
+    "loggedZeroCalories": "0 سعرة (مسجلة)",
     "foodItemsCount": "{{count}} أطعمة مسجلة",
     "mealsCount": "{{count}} وجبات",
     "dailyIntake": "المدخول اليومي"

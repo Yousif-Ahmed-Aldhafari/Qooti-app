@@ -140,6 +140,25 @@
   - Verified by Tests 38, 39, and 40 in `src/__tests__/nutritionAnalyticsAndTargets.test.ts`.
 - **Target Task:** Task 4.4
 
+#### ISSUE-NUT-08A: Nutrition Trend Calendar-Day Series Binding & Calorie Fallback Elimination
+- **Severity:** P1 (High)
+- **Status:** RESOLVED (Task 4.4A)
+- **Location:** `src/screens/ProgressScreen.tsx`, `src/utils/nutrition.ts`, `src/utils/date.ts`
+- **Description:** Nutrition chart days were previously generated via `progress.map()`, causing nutrition trend days to depend entirely on `progress_entries` existing, omitting meal-logging days if no matching progress entry existed, and falling back to unverified synthetic `entry.calories` when `meals === undefined`.
+- **Root Cause:** Binding the nutrition chart series to the progress entries array rather than generating an explicit 7-day local calendar range; unsafe fallback to synthetic prototype calories.
+- **Impact:** Empty or sparse `progress_entries` hid real meal history; missing meal data presented synthetic prototype data as real intake.
+- **Resolution & Verification:**
+  - Implemented `getCalendarDateRange(referenceDate, 7)` and `formatShortWeekday(date, language)` in `src/utils/date.ts` with local calendar date math (leap years, month/year boundaries).
+  - Implemented `buildWeeklyNutritionChartDays` and `calculateWeeklyNutritionTrend` in `src/utils/nutrition.ts` generating an explicit 7-day calendar series ending on the live local date.
+  - Completely eliminated all fallbacks to `ProgressEntry.calories`. When `meals === undefined`, shows unavailable state (`-- kcal`, "Meal data unavailable").
+  - Distinguishes unlogged days (`hasLogs: false`) from recorded zero-calorie meals (`hasLogs: true, calories: 0`).
+  - Average intake calculated strictly across logged days only.
+  - Implemented Option 1: genuine largest-remainder method (Hamilton-Hare) in `calculateMacroDistribution` with deterministic tie-breaking (Protein, Carbs, Fats) guaranteeing exact 100% sum.
+  - Integrated `useLiveLocalDate` for dynamic local midnight rollover and AppState foreground resume.
+  - Preserved authoritative workout and weight data from `progress` without synthesizing fake `progress_entries`.
+  - Added 35 tests in `src/__tests__/nutritionTrendIntegrityAndCoverage.test.ts` (suite total: 640 tests, line coverage: 92.58%).
+- **Target Task:** Task 4.4A
+
 ---
 
 ### P2: Medium Priority Feature Parity & Ergonomic Gaps

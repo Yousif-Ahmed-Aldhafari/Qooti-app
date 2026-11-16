@@ -21,6 +21,7 @@
 | **Task 4.3** | Multi-Food Meal Creation & Search UX | **510** (+10) | **540 Passed (+40)** — Multi-food drafts, food search picker with portion selector, manual food entries, day-by-day navigation, slot categorization, legacy meal compatibility. |
 | **Task 4.3A** | Daily Diary Date Integrity & Navigation Hardening | **540** | **565 Passed (+25)** — Undated legacy meal isolation, zero daily totals inflation, live local midnight rollover, AppState resume listener, persistent selected date across Add/Edit/Delete, tabs, and language switches. |
 | **Task 4.4** | Nutrition Analytics & Daily Targets | **575** (+10) | **605 Passed (+40)** — Pure aggregator `getDailyNutritionSummary`, target progress engine with fallback handling, Atwater 4/4/9 macro distribution with 100% integer normalization, `MacroDistributionBar` component, `MealsScreen` dashboard card, and `ProgressScreen` real meal aggregation. |
+| **Task 4.4A** | Nutrition Trend Integrity & Coverage Hardening | **615** (+10) | **640 Passed (+35)** — Independent 7-day calendar series, zero synthetic fallback to `ProgressEntry.calories`, genuine Hamilton-Hare largest-remainder rounding, rendered component regression coverage (92.58% line coverage). |
 | **Task 4.5** | Meal Templates, Favorites & Quick-Log | **442** (+8) | Repeat meal ID isolation, favorite toggling, quick calorie logging without item breakdown. |
 | **Task 4.6** | Cross-Platform UX, A11y & RTL Parity | **450** (+8) | Touch target bounds, screen reader accessibility labels, RTL layout symmetry. |
 | **Task 4.7** | Final Acceptance & Merge Readiness | **450+** | Full 11-step migration upgrade matrix (V0 through V9), cross-platform regression suite. |
@@ -72,6 +73,14 @@
 - [x] **AC-ANL-06:** `calculateMacroDistribution` derives macro energy via Atwater factors ($4\text{ kcal/g}$ protein, $4\text{ kcal/g}$ carbs, $9\text{ kcal/g}$ fats) and guarantees integer percentages sum strictly to $100\%$ via largest-remainder normalization (or $0\%$ when no macros are logged).
 - [x] **AC-ANL-07:** Label calories logged by the user remain completely independent from macro-derived energy estimates.
 - [x] **AC-ANL-08:** `ProgressScreen` accepts live meals from `AppContext` and computes real daily calories and weekly averages strictly over logged days (`-- kcal` when unlogged), while maintaining authoritative weight and workout metrics from `progress`.
+
+### 2.6 Nutrition Trend & Calendar Series Acceptance Criteria
+- [x] **AC-TRD-01:** 7-day trend generates an explicit local calendar range ending on the live reference date via `getCalendarDateRange`, regardless of whether `progress_entries` exists.
+- [x] **AC-TRD-02:** Meal-logging days appear in the weekly trend even if no matching `progress_entry` exists.
+- [x] **AC-TRD-03:** Unverified synthetic calories from `ProgressEntry.calories` are never used as meal intake; when `meals === undefined`, an explicit unavailable state is rendered.
+- [x] **AC-TRD-04:** Unlogged days (`hasLogs: false`) are strictly distinguished from days with recorded zero-calorie meals (`hasLogs: true, calories: 0`), and averages are computed across logged days only.
+- [x] **AC-TRD-05:** Macro distribution uses genuine largest-remainder rounding with deterministic tie-breaking, ensuring exact 100% integer sum for positive macro energy.
+- [x] **AC-TRD-06:** Dynamic local midnight rollover and AppState foreground resume refresh the 7-day window without layout distortion.
 
 ---
 

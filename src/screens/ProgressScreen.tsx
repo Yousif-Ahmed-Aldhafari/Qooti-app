@@ -6,13 +6,15 @@ import { AppHeader } from '../components/AppHeader';
 import { ProgressCard } from '../components/ProgressCard';
 import { StatCard } from '../components/StatCard';
 import { useBottomNavScrollHandler } from '../context/BottomNavContext';
+import { useLiveLocalDate } from '../hooks/useLiveLocalDate';
 import type { Translator } from '../i18n';
+import type { Language } from '../models/settings';
 import { themeColors } from '../theme/colors';
 import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import type { Meal, ProgressEntry, UserProfile } from '../types';
-import { getDailyNutritionSummary } from '../utils/nutrition';
+import { buildWeeklyNutritionChartDays, calculateWeeklyNutritionTrend } from '../utils/nutrition';
 import { resolveEffectiveNutritionTargets } from '../utils/nutritionTargets';
 import { activeRowStyle, activeTextAlign, activeWritingDirection } from '../utils/rtl';
 
@@ -21,57 +23,56 @@ type ProgressScreenProps = {
   profile: UserProfile;
   progress: ProgressEntry[];
   meals?: Meal[];
+  language?: Language;
+  referenceDate?: string;
+  clock?: () => Date;
 };
 
-export function ProgressScreen({ t, profile, progress, meals }: ProgressScreenProps) {
+export function ProgressScreen({
+  t,
+  profile,
+  progress,
+  meals,
+  language,
+  referenceDate,
+  clock,
+}: ProgressScreenProps) {
   const colors = themeColors();
   const handleBottomNavScroll = useBottomNavScrollHandler();
   const effectiveTargets = useMemo(() => resolveEffectiveNutritionTargets(profile), [profile]);
   const latest = progress[progress.length - 1];
   const workoutDays = progress.reduce((sum, entry) => sum + entry.workouts, 0);
 
-  // Derive authoritative real calorie aggregates from meals when available
-  const enrichedDays = useMemo(() => {
-    return progress.map((entry) => {
-      if (meals !== undefined) {
-        const summary = entry.date ? getDailyNutritionSummary(meals, entry.date) : null;
-        const hasLogs = summary ? summary.hasLoggedMeals : false;
-        return {
-          ...entry,
-          realCalories: hasLogs ? summary!.calories : 0,
-          hasLogs,
-        };
-      }
-      return {
-        ...entry,
-        realCalories: entry.calories,
-        hasLogs: entry.calories > 0,
-      };
-    });
-  }, [progress, meals]);
+  // Live local date handles midnight rollover and foreground AppState resume
+  const liveToday = useLiveLocalDate(referenceDate, clock);
+  const activeReferenceDate = referenceDate || liveToday;
+  const activeLanguage: Language = language || 'en';
 
-  const loggedDays = useMemo(
-    () => enrichedDays.filter((d) => d.hasLogs),
-    [enrichedDays]
+  // Build explicit 7-day calendar series ending on activeReferenceDate
+  const chartDays = useMemo(
+    () => buildWeeklyNutritionChartDays(activeReferenceDate, meals, progress, activeLanguage),
+    [activeReferenceDate, meals, progress, activeLanguage]
   );
 
-  const averageCalories = loggedDays.length > 0
-    ? Math.round(loggedDays.reduce((sum, d) => sum + d.realCalories, 0) / loggedDays.length)
-    : null;
+  const trend = useMemo(
+    () => calculateWeeklyNutritionTrend(chartDays),
+    [chartDays]
+  );
 
-  const maxCalories = Math.max(...enrichedDays.map((entry) => entry.realCalories), 1);
   const directionalText = {
     textAlign: activeTextAlign(),
     writingDirection: activeWritingDirection(),
   } as const;
 
-  const chartA11yLabel = `${t('progress.weeklyTrend')}: ${enrichedDays
-    .map((p) =>
-      p.hasLogs
-        ? `${p.label} ${Math.round(p.realCalories)} ${t('common.kcal')}`
-        : `${p.label} (${t('nutrition.unloggedDay') || 'No logs'})`
-    )
-    .join(', ')}`;
+  const chartA11yLabel = trend.isUnavailable
+    ? `${t('progress.weeklyTrend')}: ${t('nutrition.mealDataUnavailable') || 'Meal data unavailable'}`
+    : `${t('progress.weeklyTrend')}: ${chartDays
+        .map((p) =>
+          p.hasLogs
+            ? `${p.label} ${Math.round(p.calories)} ${t('common.kcal')}`
+            : `${p.label} (${t('nutrition.unloggedDay') || 'No logs'})`
+        )
+        .join(', ')}`;
 
   return (
     <ScrollView
@@ -86,7 +87,11 @@ export function ProgressScreen({ t, profile, progress, meals }: ProgressScreenPr
       <View style={[styles.statsRow, activeRowStyle()]}>
         <StatCard
           label={t('progress.averageCalories')}
-          value={averageCalories != null ? `${averageCalories} ${t('common.kcal')}` : `-- ${t('common.kcal')}`}
+          value={
+            trend.averageCalories != null
+              ? `${trend.averageCalories} ${t('common.kcal')}`
+              : `-- ${t('common.kcal')}`
+          }
         />
         <StatCard label={t('progress.workoutDays')} value={workoutDays} accent={colors.purple} />
       </View>
@@ -98,14 +103,14 @@ export function ProgressScreen({ t, profile, progress, meals }: ProgressScreenPr
           accessible={true}
           accessibilityLabel={chartA11yLabel}
         >
-          {enrichedDays.map((entry) => {
+          {chartDays.map((entry) => {
             const isLogged = entry.hasLogs;
             const heightPercent = isLogged
-              ? Math.max((entry.realCalories / maxCalories) * 100, 10)
+              ? Math.max((entry.calories / trend.maxCalories) * 100, 10)
               : 0;
 
             return (
-              <View key={entry.id} style={styles.barColumn}>
+              <View key={entry.date} style={styles.barColumn}>
                 <View style={[styles.barTrack, { backgroundColor: colors.cardMuted }]}>
                   {isLogged ? (
                     <View
@@ -133,11 +138,15 @@ export function ProgressScreen({ t, profile, progress, meals }: ProgressScreenPr
             );
           })}
         </View>
-        {loggedDays.length === 0 && (
+        {trend.isUnavailable ? (
+          <Text style={[styles.noLogsNote, directionalText, { color: colors.textMuted }]}>
+            {t('nutrition.mealDataUnavailable') || 'Meal data unavailable'}
+          </Text>
+        ) : trend.loggedDaysCount === 0 ? (
           <Text style={[styles.noLogsNote, directionalText, { color: colors.textMuted }]}>
             {t('nutrition.noLogsForWeek') || 'No meals logged this week'}
           </Text>
-        )}
+        ) : null}
       </AppCard>
 
       <View style={[styles.progressRow, activeRowStyle()]}>

@@ -1,3 +1,5 @@
+import React from 'react';
+
 export const I18nManager = {
   isRTL: false,
   calls: {
@@ -119,15 +121,47 @@ export const StyleSheet = {
   },
 };
 
-export const View = 'View';
-export const Text = 'Text';
-export const ScrollView = 'ScrollView';
-export const Pressable = 'Pressable';
-export const TextInput = 'TextInput';
-export const TouchableOpacity = 'TouchableOpacity';
-export const Modal = 'Modal';
-export const FlatList = 'FlatList';
-export const ActivityIndicator = 'ActivityIndicator';
+
+function flattenStyle(style: any): any {
+  if (!style) return undefined;
+  if (!Array.isArray(style)) return style;
+  return Object.assign({}, ...style.map(flattenStyle).filter(Boolean));
+}
+
+export const View = ({ style, ...props }: any) =>
+  React.createElement('div', { style: flattenStyle(style), ...props });
+export const Text = ({ style, ...props }: any) =>
+  React.createElement('span', { style: flattenStyle(style), ...props });
+export const ScrollView = ({ style, contentContainerStyle, ...props }: any) =>
+  React.createElement('div', { style: flattenStyle([style, contentContainerStyle]), ...props });
+export const Pressable = ({ style, onPress, ...props }: any) => {
+  const resolvedStyle = typeof style === 'function' ? style({ pressed: false }) : style;
+  return React.createElement('div', {
+    style: flattenStyle(resolvedStyle),
+    onClick: onPress,
+    ...props,
+  });
+};
+export const TouchableOpacity = ({ style, onPress, ...props }: any) =>
+  React.createElement('div', { style: flattenStyle(style), onClick: onPress, ...props });
+export const TextInput = ({ style, onChangeText, value, ...props }: any) =>
+  React.createElement('input', {
+    style: flattenStyle(style),
+    value: value ?? '',
+    onChange: onChangeText ? (e: any) => onChangeText(e.target.value) : undefined,
+    ...props,
+  });
+export const Modal = ({ children, visible = true, ...props }: any) =>
+  visible ? React.createElement('div', props, children) : null;
+export const FlatList = ({ data = [], renderItem, keyExtractor, ...props }: any) =>
+  React.createElement(
+    'div',
+    props,
+    data.map((item: any, index: number) =>
+      renderItem ? renderItem({ item, index, separators: {} }) : null
+    )
+  );
+export const ActivityIndicator = (props: any) => React.createElement('div', props);
 
 export type NativeSyntheticEvent<T> = {
   nativeEvent: T;

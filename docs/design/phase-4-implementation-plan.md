@@ -46,6 +46,9 @@
 [ Task 4.4: Nutrition Analytics, Daily Targets & Macro Distribution ] ──► (COMPLETE - 605 Tests)
        │
        ▼
+[ Task 4.4A: Nutrition Trend Integrity & Coverage Hardening ] ──► (COMPLETE - 640 Tests)
+       │
+       ▼
 [ Task 4.5: Meal Templates, Favorites & Quick-Log ] ──► (NEXT)
        │
        ▼
@@ -339,7 +342,44 @@
   - `tsconfig.test.json` (updated)
   - `src/__tests__/nutritionAnalyticsAndTargets.test.ts` (new - 40 tests)
 - **Success Criteria:** Verified pure read-only analytics, target adherence calculation, 100% macro distribution normalization, Progress screen real-meal aggregation, and dual-platform UI parity. All 605 tests passing.
-- **Success Criteria:** Accurate macro distribution charts; real meal data reflected in ProgressScreen.
+
+---
+
+### Task 4.4A: Nutrition Trend Integrity & Coverage Hardening [COMPLETED]
+- **Status:** COMPLETED
+- **Objective:** Fix 7-day nutrition trend generation to bind to a pure local calendar-day series rather than progress_entries; eliminate unverified fallback to synthetic `ProgressEntry.calories`; implement Option 1 genuine largest-remainder macro distribution rounding; restore component-level test coverage (recovering from 88.76% to 92.58% line coverage); and verify midnight rollover and AppState resume.
+- **Pre-conditions:** Task 4.4 completed and verified; 605 baseline tests passing.
+- **Outcome Metrics:** 640 total passing tests (+35 new tests in `nutritionTrendIntegrityAndCoverage.test.ts`), 0 failures, 0 skipped, 0 TypeScript errors, 0 ESLint warnings, 92.58% line coverage, 20/20 expo-doctor checks passing.
+- **Technical Specifications:**
+  1. **Pure Calendar-Day Series:**
+     - Implemented `getCalendarDateRange(referenceDate, 7)` in `src/utils/date.ts` handling month/year rollovers and leap years.
+     - Implemented `formatShortWeekday(date, language)` generating short localized weekday labels (`Mon`, `Tue` or `الإثنين`).
+  2. **Pure Trend Aggregator (`buildWeeklyNutritionChartDays` & `calculateWeeklyNutritionTrend`):**
+     - Generates 7 explicit local calendar dates ending on `activeReferenceDate`.
+     - Aggregates meals independently for each date without requiring matching `progress_entries`.
+     - Strictly separates unlogged days (`hasLogs: false`) from days with recorded zero calories (`hasLogs: true, calories: 0`).
+     - Averages intake strictly across logged days only (`-- kcal` if no days logged).
+  3. **Eradication of Synthetic Calorie Fallbacks:**
+     - Removed unsafe fallback to `ProgressEntry.calories`. When `meals === undefined`, shows explicit unavailable state (`-- kcal`, "Meal data unavailable" note).
+     - Authoritative workout days and weight metrics preserved from original `progress_entries` without synthesizing fake rows.
+  4. **Option 1 Largest-Remainder Macro Distribution Rounding:**
+     - Replaced proportional adjustment with the genuine Hamilton-Hare largest-remainder method in `calculateMacroDistribution`.
+     - Floors raw percentages, distributes remaining points by fractional remainders descending, with deterministic tie-breaking (Protein, Carbs, Fats).
+     - Non-negative integer percentages strictly sum to 100% for positive macro energy (0/0/0 for zero macro energy).
+  5. **Dynamic Rollover & Lifecycle Refresh:**
+     - Integrated `useLiveLocalDate` in `ProgressScreen` for automated local midnight rollover and AppState foreground resume.
+  6. **Meaningful Rendered Component Tests & Coverage Recovery:**
+     - Added React Native component tests executing `ProgressScreen`, `MealsScreen`, and `MacroDistributionBar` across all states (empty, unavailable, logged zero, unconfirmed targets, RTL Arabic, dark/light themes).
+     - Coverage recovered from 88.76% to 92.58% (`MealsScreen`: 89.00%, `ProgressScreen`: 98.79%, `nutrition.ts`: 94.82%).
+- **Files Affected:**
+  - `src/utils/date.ts` (updated)
+  - `src/utils/nutrition.ts` (updated)
+  - `src/screens/ProgressScreen.tsx` (updated)
+  - `src/navigation/AppNavigator.tsx` (updated)
+  - `src/i18n/en.ts` & `src/i18n/ar.ts` (updated)
+  - `src/__tests__/mocks/react-native.ts` (updated)
+  - `src/__tests__/nutritionTrendIntegrityAndCoverage.test.ts` (new - 35 tests)
+- **Success Criteria:** Independent 7-day calendar series; zero synthetic calorie fallback; Hamilton-Hare macro rounding; 640 passing tests with 92.58% line coverage.
 
 ---
 
