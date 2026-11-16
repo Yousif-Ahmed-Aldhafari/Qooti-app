@@ -22,6 +22,8 @@ export type MealItem = {
 
 export type FoodItem = MealItem;
 
+export type NutritionCompleteness = 'complete' | 'partial' | 'calories_only' | 'indeterminate';
+
 export type Meal = {
   id: string;
   title: string;
@@ -38,6 +40,10 @@ export type Meal = {
   notes?: string;
   isFavorite?: boolean;
   isTemplate?: boolean;
+  nutritionCompleteness?: NutritionCompleteness;
+  proteinKnown?: boolean;
+  carbsKnown?: boolean;
+  fatKnown?: boolean;
 };
 
 export class MealValidationError extends Error {
@@ -132,6 +138,23 @@ export function normalizeMeal(
 
   const hasItems = items.length > 0;
 
+  const isFavorite = Boolean(meal.isFavorite || (meal.notes && meal.notes.includes('[favorite]')));
+  const isTemplate = Boolean(meal.isTemplate || isFavorite);
+
+  let defaultCompleteness: NutritionCompleteness = 'complete';
+  if (!hasItems) {
+    if (meal.nutritionCompleteness) {
+      defaultCompleteness = meal.nutritionCompleteness;
+    } else if (
+      (meal.totalCalories ?? 0) > 0 &&
+      (meal.totalProtein ?? 0) === 0 &&
+      (meal.totalCarbs ?? 0) === 0 &&
+      (meal.totalFat ?? meal.totalFats ?? 0) === 0
+    ) {
+      defaultCompleteness = 'indeterminate';
+    }
+  }
+
   return {
     ...meal,
     title,
@@ -144,8 +167,12 @@ export function normalizeMeal(
     totalFats: hasItems ? computedFats : (meal.totalFats ?? meal.totalFat ?? computedFats),
     mealType: meal.mealType,
     notes: meal.notes,
-    isFavorite: Boolean(meal.isFavorite || (meal.notes && meal.notes.includes('[favorite]'))),
-    isTemplate: Boolean(meal.isTemplate || meal.isFavorite || (meal.notes && meal.notes.includes('[favorite]'))),
+    isFavorite,
+    isTemplate,
+    nutritionCompleteness: defaultCompleteness,
+    proteinKnown: meal.proteinKnown !== undefined ? Boolean(meal.proteinKnown) : defaultCompleteness !== 'calories_only' && defaultCompleteness !== 'indeterminate',
+    carbsKnown: meal.carbsKnown !== undefined ? Boolean(meal.carbsKnown) : defaultCompleteness !== 'calories_only' && defaultCompleteness !== 'indeterminate',
+    fatKnown: meal.fatKnown !== undefined ? Boolean(meal.fatKnown) : defaultCompleteness !== 'calories_only' && defaultCompleteness !== 'indeterminate',
   };
 }
 

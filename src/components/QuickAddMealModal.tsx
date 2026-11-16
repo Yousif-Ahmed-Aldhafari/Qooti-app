@@ -17,7 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { AppButton } from './AppButton';
 import { AppInput } from './AppInput';
 import type { Translator } from '../i18n';
-import type { Meal, MealType } from '../models/meal';
+import type { Meal, MealType, NutritionCompleteness } from '../models/meal';
 import { themeColors } from '../theme/colors';
 import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
@@ -70,6 +70,7 @@ export function QuickAddMealModal({
   const [proteinError, setProteinError] = useState('');
   const [carbsError, setCarbsError] = useState('');
   const [fatsError, setFatsError] = useState('');
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   function resetForm() {
@@ -84,6 +85,7 @@ export function QuickAddMealModal({
     setProteinError('');
     setCarbsError('');
     setFatsError('');
+    setSaveError(null);
     setIsSubmitting(false);
   }
 
@@ -173,9 +175,20 @@ export function QuickAddMealModal({
 
     if (hasError) return;
 
+    setSaveError(null);
+
     const finalTitle = title.trim() || getDefaultTitle(selectedSlot);
     const dateToUse = initialDate || formatLocalDate(new Date());
     const timeToUse = formatLocalTime(new Date());
+
+    const isProteinSpecified = protein.trim() !== '';
+    const isCarbsSpecified = carbs.trim() !== '';
+    const isFatsSpecified = fats.trim() !== '';
+    const specifiedCount =
+      (isProteinSpecified ? 1 : 0) + (isCarbsSpecified ? 1 : 0) + (isFatsSpecified ? 1 : 0);
+
+    const completeness: NutritionCompleteness =
+      specifiedCount === 3 ? 'complete' : specifiedCount === 0 ? 'calories_only' : 'partial';
 
     const quickMeal: Meal = {
       id: createId('meal'),
@@ -192,6 +205,10 @@ export function QuickAddMealModal({
       notes: notes.trim() || undefined,
       items: [], // Itemless meal
       isFavorite: false,
+      nutritionCompleteness: completeness,
+      proteinKnown: isProteinSpecified,
+      carbsKnown: isCarbsSpecified,
+      fatKnown: isFatsSpecified,
     };
 
     setIsSubmitting(true);
@@ -201,6 +218,7 @@ export function QuickAddMealModal({
       onClose();
     } catch {
       setIsSubmitting(false);
+      setSaveError(t('meals.saveFailed') || 'Failed to save meal. Please try again.');
     }
   }
 
@@ -237,6 +255,21 @@ export function QuickAddMealModal({
                   <Ionicons name="close" size={24} color={colors.textSecondary} />
                 </Pressable>
               </View>
+
+              {saveError ? (
+                <View
+                  style={[
+                    styles.errorBanner,
+                    activeRowStyle(),
+                    { backgroundColor: colors.danger + '18', borderColor: colors.danger },
+                  ]}
+                >
+                  <Ionicons name="alert-circle-outline" size={18} color={colors.danger} style={{ marginEnd: 6 }} />
+                  <Text style={[styles.errorBannerText, directionalText, { color: colors.danger }]}>
+                    {saveError}
+                  </Text>
+                </View>
+              ) : null}
 
               <ScrollView
                 style={styles.scroll}
@@ -416,6 +449,20 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  errorBanner: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  errorBannerText: {
+    ...typography.caption,
+    fontWeight: '600',
+    flex: 1,
   },
   headerTitleWrap: {
     flex: 1,

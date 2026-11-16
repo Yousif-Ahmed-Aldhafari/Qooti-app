@@ -90,6 +90,15 @@
 - [x] **AC-TPL-05:** `QuickAddMealModal` strictly validates user numeric inputs using `parseStrictNutrientInput`, rejecting non-finite, negative, and malformed inputs with localized inline errors.
 - [x] **AC-TPL-06:** Itemless meals created via Quick Add aggregate accurately into `getDailyNutritionSummary`, target progress, and macro distribution.
 
+### 2.8 Template Integrity, Unknown Macros & Quick-Log Hardening (Task 4.5A) Acceptance Criteria
+- [x] **AC-TPL-07:** Migration 10 adds independent `meal_templates` and `meal_template_items` tables with indices and foreign keys, and structural `is_favorite`, `nutrition_completeness`, `protein_known`, `carbs_known`, `fat_known` columns to `meals`.
+- [x] **AC-TPL-08:** `SQLiteMealTemplateRepository` provides independent CRUD operations for templates; deleting a template never deletes meals, and deleting a meal never deletes templates.
+- [x] **AC-TPL-09:** Granular `toggleMealFavorite` updates favorite status atomically in SQLite without modifying or reinserting child meal items.
+- [x] **AC-TPL-10:** User notes containing literal `[favorite]` text are preserved without truncation, and new writes never prepend synthetic favorite markers.
+- [x] **AC-TPL-11:** Explicit unknown macronutrient semantics distinguish confirmed 0g from omitted macros across daily summaries, target progress, and macro distributions.
+- [x] **AC-TPL-12:** Quick-Add error recovery displays a localized error banner upon SQLite failure, preserves user draft input without clearing, and prevents duplicate submissions.
+- [x] **AC-TPL-13:** Repeated meal draft defaults to `isFavorite: false` and `isTemplate: false`, preserving unknown macro completeness flags.
+
 ---
 
 ## 3. Physical Device Acceptance Matrix (Android & iOS)
@@ -114,3 +123,4 @@
 | **V1** | **V9** | Clean upgrade adding `custom_foods`, `catalog_id`, `meal_type`, and `notes`. | All V1 meals and meal items preserved intact. |
 | **V4** | **V9** | Preserves workout catalog IDs alongside new meal catalog IDs. | No column collision; clean schema coexistence. |
 | **V8** | **V9** | Direct forward upgrade from latest Phase 3 schema. | Zero disruption to workout sessions, sets, profile, or settings. |
+| **V9** | **V10** | Adds independent `meal_templates` and `meal_template_items` tables, plus structured favorite and unknown macro columns to `meals`. | Preserves all existing meals, migrates `[favorite]` in notes to `is_favorite = 1`, and safely flags legacy 0-macro meals as indeterminate. |

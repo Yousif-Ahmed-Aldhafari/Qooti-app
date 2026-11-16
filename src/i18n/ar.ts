@@ -254,7 +254,22 @@ export const ar = {
     "quickMeal": "وجبة سريعة",
     "quickAddSuccess": "تم تسجيل الوجبة السريعة بنجاح",
     "repeatedMealSuccess": "تم تكرار الوجبة لليوم",
-    "templates": "القوالب"
+    "templates": "القوالب",
+    "saveAsTemplate": "حفظ كقالب",
+    "templateSavedTitle": "تم حفظ القالب",
+    "templateSavedBody": "تم حفظ \"{{name}}\" كقالب قابل للاستخدام المتكرر.",
+    "templateSavedSuccess": "تم حفظ الوجبة كقالب قابل للاستخدام",
+    "logFromTemplate": "تسجيل القالب",
+    "logFromTemplateSuccess": "تم تسجيل الوجبة من القالب",
+    "deleteTemplate": "حذف القالب",
+    "deleteTemplateConfirm": "هل أنت متأكد من حذف هذا القالب؟ لن تتأثر الوجبات السابقة المسجلة به.",
+    "unknownMacro": "غير محدد",
+    "partialMacrosNotice": "تحتوي على وجبات مسجلة بالسعرات فقط أو ماكروز جزئية. لا تحسب القيم غير المحددة كصفر.",
+    "caloriesOnlyNotice": "تسجيل سعرات فقط دون تفصيل المغذيات.",
+    "indeterminateNotice": "مجموع وجبة سابقة بدون تفصيل عناصر مؤكد.",
+    "saveFailed": "فشل حفظ الوجبة. يرجى المحاولة مرة أخرى.",
+    "emptyTemplates": "لا توجد قوالب وجبات بعد.",
+    "emptyTemplatesDescription": "احفظ أي وجبة كقالب لتسجيلها مجدداً بضغطة واحدة."
   },
   "foodPicker": {
     "title": "اختر صنف طعام",

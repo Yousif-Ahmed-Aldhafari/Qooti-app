@@ -671,9 +671,11 @@ test('Task 4.2 - Test 26: Fresh database migrates cleanly directly from V0 to V9
   const migrations = await db.getAllAsync<{ version: number; name: string }>(
     'SELECT version, name FROM schema_migrations ORDER BY version ASC;'
   );
-  assert.equal(migrations.length, 9);
+  assert.equal(migrations.length, 10);
   assert.equal(migrations[8].version, 9);
   assert.equal(migrations[8].name, 'add_custom_foods_and_meal_enhancements_v9');
+  assert.equal(migrations[9].version, 10);
+  assert.equal(migrations[9].name, 'add_meal_templates_and_structured_favorites_v10');
 });
 
 // ---------------------------------------------------------------------------

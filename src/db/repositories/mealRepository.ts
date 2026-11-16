@@ -13,6 +13,11 @@ interface MealRow {
   created_at: string;
   meal_type?: string | null;
   notes?: string | null;
+  is_favorite?: number;
+  nutrition_completeness?: string | null;
+  protein_known?: number | null;
+  carbs_known?: number | null;
+  fat_known?: number | null;
 }
 
 interface MealItemRow {
@@ -35,7 +40,7 @@ async function getTableColumns(t: IDatabase, tableName: string): Promise<Set<str
   return new Set(cols.map((c) => c.name));
 }
 
-function encodeMealNotes(notes?: string, isFavorite?: boolean): string | null {
+export function encodeMealNotes(notes?: string, isFavorite?: boolean): string | null {
   const clean = notes ? notes.replace(/\[favorite\]\s*/g, '').trim() : '';
   if (isFavorite) {
     return clean ? `[favorite] ${clean}` : '[favorite]';
@@ -43,7 +48,7 @@ function encodeMealNotes(notes?: string, isFavorite?: boolean): string | null {
   return clean || null;
 }
 
-function decodeMealNotes(notes?: string | null): { cleanNotes?: string; isFavorite: boolean } {
+export function decodeMealNotes(notes?: string | null): { cleanNotes?: string; isFavorite: boolean } {
   if (!notes) return { isFavorite: false };
   const isFavorite = notes.includes('[favorite]');
   const clean = notes.replace(/\[favorite\]\s*/g, '').trim();
@@ -89,7 +94,32 @@ export class SQLiteMealRepository implements MealRepository {
     }
 
     return mealRows.map((m) => {
-      const decoded = decodeMealNotes(m.notes);
+      const isFavorite = m.is_favorite !== undefined && m.is_favorite !== null
+        ? m.is_favorite === 1
+        : Boolean(m.notes && m.notes.includes('[favorite]'));
+
+      const cleanNotes = m.notes
+        ? (m.notes.startsWith('[favorite] ') ? m.notes.slice(11).trim() : (m.notes === '[favorite]' ? undefined : m.notes))
+        : undefined;
+
+      const items = itemsByMealId.get(m.id) || [];
+      const completeness = (m.nutrition_completeness as any) || (
+        items.length > 0 ? 'complete' :
+        ((m.total_calories > 0 && m.total_protein === 0 && m.total_carbs === 0 && m.total_fat === 0) ? 'indeterminate' : 'complete')
+      );
+
+      const proteinKnown = m.protein_known !== undefined && m.protein_known !== null
+        ? m.protein_known === 1
+        : completeness !== 'calories_only' && completeness !== 'indeterminate';
+
+      const carbsKnown = m.carbs_known !== undefined && m.carbs_known !== null
+        ? m.carbs_known === 1
+        : completeness !== 'calories_only' && completeness !== 'indeterminate';
+
+      const fatKnown = m.fat_known !== undefined && m.fat_known !== null
+        ? m.fat_known === 1
+        : completeness !== 'calories_only' && completeness !== 'indeterminate';
+
       return normalizeMeal({
         id: m.id,
         title: m.title,
@@ -100,9 +130,13 @@ export class SQLiteMealRepository implements MealRepository {
         totalCarbs: m.total_carbs,
         totalFat: m.total_fat,
         mealType: m.meal_type ?? undefined,
-        notes: decoded.cleanNotes,
-        isFavorite: Boolean(decoded.isFavorite || (m as any).is_favorite),
-        items: itemsByMealId.get(m.id) || [],
+        notes: cleanNotes,
+        isFavorite,
+        nutritionCompleteness: completeness,
+        proteinKnown,
+        carbsKnown,
+        fatKnown,
+        items,
       });
     });
   }
@@ -136,7 +170,31 @@ export class SQLiteMealRepository implements MealRepository {
       })
     );
 
-    const decoded = decodeMealNotes(mealRow.notes);
+    const isFavorite = mealRow.is_favorite !== undefined && mealRow.is_favorite !== null
+      ? mealRow.is_favorite === 1
+      : Boolean(mealRow.notes && mealRow.notes.includes('[favorite]'));
+
+    const cleanNotes = mealRow.notes
+      ? (mealRow.notes.startsWith('[favorite] ') ? mealRow.notes.slice(11).trim() : (mealRow.notes === '[favorite]' ? undefined : mealRow.notes))
+      : undefined;
+
+    const completeness = (mealRow.nutrition_completeness as any) || (
+      items.length > 0 ? 'complete' :
+      ((mealRow.total_calories > 0 && mealRow.total_protein === 0 && mealRow.total_carbs === 0 && mealRow.total_fat === 0) ? 'indeterminate' : 'complete')
+    );
+
+    const proteinKnown = mealRow.protein_known !== undefined && mealRow.protein_known !== null
+      ? mealRow.protein_known === 1
+      : completeness !== 'calories_only' && completeness !== 'indeterminate';
+
+    const carbsKnown = mealRow.carbs_known !== undefined && mealRow.carbs_known !== null
+      ? mealRow.carbs_known === 1
+      : completeness !== 'calories_only' && completeness !== 'indeterminate';
+
+    const fatKnown = mealRow.fat_known !== undefined && mealRow.fat_known !== null
+      ? mealRow.fat_known === 1
+      : completeness !== 'calories_only' && completeness !== 'indeterminate';
+
     return normalizeMeal({
       id: mealRow.id,
       title: mealRow.title,
@@ -147,8 +205,12 @@ export class SQLiteMealRepository implements MealRepository {
       totalCarbs: mealRow.total_carbs,
       totalFat: mealRow.total_fat,
       mealType: mealRow.meal_type ?? undefined,
-      notes: decoded.cleanNotes,
-      isFavorite: Boolean(decoded.isFavorite || (mealRow as any).is_favorite),
+      notes: cleanNotes,
+      isFavorite,
+      nutritionCompleteness: completeness,
+      proteinKnown,
+      carbsKnown,
+      fatKnown,
       items,
     });
   }
@@ -169,9 +231,31 @@ export class SQLiteMealRepository implements MealRepository {
 
       const mealCols = await getTableColumns(t, 'meals');
       const itemCols = await getTableColumns(t, 'meal_items');
-      const notesToStore = encodeMealNotes(normalized.notes, normalized.isFavorite);
+      const hasCompleteness = mealCols.has('nutrition_completeness');
+      const hasFavorite = mealCols.has('is_favorite');
 
-      if (mealCols.has('meal_type') && mealCols.has('notes')) {
+      if (hasCompleteness && hasFavorite) {
+        await t.runAsync(
+          `INSERT INTO meals (id, title, date, time, total_calories, total_protein, total_carbs, total_fat, meal_type, notes, is_favorite, nutrition_completeness, protein_known, carbs_known, fat_known, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+          normalized.id,
+          normalized.title,
+          normalized.date,
+          normalized.time,
+          normalized.totalCalories,
+          normalized.totalProtein,
+          normalized.totalCarbs,
+          normalized.totalFat,
+          normalized.mealType ?? null,
+          normalized.notes ?? null,
+          normalized.isFavorite ? 1 : 0,
+          normalized.nutritionCompleteness ?? 'complete',
+          normalized.proteinKnown !== false ? 1 : 0,
+          normalized.carbsKnown !== false ? 1 : 0,
+          normalized.fatKnown !== false ? 1 : 0,
+          now
+        );
+      } else if (mealCols.has('meal_type') && mealCols.has('notes')) {
         await t.runAsync(
           `INSERT INTO meals (id, title, date, time, total_calories, total_protein, total_carbs, total_fat, meal_type, notes, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
@@ -184,7 +268,7 @@ export class SQLiteMealRepository implements MealRepository {
           normalized.totalCarbs,
           normalized.totalFat,
           normalized.mealType ?? null,
-          notesToStore,
+          normalized.notes ?? null,
           now
         );
       } else {
@@ -263,9 +347,44 @@ export class SQLiteMealRepository implements MealRepository {
 
       const mealCols = await getTableColumns(t, 'meals');
       const itemCols = await getTableColumns(t, 'meal_items');
-      const notesToStore = encodeMealNotes(normalized.notes, normalized.isFavorite);
+      const hasCompleteness = mealCols.has('nutrition_completeness');
+      const hasFavorite = mealCols.has('is_favorite');
 
-      if (mealCols.has('meal_type') && mealCols.has('notes')) {
+      if (hasCompleteness && hasFavorite) {
+        await t.runAsync(
+          `UPDATE meals SET
+             title = ?,
+             date = ?,
+             time = ?,
+             total_calories = ?,
+             total_protein = ?,
+             total_carbs = ?,
+             total_fat = ?,
+             meal_type = ?,
+             notes = ?,
+             is_favorite = ?,
+             nutrition_completeness = ?,
+             protein_known = ?,
+             carbs_known = ?,
+             fat_known = ?
+           WHERE id = ?;`,
+          normalized.title,
+          normalized.date,
+          normalized.time,
+          normalized.totalCalories,
+          normalized.totalProtein,
+          normalized.totalCarbs,
+          normalized.totalFat,
+          normalized.mealType ?? null,
+          normalized.notes ?? null,
+          normalized.isFavorite ? 1 : 0,
+          normalized.nutritionCompleteness ?? 'complete',
+          normalized.proteinKnown !== false ? 1 : 0,
+          normalized.carbsKnown !== false ? 1 : 0,
+          normalized.fatKnown !== false ? 1 : 0,
+          normalized.id
+        );
+      } else if (mealCols.has('meal_type') && mealCols.has('notes')) {
         await t.runAsync(
           `UPDATE meals SET
              title = ?,
@@ -286,7 +405,7 @@ export class SQLiteMealRepository implements MealRepository {
           normalized.totalCarbs,
           normalized.totalFat,
           normalized.mealType ?? null,
-          notesToStore,
+          normalized.notes ?? null,
           normalized.id
         );
       } else {
@@ -376,6 +495,37 @@ export class SQLiteMealRepository implements MealRepository {
 
       await t.runAsync('DELETE FROM meal_items WHERE meal_id = ?;', cleanId);
       await t.runAsync('DELETE FROM meals WHERE id = ?;', cleanId);
+    };
+
+    if (txn) {
+      await executeInTxn(txn);
+    } else {
+      await this.db.withExclusiveTransactionAsync(executeInTxn);
+    }
+  }
+
+  async toggleMealFavorite(id: string, isFavorite: boolean, txn?: IDatabase): Promise<void> {
+    if (!id || typeof id !== 'string' || id.trim().length === 0) {
+      throw new Error('Cannot toggle favorite: A valid meal id must be provided.');
+    }
+    const cleanId = id.trim();
+
+    const executeInTxn = async (t: IDatabase): Promise<void> => {
+      const mealCols = await getTableColumns(t, 'meals');
+      if (mealCols.has('is_favorite')) {
+        await t.runAsync(
+          'UPDATE meals SET is_favorite = ? WHERE id = ?;',
+          isFavorite ? 1 : 0,
+          cleanId
+        );
+      } else {
+        const row = await t.getFirstAsync<MealRow>('SELECT notes FROM meals WHERE id = ?;', cleanId);
+        if (row) {
+          const clean = row.notes ? row.notes.replace(/\[favorite\]\s*/g, '').trim() : '';
+          const newNotes = isFavorite ? (clean ? `[favorite] ${clean}` : '[favorite]') : (clean || null);
+          await t.runAsync('UPDATE meals SET notes = ? WHERE id = ?;', newNotes, cleanId);
+        }
+      }
     };
 
     if (txn) {

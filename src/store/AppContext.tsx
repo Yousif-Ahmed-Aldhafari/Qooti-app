@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useReducer,
 import { translate } from '../i18n';
 import type { Language, Settings } from '../models/settings';
 import { normalizeMeal, validateMeal, type Meal } from '../models/meal';
+import { normalizeMealTemplate, type MealTemplate } from '../models/mealTemplate';
 import { normalizeProfile, type UserProfile } from '../models/profile';
 import { normalizeProgressEntry, type ProgressEntry } from '../models/progress';
 import { normalizeWorkout, type Workout } from '../models/workout';
@@ -13,7 +14,15 @@ import {
   insertMeal as insertMealService,
   updateMeal as updateMealService,
   deleteMeal as deleteMealService,
+  toggleMealFavorite as toggleMealFavoriteService,
 } from '../services/mealService';
+import {
+  loadMealTemplates,
+  insertMealTemplate as insertMealTemplateService,
+  updateMealTemplate as updateMealTemplateService,
+  deleteMealTemplate as deleteMealTemplateService,
+  toggleMealTemplateFavorite as toggleMealTemplateFavoriteService,
+} from '../services/mealTemplateService';
 import { loadProfile, saveProfile } from '../services/profileService';
 import { loadProgressEntries, saveProgressEntries } from '../services/progressService';
 import { resolveAuthoritativeLanguage } from '../services/localizationService';
@@ -60,6 +69,7 @@ export type AppStateData = {
   persistenceError: string | null;
   migrationConflict: MigrationConflictInfo | null;
   meals: Meal[];
+  mealTemplates: MealTemplate[];
   workouts: Workout[];
   profile: UserProfile;
   progressEntries: ProgressEntry[];
@@ -72,6 +82,7 @@ export type AppAction =
   | {
       type: 'hydrate';
       meals: Meal[];
+      mealTemplates?: MealTemplate[];
       workouts: Workout[];
       profile: UserProfile;
       progressEntries: ProgressEntry[];
@@ -86,6 +97,12 @@ export type AppAction =
   | { type: 'addMeal'; meal: Meal }
   | { type: 'updateMeal'; meal: Meal }
   | { type: 'deleteMeal'; mealId: string }
+  | { type: 'toggleMealFavorite'; mealId: string; isFavorite: boolean }
+  | { type: 'setMealTemplates'; mealTemplates: MealTemplate[] }
+  | { type: 'addMealTemplate'; template: MealTemplate }
+  | { type: 'updateMealTemplate'; template: MealTemplate }
+  | { type: 'deleteMealTemplate'; templateId: string }
+  | { type: 'toggleMealTemplateFavorite'; templateId: string; isFavorite: boolean }
   | { type: 'addWorkout'; workout: Workout }
   | { type: 'updateWorkout'; workout: Workout }
   | { type: 'deleteWorkout'; workoutId: string }
@@ -104,6 +121,11 @@ type AppContextValue = AppStateData & {
   addMeal: (meal: Meal) => Promise<void>;
   updateMeal: (meal: Meal) => Promise<void>;
   deleteMeal: (mealId: string) => Promise<void>;
+  toggleMealFavorite: (mealId: string, isFavorite: boolean) => Promise<void>;
+  addMealTemplate: (template: MealTemplate) => Promise<void>;
+  updateMealTemplate: (template: MealTemplate) => Promise<void>;
+  deleteMealTemplate: (templateId: string) => Promise<void>;
+  toggleMealTemplateFavorite: (templateId: string, isFavorite: boolean) => Promise<void>;
   addWorkout: (workout: Workout) => Promise<void> | void;
   updateWorkout: (workout: Workout) => Promise<void> | void;
   deleteWorkout: (workoutId: string) => Promise<void> | void;
@@ -157,6 +179,7 @@ const initialState: AppStateData = {
   persistenceError: null,
   migrationConflict: null,
   meals: [],
+  mealTemplates: [],
   workouts: [],
   profile: getSeedProfile(),
   progressEntries: [],
@@ -174,6 +197,7 @@ export function appReducer(state: AppStateData, action: AppAction): AppStateData
         ...state,
         isReady: true,
         meals: action.meals.map(normalizeMeal),
+        mealTemplates: (action.mealTemplates || []).map(normalizeMealTemplate),
         workouts: action.workouts.map(normalizeWorkout),
         profile: normalizeProfile(action.profile),
         progressEntries: action.progressEntries.map(normalizeProgressEntry),
@@ -227,6 +251,51 @@ export function appReducer(state: AppStateData, action: AppAction): AppStateData
       return {
         ...state,
         meals: state.meals.filter((meal) => meal.id !== action.mealId),
+      };
+
+    case 'toggleMealFavorite':
+      return {
+        ...state,
+        meals: state.meals.map((meal) =>
+          meal.id === action.mealId ? { ...meal, isFavorite: action.isFavorite } : meal
+        ),
+      };
+
+    case 'setMealTemplates':
+      return {
+        ...state,
+        mealTemplates: action.mealTemplates.map(normalizeMealTemplate),
+      };
+
+    case 'addMealTemplate': {
+      const normalized = normalizeMealTemplate(action.template);
+      const exists = state.mealTemplates.some((t) => t.id === normalized.id);
+      const nextTemplates = exists
+        ? state.mealTemplates.map((t) => (t.id === normalized.id ? normalized : t))
+        : [normalized, ...state.mealTemplates];
+      return { ...state, mealTemplates: nextTemplates };
+    }
+
+    case 'updateMealTemplate': {
+      const normalized = normalizeMealTemplate(action.template);
+      return {
+        ...state,
+        mealTemplates: state.mealTemplates.map((t) => (t.id === normalized.id ? normalized : t)),
+      };
+    }
+
+    case 'deleteMealTemplate':
+      return {
+        ...state,
+        mealTemplates: state.mealTemplates.filter((t) => t.id !== action.templateId),
+      };
+
+    case 'toggleMealTemplateFavorite':
+      return {
+        ...state,
+        mealTemplates: state.mealTemplates.map((t) =>
+          t.id === action.templateId ? { ...t, isFavorite: action.isFavorite } : t
+        ),
       };
 
     case 'addWorkout': {
@@ -327,6 +396,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         const [
           savedMeals,
+          savedTemplates,
           savedWorkouts,
           savedProfile,
           savedProgressEntries,
@@ -337,6 +407,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           loadMeals().catch((e) => {
             console.warn('[AppContext] Failed to load meals:', e);
             return null;
+          }),
+          loadMealTemplates().catch((e) => {
+            console.warn('[AppContext] Failed to load meal templates:', e);
+            return [];
           }),
           loadWorkouts().catch((e) => {
             console.warn('[AppContext] Failed to load workouts:', e);
@@ -396,6 +470,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         dispatch({
           type: 'hydrate',
           meals: initialMeals,
+          mealTemplates: savedTemplates || [],
           workouts: initialWorkouts,
           profile: initialProfile,
           progressEntries: initialProgress,
@@ -429,6 +504,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         dispatch({
           type: 'hydrate',
           meals: [],
+          mealTemplates: [],
           workouts: [],
           profile: {
             id: 'user_profile',
@@ -659,6 +735,78 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           dispatch({
             type: 'setPersistenceError',
             error: err instanceof Error ? err.message : 'Failed to persist meal deletion',
+          });
+          throw err;
+        }
+      },
+      toggleMealFavorite: async (mealId, isFavorite) => {
+        try {
+          await toggleMealFavoriteService(mealId, isFavorite);
+          dispatch({ type: 'toggleMealFavorite', mealId, isFavorite });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to toggle meal favorite:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to persist meal favorite',
+          });
+          throw err;
+        }
+      },
+      addMealTemplate: async (template) => {
+        try {
+          const normalized = normalizeMealTemplate(template);
+          await insertMealTemplateService(normalized);
+          dispatch({ type: 'addMealTemplate', template: normalized });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to insert meal template:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to persist meal template',
+          });
+          throw err;
+        }
+      },
+      updateMealTemplate: async (template) => {
+        try {
+          const normalized = normalizeMealTemplate(template);
+          await updateMealTemplateService(normalized);
+          dispatch({ type: 'updateMealTemplate', template: normalized });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to update meal template:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to persist meal template',
+          });
+          throw err;
+        }
+      },
+      deleteMealTemplate: async (templateId) => {
+        try {
+          await deleteMealTemplateService(templateId);
+          dispatch({ type: 'deleteMealTemplate', templateId });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to delete meal template:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to persist meal template deletion',
+          });
+          throw err;
+        }
+      },
+      toggleMealTemplateFavorite: async (templateId, isFavorite) => {
+        try {
+          await toggleMealTemplateFavoriteService(templateId, isFavorite);
+          dispatch({ type: 'toggleMealTemplateFavorite', templateId, isFavorite });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to toggle meal template favorite:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to persist meal template favorite',
           });
           throw err;
         }

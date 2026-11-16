@@ -250,6 +250,75 @@ export const MIGRATIONS: SchemaMigration[] = [
       `);
     },
   },
+  {
+    version: 10,
+    name: 'add_meal_templates_and_structured_favorites_v10',
+    up: async (db: IDatabase) => {
+      // 1. Add structured favorite and nutrient completeness columns to meals
+      await addMissingColumns(db, 'meals', [
+        { name: 'is_favorite', ddl: 'ALTER TABLE meals ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0;' },
+        { name: 'nutrition_completeness', ddl: "ALTER TABLE meals ADD COLUMN nutrition_completeness TEXT NOT NULL DEFAULT 'complete';" },
+        { name: 'protein_known', ddl: 'ALTER TABLE meals ADD COLUMN protein_known INTEGER NOT NULL DEFAULT 1;' },
+        { name: 'carbs_known', ddl: 'ALTER TABLE meals ADD COLUMN carbs_known INTEGER NOT NULL DEFAULT 1;' },
+        { name: 'fat_known', ddl: 'ALTER TABLE meals ADD COLUMN fat_known INTEGER NOT NULL DEFAULT 1;' },
+      ]);
+
+      // 2. Safe transition for previously encoded [favorite] notes:
+      // Mark is_favorite = 1 where notes contain [favorite] without destroying user notes
+      await db.runAsync(`
+        UPDATE meals
+        SET is_favorite = 1
+        WHERE notes LIKE '%[favorite]%';
+      `);
+
+      // 3. Mark existing itemless meals where all macros are 0 as 'indeterminate'
+      // so legacy meals without recorded macros are not falsely assumed to be confirmed 0g
+      await db.runAsync(`
+        UPDATE meals
+        SET nutrition_completeness = 'indeterminate',
+            protein_known = 0,
+            carbs_known = 0,
+            fat_known = 0
+        WHERE total_calories > 0
+          AND total_protein = 0
+          AND total_carbs = 0
+          AND total_fat = 0
+          AND (SELECT COUNT(*) FROM meal_items WHERE meal_items.meal_id = meals.id) = 0;
+      `);
+
+      // 4. Create independent meal_templates and meal_template_items tables
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS meal_templates (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          meal_type TEXT,
+          notes TEXT,
+          is_favorite INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS meal_template_items (
+          id TEXT PRIMARY KEY,
+          template_id TEXT NOT NULL REFERENCES meal_templates(id) ON DELETE CASCADE,
+          name TEXT NOT NULL,
+          quantity REAL NOT NULL,
+          unit TEXT NOT NULL,
+          calories REAL NOT NULL DEFAULT 0,
+          protein REAL NOT NULL DEFAULT 0,
+          carbs REAL NOT NULL DEFAULT 0,
+          fats REAL NOT NULL DEFAULT 0,
+          catalog_id TEXT,
+          portion_unit TEXT,
+          sort_order INTEGER NOT NULL DEFAULT 0
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_meal_template_items_template_id ON meal_template_items(template_id);
+        CREATE INDEX IF NOT EXISTS idx_meal_templates_favorite ON meal_templates(is_favorite);
+        CREATE INDEX IF NOT EXISTS idx_meals_is_favorite ON meals(is_favorite);
+      `);
+    },
+  },
 ];
 
 /**

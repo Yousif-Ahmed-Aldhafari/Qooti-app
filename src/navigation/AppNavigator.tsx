@@ -36,6 +36,11 @@ import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import type { Language, Meal, ScreenKey, TabKey, Workout } from '../types';
 import { createRepeatedMealDraft, formatLocalDate } from '../utils/nutrition';
+import {
+  createTemplateFromMeal,
+  createMealFromTemplate,
+  type MealTemplate,
+} from '../models/mealTemplate';
 import { applyRTL, flexStart, isRTL, rowStyle, textAlign, writingDirection } from '../utils/rtl';
 import { createQuickAddWorkoutDraft } from '../utils/workoutAnalytics';
 
@@ -64,6 +69,7 @@ export function AppNavigator() {
     persistenceError,
     clearPersistenceError,
     meals,
+    mealTemplates,
     workouts,
     profile,
     progressEntries,
@@ -75,6 +81,9 @@ export function AppNavigator() {
     addMeal,
     updateMeal,
     deleteMeal,
+    toggleMealFavorite,
+    addMealTemplate,
+    deleteMealTemplate,
     addWorkout,
     updateWorkout,
     deleteWorkout,
@@ -302,12 +311,38 @@ export function AppNavigator() {
 
   async function handleToggleFavoriteMeal(mealToToggle: Meal) {
     const nextFav = !mealToToggle.isFavorite;
-    const updated: Meal = {
-      ...mealToToggle,
-      isFavorite: nextFav,
-      isTemplate: nextFav,
-    };
-    await updateMeal(updated);
+    await toggleMealFavorite(mealToToggle.id, nextFav);
+  }
+
+  async function handleSaveAsTemplate(sourceMeal: Meal) {
+    const template = createTemplateFromMeal(sourceMeal);
+    await addMealTemplate(template);
+  }
+
+  async function handleLogFromTemplate(template: MealTemplate) {
+    const newMeal = createMealFromTemplate(template, selectedDiaryDate);
+    await addMeal(newMeal);
+    setSelectedMealId(newMeal.id);
+    setActiveTab('meals');
+    setActiveScreen('mealDetails');
+  }
+
+  async function handleDeleteTemplate(template: MealTemplate) {
+    Alert.alert(
+      t('meals.deleteTemplate') || 'Delete template',
+      t('meals.deleteTemplateConfirm') ||
+        'Are you sure you want to delete this template? Historical meals will not be affected.',
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            await deleteMealTemplate(template.id);
+          },
+        },
+      ]
+    );
   }
 
   function openWorkoutDetails(workout: Workout) {
@@ -439,6 +474,7 @@ export function AppNavigator() {
             key={language}
             t={t}
             meals={meals}
+            mealTemplates={mealTemplates}
             profile={profile}
             language={language}
             selectedDate={selectedDiaryDate}
@@ -448,6 +484,8 @@ export function AppNavigator() {
               setActiveScreen('addMeal');
             }}
             onQuickAddMeal={addMeal}
+            onLogFromTemplate={handleLogFromTemplate}
+            onDeleteTemplate={handleDeleteTemplate}
             onMealPress={openMealDetails}
           />
         );
@@ -475,6 +513,7 @@ export function AppNavigator() {
               key={language}
               t={t}
               meals={meals}
+              mealTemplates={mealTemplates}
               profile={profile}
               language={language}
               selectedDate={selectedDiaryDate}
@@ -484,6 +523,8 @@ export function AppNavigator() {
                 setActiveScreen('addMeal');
               }}
               onQuickAddMeal={addMeal}
+              onLogFromTemplate={handleLogFromTemplate}
+              onDeleteTemplate={handleDeleteTemplate}
               onMealPress={openMealDetails}
             />
           );
@@ -498,6 +539,7 @@ export function AppNavigator() {
             onDelete={handleDeleteMeal}
             onRepeat={handleRepeatMeal}
             onToggleFavorite={handleToggleFavoriteMeal}
+            onSaveAsTemplate={handleSaveAsTemplate}
           />
         );
       case 'editMeal':
@@ -507,6 +549,7 @@ export function AppNavigator() {
               key={language}
               t={t}
               meals={meals}
+              mealTemplates={mealTemplates}
               profile={profile}
               language={language}
               selectedDate={selectedDiaryDate}
@@ -516,6 +559,8 @@ export function AppNavigator() {
                 setActiveScreen('addMeal');
               }}
               onQuickAddMeal={addMeal}
+              onLogFromTemplate={handleLogFromTemplate}
+              onDeleteTemplate={handleDeleteTemplate}
               onMealPress={openMealDetails}
             />
           );

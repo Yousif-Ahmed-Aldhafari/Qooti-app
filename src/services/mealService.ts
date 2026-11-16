@@ -96,6 +96,22 @@ export async function deleteMeal(mealId: string): Promise<void> {
   });
 }
 
+export async function toggleMealFavorite(mealId: string, isFavorite: boolean): Promise<void> {
+  const db = await getDatabase();
+  const repo = new SQLiteMealRepository(db);
+
+  await db.withExclusiveTransactionAsync(async (txn) => {
+    await repo.toggleMealFavorite(mealId, isFavorite, txn);
+    const now = new Date().toISOString();
+    await txn.runAsync(
+      `INSERT INTO migration_meta (key, value, updated_at)
+       VALUES ('meals_saved', 'true', ?)
+       ON CONFLICT(key) DO UPDATE SET value = 'true', updated_at = excluded.updated_at;`,
+      now
+    );
+  });
+}
+
 export async function getMealById(mealId: string): Promise<Meal | null> {
   const repo = await getMealRepository();
   return await repo.getMealById(mealId);

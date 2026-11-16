@@ -88,6 +88,12 @@ export interface DailyNutritionSummaryResult {
   fats: number;
   hasLoggedMeals: boolean;
   dataQualityFlags: string[];
+  isComplete: boolean;
+  hasUnknownMacros: boolean;
+  proteinKnown: boolean;
+  carbsKnown: boolean;
+  fatsKnown: boolean;
+  isPartial: boolean;
 }
 
 /**
@@ -135,6 +141,12 @@ export function getDailyNutritionSummary(
       fats: 0,
       hasLoggedMeals: false,
       dataQualityFlags,
+      isComplete: true,
+      hasUnknownMacros: false,
+      proteinKnown: true,
+      carbsKnown: true,
+      fatsKnown: true,
+      isPartial: false,
     };
   }
 
@@ -157,6 +169,12 @@ export function getDailyNutritionSummary(
       fats: 0,
       hasLoggedMeals: false,
       dataQualityFlags,
+      isComplete: true,
+      hasUnknownMacros: false,
+      proteinKnown: true,
+      carbsKnown: true,
+      fatsKnown: true,
+      isPartial: false,
     };
   }
 
@@ -165,6 +183,10 @@ export function getDailyNutritionSummary(
   let totalCarbs = 0;
   let totalFats = 0;
   let loggedFoodCount = 0;
+  let dayProteinKnown = true;
+  let dayCarbsKnown = true;
+  let dayFatsKnown = true;
+  let hasUnknownMacros = false;
 
   for (const meal of mealsOnDate) {
     if (meal.items && meal.items.length > 0) {
@@ -176,20 +198,51 @@ export function getDailyNutritionSummary(
         totalFats += checkAndSanitize(item.fats ?? item.fat, 'fats');
       }
     } else {
-      // Legacy itemless meal fallback
+      // Itemless meal
       const cal = checkAndSanitize(meal.totalCalories, 'calories');
-      const prot = checkAndSanitize(meal.totalProtein, 'protein');
-      const carb = checkAndSanitize(meal.totalCarbs, 'carbs');
-      const fat = checkAndSanitize(meal.totalFat ?? meal.totalFats, 'fats');
-      if (cal > 0 || prot > 0 || carb > 0 || fat > 0) {
+      totalCalories += cal;
+
+      const pKnown = meal.proteinKnown !== false && meal.nutritionCompleteness !== 'calories_only' && meal.nutritionCompleteness !== 'indeterminate';
+      const cKnown = meal.carbsKnown !== false && meal.nutritionCompleteness !== 'calories_only' && meal.nutritionCompleteness !== 'indeterminate';
+      const fKnown = meal.fatKnown !== false && meal.nutritionCompleteness !== 'calories_only' && meal.nutritionCompleteness !== 'indeterminate';
+
+      if (pKnown) {
+        totalProtein += checkAndSanitize(meal.totalProtein, 'protein');
+      } else {
+        dayProteinKnown = false;
+        hasUnknownMacros = true;
+        if (!dataQualityFlags.includes('UNKNOWN_PROTEIN')) dataQualityFlags.push('UNKNOWN_PROTEIN');
+      }
+
+      if (cKnown) {
+        totalCarbs += checkAndSanitize(meal.totalCarbs, 'carbs');
+      } else {
+        dayCarbsKnown = false;
+        hasUnknownMacros = true;
+        if (!dataQualityFlags.includes('UNKNOWN_CARBS')) dataQualityFlags.push('UNKNOWN_CARBS');
+      }
+
+      if (fKnown) {
+        totalFats += checkAndSanitize(meal.totalFat ?? meal.totalFats, 'fats');
+      } else {
+        dayFatsKnown = false;
+        hasUnknownMacros = true;
+        if (!dataQualityFlags.includes('UNKNOWN_FATS')) dataQualityFlags.push('UNKNOWN_FATS');
+      }
+
+      if (
+        cal > 0 ||
+        (pKnown && (meal.totalProtein ?? 0) > 0) ||
+        (cKnown && (meal.totalCarbs ?? 0) > 0) ||
+        (fKnown && (meal.totalFat ?? meal.totalFats ?? 0) > 0)
+      ) {
         loggedFoodCount += 1;
       }
-      totalCalories += cal;
-      totalProtein += prot;
-      totalCarbs += carb;
-      totalFats += fat;
     }
   }
+
+  const isPartial = hasUnknownMacros;
+  const isComplete = !hasUnknownMacros && mealsOnDate.length > 0;
 
   return {
     date: targetDate,
@@ -201,6 +254,12 @@ export function getDailyNutritionSummary(
     fats: totalFats,
     hasLoggedMeals: true,
     dataQualityFlags,
+    isComplete,
+    hasUnknownMacros,
+    proteinKnown: dayProteinKnown,
+    carbsKnown: dayCarbsKnown,
+    fatsKnown: dayFatsKnown,
+    isPartial,
   };
 }
 
@@ -214,6 +273,8 @@ export interface TargetProgressItem {
   remaining: number | null;
   overage: number | null;
   hasTarget: boolean;
+  isPartial?: boolean;
+  isUnknown?: boolean;
 }
 
 export interface NutritionTargetProgress {
@@ -225,6 +286,7 @@ export interface NutritionTargetProgress {
   protein: TargetProgressItem;
   carbs: TargetProgressItem;
   fats: TargetProgressItem;
+  hasUnknownMacros?: boolean;
 }
 
 /**
@@ -233,15 +295,33 @@ export interface NutritionTargetProgress {
  * - Respects target authorization states; does NOT fabricate progress when hasActiveTarget is false.
  * - Handles custom overrides where individual macro targets might not be specified.
  * - Exposes neutral, non-judgmental remaining and overage values.
+ * - Distinguishes unknown/partial macro entries from confirmed 0g intake.
  */
 export function calculateNutritionTargetProgress(
-  intake: { calories: number; protein: number; carbs: number; fats: number; hasLoggedMeals?: boolean },
+  intake: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fats: number;
+    hasLoggedMeals?: boolean;
+    proteinKnown?: boolean;
+    carbsKnown?: boolean;
+    fatsKnown?: boolean;
+    hasUnknownMacros?: boolean;
+  },
   effectiveTargets: EffectiveNutritionTargets
 ): NutritionTargetProgress {
   const hasActive = effectiveTargets.hasActiveTarget === true;
 
-  function buildProgressItem(consumedVal: number, targetVal: number | null | undefined): TargetProgressItem {
+  function buildProgressItem(
+    consumedVal: number,
+    targetVal: number | null | undefined,
+    isKnown: boolean = true
+  ): TargetProgressItem {
     const consumed = Math.max(0, safeNumber(consumedVal));
+    const isUnknown = !isKnown && consumed === 0;
+    const isPartial = !isKnown;
+
     if (!hasActive || targetVal == null || !Number.isFinite(targetVal) || targetVal <= 0) {
       return {
         consumed,
@@ -253,6 +333,8 @@ export function calculateNutritionTargetProgress(
         remaining: null,
         overage: null,
         hasTarget: false,
+        isPartial,
+        isUnknown,
       };
     }
 
@@ -274,6 +356,8 @@ export function calculateNutritionTargetProgress(
       remaining,
       overage,
       hasTarget: true,
+      isPartial,
+      isUnknown,
     };
   }
 
@@ -299,10 +383,11 @@ export function calculateNutritionTargetProgress(
     state: effectiveTargets.state,
     source: effectiveTargets.source,
     isCustomOverride: effectiveTargets.isCustomOverride,
-    calories: buildProgressItem(intake.calories, calorieTarget),
-    protein: buildProgressItem(intake.protein, proteinTarget),
-    carbs: buildProgressItem(intake.carbs, carbsTarget),
-    fats: buildProgressItem(intake.fats, fatsTarget),
+    calories: buildProgressItem(intake.calories, calorieTarget, true),
+    protein: buildProgressItem(intake.protein, proteinTarget, intake.proteinKnown !== false),
+    carbs: buildProgressItem(intake.carbs, carbsTarget, intake.carbsKnown !== false),
+    fats: buildProgressItem(intake.fats, fatsTarget, intake.fatsKnown !== false),
+    hasUnknownMacros: Boolean(intake.hasUnknownMacros),
   };
 }
 
@@ -319,6 +404,7 @@ export interface MacroDistribution {
   rawFatsPct: number;
   loggedCalories: number;
   calorieDifference: number;
+  isPartial?: boolean;
 }
 
 /**
@@ -327,12 +413,15 @@ export interface MacroDistribution {
  * - Handles zero macro-energy safely (all percentages 0).
  * - Ensures integer percentages sum cleanly to 100% when total macro energy > 0.
  * - Preserves independence between logged food calories and derived macro calories.
+ * - Explicitly tags partial/incomplete macro distributions.
  */
 export function calculateMacroDistribution(intake: {
   protein: number;
   carbs: number;
   fats: number;
   calories?: number;
+  hasUnknownMacros?: boolean;
+  isPartial?: boolean;
 }): MacroDistribution {
   const protGrams = Math.max(0, safeNumber(intake.protein));
   const carbGrams = Math.max(0, safeNumber(intake.carbs));
@@ -343,6 +432,8 @@ export function calculateMacroDistribution(intake: {
   const carbsKcal = carbGrams * 4;
   const fatsKcal = fatGrams * 9;
   const totalMacroKcal = proteinKcal + carbsKcal + fatsKcal;
+
+  const isPartial = Boolean(intake.hasUnknownMacros || intake.isPartial || (totalMacroKcal <= 0 && loggedCal > 0));
 
   if (totalMacroKcal <= 0) {
     return {
@@ -358,6 +449,7 @@ export function calculateMacroDistribution(intake: {
       rawFatsPct: 0,
       loggedCalories: loggedCal,
       calorieDifference: loggedCal,
+      isPartial,
     };
   }
 
@@ -424,6 +516,7 @@ export function calculateMacroDistribution(intake: {
     rawFatsPct,
     loggedCalories: loggedCal,
     calorieDifference: loggedCal - totalMacroKcal,
+    isPartial,
   };
 }
 
@@ -765,6 +858,10 @@ export function createRepeatedMealDraft(
     portionUnit: item.portionUnit,
   }));
 
+  const cleanNotes = sourceMeal.notes
+    ? sourceMeal.notes.replace(/^\[favorite\]\s*/, '').trim() || undefined
+    : undefined;
+
   return {
     id: createId('meal'),
     title: sourceMeal.title || sourceMeal.name || '',
@@ -778,8 +875,12 @@ export function createRepeatedMealDraft(
     totalFat: sourceMeal.totalFat ?? sourceMeal.totalFats,
     totalFats: sourceMeal.totalFats ?? sourceMeal.totalFat,
     mealType: sourceMeal.mealType,
-    notes: sourceMeal.notes,
-    isFavorite: Boolean(sourceMeal.isFavorite),
-    isTemplate: Boolean(sourceMeal.isTemplate || sourceMeal.isFavorite),
+    notes: cleanNotes,
+    isFavorite: false, // Fresh consumed meal is NOT automatically a favorite
+    isTemplate: false, // Fresh consumed meal is NOT a template
+    nutritionCompleteness: sourceMeal.nutritionCompleteness,
+    proteinKnown: sourceMeal.proteinKnown,
+    carbsKnown: sourceMeal.carbsKnown,
+    fatKnown: sourceMeal.fatKnown,
   };
 }

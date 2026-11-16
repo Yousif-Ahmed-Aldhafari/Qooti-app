@@ -283,6 +283,38 @@
   - Verified by Tests 25–27 in `src/__tests__/multiFoodMealAndDayNavigation.test.ts`.
 - **Target Task:** Task 4.3
 
+#### ISSUE-NUT-17: Repetitive Logging Overhead & Lack of Meal Templates
+- **Severity:** P2 (Medium)
+- **Status:** RESOLVED (Task 4.5)
+- **Location:** `src/models/meal.ts`, `src/components/MealCard.tsx`, `src/screens/MealDetailsScreen.tsx`, `src/components/QuickAddMealModal.tsx`
+- **Description:** Users had to re-enter repeated meals manually food-by-food; no quick repeat or standalone calorie logging was available.
+- **Root Cause:** Lack of favorite/template flag and quick calorie logging flow.
+- **Impact:** High logging fatigue for frequent/daily meals.
+- **Resolution & Verification:**
+  - Added `isFavorite` and `isTemplate` flags to `Meal` model with SQLite persistence via notes encoding.
+  - Added "Log Again Today" repeat meal draft generator in `src/utils/nutrition.ts`.
+  - Implemented `QuickAddMealModal.tsx` with strict numeric input validation.
+  - Added Favorites filter chip to `MealsScreen.tsx`.
+  - Verified by 10 tests in `src/__tests__/mealTemplatesFavoritesAndQuickLog.test.ts`.
+- **Target Task:** Task 4.5
+
+#### ISSUE-NUT-17A: Meal Template Coupling, Note Corruption & Unknown Macro Ambiguities
+- **Severity:** P1 (High)
+- **Status:** RESOLVED (Task 4.5A)
+- **Location:** `src/db/migrations.ts`, `src/models/mealTemplate.ts`, `src/db/repositories/mealTemplateRepository.ts`, `src/utils/nutrition.ts`, `src/components/QuickAddMealModal.tsx`
+- **Description:** Templates were tied to consumed meals and favorite state was encoded into user notes text via `[favorite]`. In addition, omitted macros were mapped to numeric zero, falsely reporting confirmed zero intake in daily analytics, repeat-meal copied favorite flags, and SQLite failures lacked draft retention.
+- **Root Cause:** Reusing notes column for state; lack of dedicated template tables; lack of distinct unknown macronutrient semantics.
+- **Impact:** Notes polluted with synthetic metadata; templates accidentally modifying consumed history; false zero-macro intake reporting.
+- **Resolution & Verification:**
+  - Added Migration 10 creating dedicated `meal_templates` and `meal_template_items` tables and adding structural `is_favorite`, `nutrition_completeness`, `protein_known`, `carbs_known`, `fat_known` columns to `meals`.
+  - Implemented `SQLiteMealTemplateRepository` with full CRUD completely decoupled from consumed meals.
+  - Granular `toggleMealFavorite` updates favorite status without rewriting child items.
+  - Preserved literal user notes without synthetic `[favorite]` tags.
+  - Implemented typed `NutritionCompleteness` and macro known flags distinguishing entered 0g from unknown macros across summaries, target progress, and macro distribution.
+  - Hardened `QuickAddMealModal` with error banner, draft retention, and unknown macro tracking.
+  - Added 12 tests in `src/__tests__/templateIntegrityAndQuickLogHardening.test.ts` (662 total tests passing).
+- **Target Task:** Task 4.5A
+
 ---
 
 ### P3: Low Priority Polish & Maintenance Items

@@ -419,6 +419,53 @@
 
 ---
 
+### Task 4.5A: Template Integrity, Unknown Macros & Quick-Log Hardening [COMPLETED]
+- **Status:** COMPLETED
+- **Objective:** Separate meal templates from consumed meals into dedicated SQLite tables; remove `[favorite]` tags from notes; introduce explicit unknown macronutrient semantics; harden quick-add error recovery; provide safe repeat-meal workflows.
+- **Pre-conditions:** Task 4.5 completed and verified; 650 baseline tests passing.
+- **Outcome Metrics:** 662 total passing tests (+12 new tests in `templateIntegrityAndQuickLogHardening.test.ts`), 0 failures, 0 skipped, 91.56% overall line coverage, 0 TypeScript errors, 0 ESLint warnings, 20/20 expo-doctor checks passing.
+- **Technical Specifications:**
+  1. **Independent Persistent Meal Templates (Migration 10):**
+     - Separate tables: `meal_templates` and `meal_template_items` with foreign keys and cascade delete.
+     - Full CRUD via `SQLiteMealTemplateRepository`: `createTemplate`, `getTemplateById`, `getAllTemplates`, `updateTemplate`, `deleteTemplate`, `toggleTemplateFavorite`.
+     - Templates exist completely independent of consumed meals (do not contribute to consumed calories, deleting meal does not delete template, and vice versa).
+     - Support converting itemless quick-add meals to templates while preserving nutrient totals.
+  2. **Safe Favorite Management & Clean Notes:**
+     - Structural `is_favorite` column added to `meals` via Migration 10.
+     - Legacy `[favorite]` notes migrated non-destructively to `is_favorite = 1`, preserving note text.
+     - Granular `toggleMealFavorite(id, isFavorite)` executes single `UPDATE meals SET is_favorite = ?` without rewriting child meal items.
+     - Literal user notes containing `[favorite]` are preserved without truncation or synthetic prefixing.
+  3. **Unknown Macronutrient & Completeness Semantics:**
+     - `NutritionCompleteness` type: `'complete' | 'partial' | 'calories_only' | 'indeterminate'`.
+     - Explicit known flags: `proteinKnown`, `carbsKnown`, `fatKnown`.
+     - Distinguishes entered numeric 0 (confirmed zero) from omitted/unknown macros.
+     - `getDailyNutritionSummary`, target progress, and `calculateMacroDistribution` flag `hasUnknownMacros` and `isPartial` without assuming 0g.
+  4. **Safe Repeat-Meal Workflows:**
+     - `createRepeatedMealDraft` generates fresh IDs, defaults to `isFavorite: false` and `isTemplate: false`, strips legacy `[favorite]` note prefix, and preserves unknown macro flags.
+  5. **Quick-Add Error Recovery:**
+     - `QuickAddMealModal` marks omitted macros as unknown and explicit 0 as known.
+     - SQLite save failures caught with localized banner, preserving draft inputs and preventing double-submit.
+- **Files Affected:**
+  - `src/db/migrations.ts` (Migration 10)
+  - `src/db/types.ts`
+  - `src/db/repositories/mealRepository.ts`
+  - `src/models/meal.ts`
+  - `src/models/mealTemplate.ts` (new)
+  - `src/db/repositories/mealTemplateRepository.ts` (new)
+  - `src/services/mealService.ts`
+  - `src/services/mealTemplateService.ts` (new)
+  - `src/utils/nutrition.ts`
+  - `src/components/QuickAddMealModal.tsx`
+  - `src/screens/MealDetailsScreen.tsx`
+  - `src/screens/MealsScreen.tsx`
+  - `src/store/AppContext.tsx`
+  - `src/navigation/AppNavigator.tsx`
+  - `src/i18n/en.ts` & `src/i18n/ar.ts`
+  - `src/__tests__/templateIntegrityAndQuickLogHardening.test.ts` (new)
+- **Success Criteria:** Independent template lifecycle; uncorrupted notes; explicit unknown macro semantics; 662 passing tests.
+
+---
+
 ### Task 4.6: Cross-Platform UI/UX, A11y & Arabic Parity Hardening
 - **Objective:** Audit and harden all nutrition screens for Apple HIG, Android Material 3, accessibility, and RTL layout symmetry.
 - **Pre-conditions:** Task 4.5 completed and verified.

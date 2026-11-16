@@ -25,6 +25,7 @@ type MealDetailsScreenProps = {
   onDelete?: (meal: Meal) => Promise<void> | void;
   onRepeat?: (meal: Meal) => Promise<void> | void;
   onToggleFavorite?: (meal: Meal) => Promise<void> | void;
+  onSaveAsTemplate?: (meal: Meal) => Promise<void> | void;
 };
 
 export function MealDetailsScreen({
@@ -35,12 +36,14 @@ export function MealDetailsScreen({
   onDelete,
   onRepeat,
   onToggleFavorite,
+  onSaveAsTemplate,
 }: MealDetailsScreenProps) {
   const colors = themeColors();
   const [deleteState, setDeleteState] = useState<MealDeleteState>('idle');
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isRepeating, setIsRepeating] = useState(false);
   const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
   const [actionFeedback, setActionFeedback] = useState<string | null>(null);
 
   const isDeleting = deleteState === 'deleting';
@@ -71,6 +74,21 @@ export function MealDetailsScreen({
       setActionFeedback(message);
     } finally {
       setIsTogglingFavorite(false);
+    }
+  };
+
+  const handleSaveAsTemplate = async () => {
+    if (isSavingTemplate || !onSaveAsTemplate) return;
+    setIsSavingTemplate(true);
+    setActionFeedback(null);
+    try {
+      await onSaveAsTemplate(meal);
+      setActionFeedback(t('meals.templateSavedSuccess') || 'Saved as reusable meal template');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to save template';
+      setActionFeedback(message);
+    } finally {
+      setIsSavingTemplate(false);
     }
   };
 
@@ -220,16 +238,56 @@ export function MealDetailsScreen({
         </View>
       )}
 
-      {onRepeat ? (
-        <AppButton
-          title={isRepeating ? (t('common.loading') || 'Loading...') : t('meals.logAgainToday')}
-          icon="repeat-outline"
-          variant="secondary"
-          disabled={isRepeating || isDeleting}
-          onPress={handleRepeat}
-          style={styles.repeatButton}
-        />
-      ) : null}
+      {meal.nutritionCompleteness === 'calories_only' && (
+        <View style={[styles.feedbackBanner, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.feedbackBannerText, directionalText, { color: colors.textMuted }]}>
+            {t('meals.caloriesOnlyNotice') || 'Calories-only log. Macronutrients not recorded.'}
+          </Text>
+        </View>
+      )}
+      {meal.nutritionCompleteness === 'partial' && (
+        <View style={[styles.feedbackBanner, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.feedbackBannerText, directionalText, { color: colors.textMuted }]}>
+            {t('meals.partialMacrosNotice') || 'Partial macronutrients recorded.'}
+          </Text>
+        </View>
+      )}
+      {meal.nutritionCompleteness === 'indeterminate' && (
+        <View style={[styles.feedbackBanner, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.feedbackBannerText, directionalText, { color: colors.textMuted }]}>
+            {t('meals.indeterminateNotice') || 'Legacy meal totals without confirmed item breakdown.'}
+          </Text>
+        </View>
+      )}
+
+      {(onRepeat || onSaveAsTemplate) && (
+        <View style={[styles.actionsRow, activeRowStyle()]}>
+          {onRepeat ? (
+            <AppButton
+              title={isRepeating ? (t('common.loading') || 'Loading...') : t('meals.logAgainToday')}
+              icon="repeat-outline"
+              variant="secondary"
+              disabled={isRepeating || isDeleting || isSavingTemplate}
+              onPress={handleRepeat}
+              style={styles.actionBtn}
+            />
+          ) : null}
+          {onSaveAsTemplate ? (
+            <AppButton
+              title={
+                isSavingTemplate
+                  ? (t('common.loading') || 'Loading...')
+                  : (t('meals.saveAsTemplate') || 'Save as Template')
+              }
+              icon="bookmark-outline"
+              variant="secondary"
+              disabled={isRepeating || isDeleting || isSavingTemplate}
+              onPress={handleSaveAsTemplate}
+              style={styles.actionBtn}
+            />
+          ) : null}
+        </View>
+      )}
 
       {deleteError ? (
         <View style={[styles.errorBanner, { backgroundColor: colors.card, borderColor: colors.danger }]}>
@@ -250,28 +308,28 @@ export function MealDetailsScreen({
         />
         <MacroCard
           label={t('common.protein')}
-          value={totals.protein}
-          target={hasActiveTarget ? effectiveTargets.protein : null}
-          hasTarget={hasActiveTarget}
-          unavailableLabel={unavailableLabel}
+          value={meal.proteinKnown !== false ? totals.protein : null}
+          target={hasActiveTarget && meal.proteinKnown !== false ? effectiveTargets.protein : null}
+          hasTarget={hasActiveTarget && meal.proteinKnown !== false}
+          unavailableLabel={meal.proteinKnown !== false ? unavailableLabel : (t('meals.unknownMacro') || '—')}
           unit={t('common.grams')}
           accent={colors.purple}
         />
         <MacroCard
           label={t('common.carbs')}
-          value={totals.carbs}
-          target={hasActiveTarget ? effectiveTargets.carbs : null}
-          hasTarget={hasActiveTarget}
-          unavailableLabel={unavailableLabel}
+          value={meal.carbsKnown !== false ? totals.carbs : null}
+          target={hasActiveTarget && meal.carbsKnown !== false ? effectiveTargets.carbs : null}
+          hasTarget={hasActiveTarget && meal.carbsKnown !== false}
+          unavailableLabel={meal.carbsKnown !== false ? unavailableLabel : (t('meals.unknownMacro') || '—')}
           unit={t('common.grams')}
           accent={colors.lavender}
         />
         <MacroCard
           label={t('common.fats')}
-          value={totals.fats}
-          target={hasActiveTarget ? effectiveTargets.fats : null}
-          hasTarget={hasActiveTarget}
-          unavailableLabel={unavailableLabel}
+          value={meal.fatKnown !== false ? totals.fats : null}
+          target={hasActiveTarget && meal.fatKnown !== false ? effectiveTargets.fats : null}
+          hasTarget={hasActiveTarget && meal.fatKnown !== false}
+          unavailableLabel={meal.fatKnown !== false ? unavailableLabel : (t('meals.unknownMacro') || '—')}
           unit={t('common.grams')}
           accent={colors.orange}
         />
@@ -345,6 +403,13 @@ const styles = StyleSheet.create({
   },
   repeatButton: {
     width: '100%',
+  },
+  actionsRow: {
+    gap: spacing.sm,
+    width: '100%',
+  },
+  actionBtn: {
+    flex: 1,
   },
   feedbackBanner: {
     borderRadius: radius.md,

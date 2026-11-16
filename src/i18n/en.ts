@@ -254,7 +254,22 @@ export const en = {
     "quickMeal": "Quick Meal",
     "quickAddSuccess": "Quick meal logged successfully",
     "repeatedMealSuccess": "Meal repeated for today",
-    "templates": "Templates"
+    "templates": "Templates",
+    "saveAsTemplate": "Save as Template",
+    "templateSavedTitle": "Template Saved",
+    "templateSavedBody": "\"{{name}}\" has been saved as a reusable template.",
+    "templateSavedSuccess": "Saved as reusable meal template",
+    "logFromTemplate": "Log Template",
+    "logFromTemplateSuccess": "Logged meal from template",
+    "deleteTemplate": "Delete template",
+    "deleteTemplateConfirm": "Are you sure you want to delete this template? Historical meals will not be affected.",
+    "unknownMacro": "Unknown",
+    "partialMacrosNotice": "Contains calories-only or partial macro logs. Macronutrient totals exclude unrecorded values.",
+    "caloriesOnlyNotice": "Calories-only log. Macronutrients not recorded.",
+    "indeterminateNotice": "Legacy meal totals without confirmed item breakdown.",
+    "saveFailed": "Failed to save meal. Please try again.",
+    "emptyTemplates": "No meal templates saved yet.",
+    "emptyTemplatesDescription": "Save any meal as a template to log it again with 1 tap."
   },
   "foodPicker": {
     "title": "Select Food",

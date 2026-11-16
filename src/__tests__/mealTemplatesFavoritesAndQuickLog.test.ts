@@ -97,7 +97,7 @@ test('createRepeatedMealDraft: generates brand-new meal ID and new item IDs', ()
   assert.equal(repeated.title, 'Post-Workout Chicken & Rice');
   assert.equal(repeated.mealType, 'lunch');
   assert.equal(repeated.notes, 'Extra seasoning');
-  assert.equal(repeated.isFavorite, true);
+  assert.equal(repeated.isFavorite, false);
 
   // Child items integrity
   assert.equal(repeated.items.length, 2);

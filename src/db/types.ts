@@ -1,4 +1,5 @@
 import { Meal } from '../models/meal';
+import { MealTemplate } from '../models/mealTemplate';
 import { Workout } from '../models/workout';
 import { UserProfile } from '../models/profile';
 import { ProgressEntry } from '../models/progress';
@@ -61,7 +62,17 @@ export interface MealRepository {
   insertMeal(meal: Meal, txn?: IDatabase): Promise<void>;
   updateMeal(meal: Meal, txn?: IDatabase): Promise<void>;
   deleteMeal(id: string, txn?: IDatabase): Promise<void>;
+  toggleMealFavorite(id: string, isFavorite: boolean, txn?: IDatabase): Promise<void>;
   saveAllMeals(meals: Meal[], txn?: IDatabase): Promise<void>;
+}
+
+export interface MealTemplateRepository {
+  getAllTemplates(txn?: IDatabase): Promise<MealTemplate[]>;
+  getTemplateById(id: string, txn?: IDatabase): Promise<MealTemplate | null>;
+  createTemplate(template: MealTemplate, txn?: IDatabase): Promise<MealTemplate>;
+  updateTemplate(template: MealTemplate, txn?: IDatabase): Promise<MealTemplate>;
+  deleteTemplate(id: string, txn?: IDatabase): Promise<void>;
+  toggleTemplateFavorite(id: string, isFavorite: boolean, txn?: IDatabase): Promise<void>;
 }
 
 export interface WorkoutRepository {

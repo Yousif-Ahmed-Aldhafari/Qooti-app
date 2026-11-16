@@ -13,6 +13,7 @@ import { useBottomNavScrollHandler } from '../context/BottomNavContext';
 import { useLiveLocalDate } from '../hooks/useLiveLocalDate';
 import type { Translator } from '../i18n';
 import type { MealType } from '../models/meal';
+import type { MealTemplate } from '../models/mealTemplate';
 import { themeColors } from '../theme/colors';
 import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
@@ -34,8 +35,11 @@ import { activeRowStyle, activeTextAlign, activeWritingDirection } from '../util
 type MealsScreenProps = {
   t: Translator;
   meals: Meal[];
+  mealTemplates?: MealTemplate[];
   onAddMeal: (initialDate?: string) => void;
   onMealPress: (meal: Meal) => void;
+  onLogFromTemplate?: (template: MealTemplate) => Promise<void> | void;
+  onDeleteTemplate?: (template: MealTemplate) => Promise<void> | void;
   profile?: UserProfile;
   language?: 'en' | 'ar';
   selectedDate?: string;
@@ -56,8 +60,11 @@ const MEAL_SLOT_ORDER: { type: MealType | 'other'; key: string; icon: string }[]
 export function MealsScreen({
   t,
   meals,
+  mealTemplates = [],
   onAddMeal,
   onMealPress,
+  onLogFromTemplate,
+  onDeleteTemplate,
   profile,
   language = 'en',
   selectedDate: selectedDateProp,
@@ -70,7 +77,7 @@ export function MealsScreen({
   const isRTL = language === 'ar';
   const handleBottomNavScroll = useBottomNavScrollHandler();
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
-  const [filterMode, setFilterMode] = useState<'all' | 'favorites'>('all');
+  const [filterMode, setFilterMode] = useState<'all' | 'favorites' | 'templates'>('all');
 
   const directionalText = {
     textAlign: activeTextAlign(),
@@ -377,31 +384,58 @@ export function MealsScreen({
               </View>
             )}
 
+            {dailySummary.hasUnknownMacros && (
+              <View
+                style={[
+                  styles.unconfirmedBanner,
+                  activeRowStyle(),
+                  { backgroundColor: `${colors.accent}12`, borderColor: `${colors.accent}35` },
+                ]}
+              >
+                <Ionicons name="alert-circle-outline" size={18} color={colors.accent} />
+                <Text style={[styles.unconfirmedBannerText, directionalText, { color: colors.textSecondary }]}>
+                  {t('meals.partialMacrosNotice') || 'Contains calories-only or partial macro logs. Macronutrient totals exclude unrecorded values.'}
+                </Text>
+              </View>
+            )}
+
             <View style={[styles.macroGrid, activeRowStyle()]}>
               <MacroCard
                 label={t('common.protein') || 'Protein'}
-                value={dailySummary.protein}
+                value={dailySummary.proteinKnown !== false ? dailySummary.protein : null}
                 target={targetProgress.protein.hasTarget ? targetProgress.protein.target : null}
                 hasTarget={targetProgress.protein.hasTarget}
-                unavailableLabel={t('personalization.unconfirmedStatus') || 'Unconfirmed'}
+                unavailableLabel={
+                  dailySummary.proteinKnown !== false
+                    ? (t('personalization.unconfirmedStatus') || 'Unconfirmed')
+                    : (t('meals.unknownMacro') || 'Unknown')
+                }
                 unit={t('common.grams') || 'g'}
                 accent={colors.purple}
               />
               <MacroCard
                 label={t('common.carbs') || 'Carbs'}
-                value={dailySummary.carbs}
+                value={dailySummary.carbsKnown !== false ? dailySummary.carbs : null}
                 target={targetProgress.carbs.hasTarget ? targetProgress.carbs.target : null}
                 hasTarget={targetProgress.carbs.hasTarget}
-                unavailableLabel={t('personalization.unconfirmedStatus') || 'Unconfirmed'}
+                unavailableLabel={
+                  dailySummary.carbsKnown !== false
+                    ? (t('personalization.unconfirmedStatus') || 'Unconfirmed')
+                    : (t('meals.unknownMacro') || 'Unknown')
+                }
                 unit={t('common.grams') || 'g'}
                 accent={colors.primary}
               />
               <MacroCard
                 label={t('common.fats') || 'Fats'}
-                value={dailySummary.fats}
+                value={dailySummary.fatsKnown !== false ? dailySummary.fats : null}
                 target={targetProgress.fats.hasTarget ? targetProgress.fats.target : null}
                 hasTarget={targetProgress.fats.hasTarget}
-                unavailableLabel={t('personalization.unconfirmedStatus') || 'Unconfirmed'}
+                unavailableLabel={
+                  dailySummary.fatsKnown !== false
+                    ? (t('personalization.unconfirmedStatus') || 'Unconfirmed')
+                    : (t('meals.unknownMacro') || 'Unknown')
+                }
                 unit={t('common.grams') || 'g'}
                 accent={colors.orange}
               />
@@ -461,10 +495,97 @@ export function MealsScreen({
             ★ {t('meals.favorites') || 'Favorites'} {favoriteMeals.length > 0 ? `(${favoriteMeals.length})` : ''}
           </Text>
         </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('meals.templates') || 'Templates'}
+          onPress={() => setFilterMode('templates')}
+          style={[
+            styles.filterChip,
+            filterMode === 'templates'
+              ? { backgroundColor: colors.accent, borderColor: colors.accent }
+              : { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <Text
+            style={[
+              styles.filterChipText,
+              { color: filterMode === 'templates' ? colors.buttonText : colors.text },
+            ]}
+          >
+            📋 {t('meals.templates') || 'Templates'} {mealTemplates.length > 0 ? `(${mealTemplates.length})` : ''}
+          </Text>
+        </Pressable>
       </View>
 
-      {/* Conditional: Favorite Meals vs Daily Grouped Slot Meals */}
-      {filterMode === 'favorites' ? (
+      {/* Conditional: Templates vs Favorites vs Daily Grouped Slot Meals */}
+      {filterMode === 'templates' ? (
+        mealTemplates.length > 0 ? (
+          <View style={styles.favoritesSection}>
+            {mealTemplates.map((template) => (
+              <View
+                key={`template-${template.id}`}
+                style={[
+                  styles.templateCard,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+              >
+                <View style={[styles.templateCardHeader, activeRowStyle()]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.templateCardTitle, directionalText, { color: colors.text }]}>
+                      {template.name}
+                    </Text>
+                    {template.mealType ? (
+                      <Text style={[styles.templateCardSubtitle, directionalText, { color: colors.textMuted }]}>
+                        {t(`meals.${template.mealType}` as any) || template.mealType}
+                        {template.items && template.items.length > 0
+                          ? ` · ${template.items.length} ${t('meals.itemLabel') || 'items'}`
+                          : ''}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Text style={[styles.templateCardCalories, { color: colors.accent }]}>
+                    {Math.round(template.totalCalories ?? 0)} {t('common.kcal')}
+                  </Text>
+                </View>
+
+                {template.notes ? (
+                  <Text style={[styles.templateCardNotes, directionalText, { color: colors.textMuted }]}>
+                    {template.notes}
+                  </Text>
+                ) : null}
+
+                <View style={[styles.templateActions, activeRowStyle()]}>
+                  {onLogFromTemplate ? (
+                    <AppButton
+                      title={t('meals.logFromTemplate') || 'Log Meal'}
+                      icon="add-circle-outline"
+                      onPress={() => onLogFromTemplate(template)}
+                      style={{ flex: 1 }}
+                    />
+                  ) : null}
+                  {onDeleteTemplate ? (
+                    <Pressable
+                      onPress={() => onDeleteTemplate(template)}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('meals.deleteTemplate') || 'Delete template'}
+                      style={styles.templateDeleteBtn}
+                    >
+                      <Ionicons name="trash-outline" size={20} color={colors.danger} />
+                    </Pressable>
+                  ) : null}
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <EmptyState
+            icon="bookmark-outline"
+            title={t('meals.emptyTemplates') || 'No meal templates saved yet.'}
+            description={t('meals.emptyTemplatesDescription') || 'Save any meal as a template to log it again with 1 tap.'}
+          />
+        )
+      ) : filterMode === 'favorites' ? (
         favoriteMeals.length > 0 ? (
           <View style={styles.favoritesSection}>
             {favoriteMeals.map((meal) => (
@@ -815,5 +936,42 @@ const styles = StyleSheet.create({
   unassignedList: {
     gap: spacing.sm,
     marginTop: spacing.xs,
+  },
+  templateCard: {
+    borderRadius: radius.md,
+    borderWidth: 1,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  templateCardHeader: {
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  templateCardTitle: {
+    ...typography.body,
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  templateCardSubtitle: {
+    ...typography.caption,
+    marginTop: 2,
+    textTransform: 'capitalize',
+  },
+  templateCardCalories: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  templateCardNotes: {
+    ...typography.caption,
+    fontStyle: 'italic',
+  },
+  templateActions: {
+    marginTop: spacing.xs,
+    gap: spacing.sm,
+    alignItems: 'center',
+  },
+  templateDeleteBtn: {
+    padding: spacing.sm,
+    borderRadius: radius.md,
   },
 });
