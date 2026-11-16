@@ -134,6 +134,8 @@ export const Text = ({ style, ...props }: any) =>
   React.createElement('span', { style: flattenStyle(style), ...props });
 export const ScrollView = ({ style, contentContainerStyle, ...props }: any) =>
   React.createElement('div', { style: flattenStyle([style, contentContainerStyle]), ...props });
+export const SafeAreaView = ({ style, ...props }: any) =>
+  React.createElement('div', { style: flattenStyle(style), ...props });
 export const Pressable = ({ style, onPress, ...props }: any) => {
   const resolvedStyle = typeof style === 'function' ? style({ pressed: false }) : style;
   return React.createElement('div', {
@@ -153,6 +155,14 @@ export const TextInput = ({ style, onChangeText, value, ...props }: any) =>
   });
 export const Modal = ({ children, visible = true, ...props }: any) =>
   visible ? React.createElement('div', props, children) : null;
+export const Keyboard = {
+  dismiss: () => {},
+  addListener: () => ({ remove: () => {} }),
+};
+export const KeyboardAvoidingView = ({ children, ...props }: any) =>
+  React.createElement('div', props, children);
+export const TouchableWithoutFeedback = ({ children, onPress, ...props }: any) =>
+  React.createElement('div', { onClick: onPress, ...props }, children);
 export const FlatList = ({ data = [], renderItem, keyExtractor, ...props }: any) =>
   React.createElement(
     'div',

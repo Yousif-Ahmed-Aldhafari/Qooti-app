@@ -22,7 +22,7 @@
 | **Task 4.3A** | Daily Diary Date Integrity & Navigation Hardening | **540** | **565 Passed (+25)** — Undated legacy meal isolation, zero daily totals inflation, live local midnight rollover, AppState resume listener, persistent selected date across Add/Edit/Delete, tabs, and language switches. |
 | **Task 4.4** | Nutrition Analytics & Daily Targets | **575** (+10) | **605 Passed (+40)** — Pure aggregator `getDailyNutritionSummary`, target progress engine with fallback handling, Atwater 4/4/9 macro distribution with 100% integer normalization, `MacroDistributionBar` component, `MealsScreen` dashboard card, and `ProgressScreen` real meal aggregation. |
 | **Task 4.4A** | Nutrition Trend Integrity & Coverage Hardening | **615** (+10) | **640 Passed (+35)** — Independent 7-day calendar series, zero synthetic fallback to `ProgressEntry.calories`, genuine Hamilton-Hare largest-remainder rounding, rendered component regression coverage (92.58% line coverage). |
-| **Task 4.5** | Meal Templates, Favorites & Quick-Log | **442** (+8) | Repeat meal ID isolation, favorite toggling, quick calorie logging without item breakdown. |
+| **Task 4.5** | Meal Templates, Favorites & Quick-Log | **650** (+10) | **650 Passed (+10)** — Repeat meal ID isolation (`createId('meal')` and `createId('meal-item')`), favorite SQLite persistence via note encoding, quick calorie logging (`QuickAddMealModal`) with strict parsing, itemless daily summary aggregation, rendered component coverage in EN & AR. |
 | **Task 4.6** | Cross-Platform UX, A11y & RTL Parity | **450** (+8) | Touch target bounds, screen reader accessibility labels, RTL layout symmetry. |
 | **Task 4.7** | Final Acceptance & Merge Readiness | **450+** | Full 11-step migration upgrade matrix (V0 through V9), cross-platform regression suite. |
 
@@ -81,6 +81,14 @@
 - [x] **AC-TRD-04:** Unlogged days (`hasLogs: false`) are strictly distinguished from days with recorded zero-calorie meals (`hasLogs: true, calories: 0`), and averages are computed across logged days only.
 - [x] **AC-TRD-05:** Macro distribution uses genuine largest-remainder rounding with deterministic tie-breaking, ensuring exact 100% integer sum for positive macro energy.
 - [x] **AC-TRD-06:** Dynamic local midnight rollover and AppState foreground resume refresh the 7-day window without layout distortion.
+
+### 2.7 Meal Templates, Favorites & Quick-Log Acceptance Criteria
+- [x] **AC-TPL-01:** `createRepeatedMealDraft` generates brand-new meal ID and new item IDs (`createId('meal')` and `createId('meal-item')`), preventing primary key collisions and child item cross-linking.
+- [x] **AC-TPL-02:** Repeating a meal leaves the source meal completely unmutated (strict immutability).
+- [x] **AC-TPL-03:** Child item macronutrients, quantities, units, and catalog provenance are preserved 100% on repeated meals.
+- [x] **AC-TPL-04:** Marking/unmarking a meal as favorite persists across database reloads via SQLite note encoding without destructive schema migrations.
+- [x] **AC-TPL-05:** `QuickAddMealModal` strictly validates user numeric inputs using `parseStrictNutrientInput`, rejecting non-finite, negative, and malformed inputs with localized inline errors.
+- [x] **AC-TPL-06:** Itemless meals created via Quick Add aggregate accurately into `getDailyNutritionSummary`, target progress, and macro distribution.
 
 ---
 

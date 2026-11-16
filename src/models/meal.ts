@@ -36,6 +36,8 @@ export type Meal = {
   totalFats?: number;
   mealType?: MealType | string;
   notes?: string;
+  isFavorite?: boolean;
+  isTemplate?: boolean;
 };
 
 export class MealValidationError extends Error {
@@ -142,6 +144,8 @@ export function normalizeMeal(
     totalFats: hasItems ? computedFats : (meal.totalFats ?? meal.totalFat ?? computedFats),
     mealType: meal.mealType,
     notes: meal.notes,
+    isFavorite: Boolean(meal.isFavorite || (meal.notes && meal.notes.includes('[favorite]'))),
+    isTemplate: Boolean(meal.isTemplate || meal.isFavorite || (meal.notes && meal.notes.includes('[favorite]'))),
   };
 }
 

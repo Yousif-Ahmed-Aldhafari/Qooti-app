@@ -64,9 +64,14 @@ export function MealCard({ meal, caloriesLabel, itemLabel, onPress, language }: 
         <Ionicons name="restaurant-outline" color={colors.buttonText} size={22} />
       </View>
       <View style={styles.copy}>
-        <Text style={[styles.title, directionalText, { color: colors.text }]} numberOfLines={1}>
-          {meal.title || meal.name || ''}
-        </Text>
+        <View style={[styles.titleRow, rowStyle(language)]}>
+          <Text style={[styles.title, directionalText, { color: colors.text }]} numberOfLines={1}>
+            {meal.title || meal.name || ''}
+          </Text>
+          {meal.isFavorite ? (
+            <Ionicons name="star" size={14} color="#f59e0b" style={styles.favoriteIcon} />
+          ) : null}
+        </View>
         <Text style={[styles.meta, directionalText, { color: colors.textMuted }]} numberOfLines={1}>
           {metaText}
         </Text>
@@ -97,6 +102,13 @@ const styles = StyleSheet.create({
   copy: {
     flex: 1,
     gap: spacing.xs,
+  },
+  titleRow: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  favoriteIcon: {
+    marginLeft: 2,
   },
   title: {
     ...typography.h3,

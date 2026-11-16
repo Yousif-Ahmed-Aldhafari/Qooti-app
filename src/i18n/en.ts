@@ -239,7 +239,22 @@ export const en = {
     "editPortion": "Edit portion",
     "emptyItemsError": "Please add at least one food item.",
     "itemDeleted": "Item removed",
-    "itemCount": "{{count}} items"
+    "itemCount": "{{count}} items",
+    "repeatMeal": "Repeat Meal",
+    "logAgainToday": "Log Again Today",
+    "quickAdd": "Quick Add",
+    "quickAddTitle": "Quick Add Calories",
+    "quickAddSubtitle": "Log calories and macros directly without individual foods.",
+    "favoriteBadge": "Favorite",
+    "markFavorite": "Mark as favorite",
+    "unmarkFavorite": "Remove from favorites",
+    "favorites": "Favorites",
+    "allMeals": "All Meals",
+    "quickSnack": "Quick Snack",
+    "quickMeal": "Quick Meal",
+    "quickAddSuccess": "Quick meal logged successfully",
+    "repeatedMealSuccess": "Meal repeated for today",
+    "templates": "Templates"
   },
   "foodPicker": {
     "title": "Select Food",

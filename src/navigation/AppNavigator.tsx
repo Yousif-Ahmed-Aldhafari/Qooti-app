@@ -35,7 +35,7 @@ import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import type { Language, Meal, ScreenKey, TabKey, Workout } from '../types';
-import { formatLocalDate } from '../utils/nutrition';
+import { createRepeatedMealDraft, formatLocalDate } from '../utils/nutrition';
 import { applyRTL, flexStart, isRTL, rowStyle, textAlign, writingDirection } from '../utils/rtl';
 import { createQuickAddWorkoutDraft } from '../utils/workoutAnalytics';
 
@@ -294,6 +294,22 @@ export function AppNavigator() {
     setActiveScreen('meals');
   }
 
+  async function handleRepeatMeal(sourceMeal: Meal) {
+    const repeated = createRepeatedMealDraft(sourceMeal, selectedDiaryDate);
+    await addMeal(repeated);
+    setSelectedMealId(repeated.id);
+  }
+
+  async function handleToggleFavoriteMeal(mealToToggle: Meal) {
+    const nextFav = !mealToToggle.isFavorite;
+    const updated: Meal = {
+      ...mealToToggle,
+      isFavorite: nextFav,
+      isTemplate: nextFav,
+    };
+    await updateMeal(updated);
+  }
+
   function openWorkoutDetails(workout: Workout) {
     setSelectedWorkoutId(workout.id);
     setActiveScreen('workoutDetails');
@@ -431,6 +447,7 @@ export function AppNavigator() {
               setAddMealInitialDate(date || selectedDiaryDate);
               setActiveScreen('addMeal');
             }}
+            onQuickAddMeal={addMeal}
             onMealPress={openMealDetails}
           />
         );
@@ -466,18 +483,21 @@ export function AppNavigator() {
                 setAddMealInitialDate(date || selectedDiaryDate);
                 setActiveScreen('addMeal');
               }}
+              onQuickAddMeal={addMeal}
               onMealPress={openMealDetails}
             />
           );
         }
         return (
           <MealDetailsScreen
-            key={language}
+            key={`${language}-${selectedMeal.id}-${Boolean(selectedMeal.isFavorite)}`}
             t={t}
             meal={selectedMeal}
             profile={profile}
             onEdit={openEditMeal}
             onDelete={handleDeleteMeal}
+            onRepeat={handleRepeatMeal}
+            onToggleFavorite={handleToggleFavoriteMeal}
           />
         );
       case 'editMeal':
@@ -495,6 +515,7 @@ export function AppNavigator() {
                 setAddMealInitialDate(date || selectedDiaryDate);
                 setActiveScreen('addMeal');
               }}
+              onQuickAddMeal={addMeal}
               onMealPress={openMealDetails}
             />
           );

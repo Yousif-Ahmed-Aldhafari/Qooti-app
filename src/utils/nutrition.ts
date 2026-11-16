@@ -1,6 +1,7 @@
 import type { DailyNutritionSummary, Meal, MealItem, ProgressEntry, Workout } from '../types';
 import type { Language } from '../models/settings';
 import { formatShortWeekday, getCalendarDateRange } from './date';
+import { createId } from './id';
 import type { EffectiveNutritionTargets, TargetSource, TargetState } from './nutritionTargets';
 
 export function calculateMealTotals(items: MealItem[]): DailyNutritionSummary {
@@ -730,4 +731,55 @@ export function formatLocalDate(date: Date = new Date()): string {
  */
 export function formatLocalTime(date: Date = new Date()): string {
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
+/**
+ * Creates a brand-new meal draft repeating an existing meal.
+ * - Generates a brand-new unique meal ID: createId('meal').
+ * - Generates brand-new unique IDs for every child item: createId('meal-item').
+ * - Preserves item quantities, calories, macros, catalogId, portionUnit.
+ * - Preserves itemless legacy meal totals if items is empty.
+ * - Sets target date (defaults to today's local date) and time (defaults to current time).
+ * - Source meal is NOT modified (strict immutability).
+ */
+export function createRepeatedMealDraft(
+  sourceMeal: Meal,
+  targetDate?: string,
+  targetTime?: string
+): Meal {
+  const newDate = targetDate || formatLocalDate(new Date());
+  const newTime = targetTime || formatLocalTime(new Date());
+
+  const items: MealItem[] = (sourceMeal.items || []).map((item) => ({
+    id: createId('meal-item'),
+    foodName: item.foodName || item.name || '',
+    name: item.foodName || item.name || '',
+    quantity: safeNumber(item.quantity) || 1,
+    unit: item.unit,
+    calories: safeNumber(item.calories),
+    protein: safeNumber(item.protein),
+    carbs: safeNumber(item.carbs),
+    fats: safeNumber(item.fats ?? item.fat),
+    fat: safeNumber(item.fats ?? item.fat),
+    catalogId: item.catalogId,
+    portionUnit: item.portionUnit,
+  }));
+
+  return {
+    id: createId('meal'),
+    title: sourceMeal.title || sourceMeal.name || '',
+    name: sourceMeal.title || sourceMeal.name || '',
+    date: newDate,
+    time: newTime,
+    items,
+    totalCalories: sourceMeal.totalCalories,
+    totalProtein: sourceMeal.totalProtein,
+    totalCarbs: sourceMeal.totalCarbs,
+    totalFat: sourceMeal.totalFat ?? sourceMeal.totalFats,
+    totalFats: sourceMeal.totalFats ?? sourceMeal.totalFat,
+    mealType: sourceMeal.mealType,
+    notes: sourceMeal.notes,
+    isFavorite: Boolean(sourceMeal.isFavorite),
+    isTemplate: Boolean(sourceMeal.isTemplate || sourceMeal.isFavorite),
+  };
 }

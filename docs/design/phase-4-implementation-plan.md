@@ -49,10 +49,10 @@
 [ Task 4.4A: Nutrition Trend Integrity & Coverage Hardening ] ──► (COMPLETE - 640 Tests)
        │
        ▼
-[ Task 4.5: Meal Templates, Favorites & Quick-Log ] ──► (NEXT)
+[ Task 4.5: Meal Templates, Favorites & Quick-Log ] ──► (COMPLETE - 650 Tests)
        │
        ▼
-[ Task 4.6: Cross-Platform UI/UX, A11y & Arabic Parity Hardening ]
+[ Task 4.6: Cross-Platform UI/UX, A11y & Arabic Parity Hardening ] ──► (NEXT)
        │
        ▼
 [ Task 4.7: Final Acceptance, Regression & Merge Readiness ]
@@ -383,24 +383,39 @@
 
 ---
 
-### Task 4.5: Meal Templates, Favorites & Quick-Log
+### Task 4.5: Meal Templates, Favorites & Quick-Log [COMPLETED]
+- **Status:** COMPLETED
 - **Objective:** Allow users to save favorite meals as templates, repeat past meals with 1 tap, and quickly log standalone calories.
-- **Pre-conditions:** Task 4.4 completed and verified.
+- **Pre-conditions:** Task 4.4 and Task 4.4A completed and verified; 640 baseline tests passing.
+- **Outcome Metrics:** 650 total passing tests (+10 new tests in `mealTemplatesFavoritesAndQuickLog.test.ts`), 0 failures, 0 skipped, 92.21% overall line coverage, 0 TypeScript errors, 0 ESLint warnings, 20/20 expo-doctor checks passing.
 - **Technical Specifications:**
   1. **Meal Templates & Favorites:**
-     - Mark meal as favorite or template.
-     - "Repeat Meal" / "Log Again" action in `MealDetailsScreen` copying items with fresh IDs into today's log.
+     - Mark meal as favorite or template (`isFavorite`, `isTemplate` on `Meal` model).
+     - Persist favorite status cleanly in SQLite through `mealRepository.ts` note encoding/decoding without destructive schema migration.
+     - "Repeat Meal" / "Log Again" action in `MealDetailsScreen` via `createRepeatedMealDraft` copying items with fresh IDs into today's log without mutating source meal.
+     - Star badge and indicator on `MealCard` and `MealDetailsScreen`.
+     - Filter tabs in `MealsScreen` ("All Meals" vs "Favorites") for instant access to favorite templates.
   2. **Quick-Add Calorie Entry:**
-     - Quick-add modal for logging calories without item breakdown (preserving `totalCalories` in itemless meal).
-     - Ensure `calculateDailyNutrition` correctly handles itemless meals.
+     - `QuickAddMealModal.tsx` for logging calories and optional macros directly without child item breakdown.
+     - Strict numeric input validation via `parseStrictNutrientInput` rejecting NaN, Infinity, negative values, and non-numerics.
+     - Seamless integration into `calculateDailyNutrition`, `getDailyNutritionSummary`, and `calculateMacroDistribution`.
+     - "Quick Add" action button in `MealsScreen` header.
 - **Files Affected:**
-  - `src/screens/MealDetailsScreen.tsx`
-  - `src/components/QuickAddMealModal.tsx` (new)
+  - `src/models/meal.ts`
+  - `src/db/repositories/mealRepository.ts`
   - `src/utils/nutrition.ts`
+  - `src/components/MealCard.tsx`
+  - `src/components/QuickAddMealModal.tsx` (new)
+  - `src/screens/MealDetailsScreen.tsx`
+  - `src/screens/MealsScreen.tsx`
+  - `src/navigation/AppNavigator.tsx`
+  - `src/i18n/en.ts` & `src/i18n/ar.ts`
+  - `src/__tests__/mealTemplatesFavoritesAndQuickLog.test.ts` (new)
 - **Automated Test Requirements:**
-  - Repeat meal flow creating fresh IDs and persisting correctly.
-  - Quick-add itemless meal calculation verification.
-- **Success Criteria:** 1-tap meal repetition; quick calorie logging without breaking macro analytics.
+  - Repeat meal flow creating fresh IDs and persisting correctly without mutating source meal.
+  - Quick-add itemless meal calculation and daily summary aggregation.
+  - Component static rendering in English and Arabic.
+- **Success Criteria:** 1-tap meal repetition with ID isolation; quick calorie logging without breaking macro analytics; full bilingual parity.
 
 ---
 

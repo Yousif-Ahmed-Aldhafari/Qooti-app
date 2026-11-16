@@ -23,14 +23,56 @@ type MealDetailsScreenProps = {
   profile: UserProfile;
   onEdit?: (meal: Meal) => void;
   onDelete?: (meal: Meal) => Promise<void> | void;
+  onRepeat?: (meal: Meal) => Promise<void> | void;
+  onToggleFavorite?: (meal: Meal) => Promise<void> | void;
 };
 
-export function MealDetailsScreen({ t, meal, profile, onEdit, onDelete }: MealDetailsScreenProps) {
+export function MealDetailsScreen({
+  t,
+  meal,
+  profile,
+  onEdit,
+  onDelete,
+  onRepeat,
+  onToggleFavorite,
+}: MealDetailsScreenProps) {
   const colors = themeColors();
   const [deleteState, setDeleteState] = useState<MealDeleteState>('idle');
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isRepeating, setIsRepeating] = useState(false);
+  const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
+  const [actionFeedback, setActionFeedback] = useState<string | null>(null);
 
   const isDeleting = deleteState === 'deleting';
+
+  const handleRepeat = async () => {
+    if (isRepeating || !onRepeat) return;
+    setIsRepeating(true);
+    setActionFeedback(null);
+    try {
+      await onRepeat(meal);
+      setActionFeedback(t('meals.repeatedMealSuccess') || 'Meal repeated for today');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to repeat meal';
+      setActionFeedback(message);
+    } finally {
+      setIsRepeating(false);
+    }
+  };
+
+  const handleToggleFavorite = async () => {
+    if (isTogglingFavorite || !onToggleFavorite) return;
+    setIsTogglingFavorite(true);
+    setActionFeedback(null);
+    try {
+      await onToggleFavorite(meal);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to update favorite status';
+      setActionFeedback(message);
+    } finally {
+      setIsTogglingFavorite(false);
+    }
+  };
 
   // Support itemless legacy meals with explicit totals
   const totals = useMemo(() => {
@@ -120,28 +162,56 @@ export function MealDetailsScreen({ t, meal, profile, onEdit, onDelete }: MealDe
             : (t('meals.unassignedBadge') || 'Unassigned')
         }
         action={
-          onEdit ? (
-            <AppButton
-              title={t('common.edit')}
-              icon="create-outline"
-              variant="secondary"
-              disabled={isDeleting}
-              onPress={() => onEdit(meal)}
-            />
-          ) : undefined
+          <View style={[styles.headerActions, activeRowStyle()]}>
+            {onToggleFavorite ? (
+              <AppButton
+                title={meal.isFavorite ? (t('meals.favoriteBadge') || 'Favorite') : ''}
+                icon={meal.isFavorite ? 'star' : 'star-outline'}
+                variant="secondary"
+                disabled={isTogglingFavorite || isDeleting}
+                onPress={handleToggleFavorite}
+              />
+            ) : null}
+            {onEdit ? (
+              <AppButton
+                title={t('common.edit')}
+                icon="create-outline"
+                variant="secondary"
+                disabled={isDeleting || isRepeating}
+                onPress={() => onEdit(meal)}
+              />
+            ) : null}
+          </View>
         }
       />
 
-      {/* Meal Slot Badge & Notes */}
-      {(meal.mealType || meal.notes) && (
+      {actionFeedback ? (
+        <View style={[styles.feedbackBanner, { backgroundColor: colors.card, borderColor: colors.primary }]}>
+          <Text style={[styles.feedbackBannerText, directionalText, { color: colors.text }]}>
+            {actionFeedback}
+          </Text>
+        </View>
+      ) : null}
+
+      {/* Meal Slot Badge, Favorite Badge & Notes */}
+      {(meal.mealType || meal.notes || meal.isFavorite) && (
         <View style={styles.metaCard}>
-          {meal.mealType ? (
-            <View style={[styles.slotBadge, { backgroundColor: `${colors.primary}20`, borderColor: colors.primary }]}>
-              <Text style={[styles.slotBadgeText, { color: colors.primary }]}>
-                {t(`meals.${meal.mealType}` as any) || meal.mealType}
-              </Text>
-            </View>
-          ) : null}
+          <View style={[styles.badgeRow, activeRowStyle()]}>
+            {meal.isFavorite ? (
+              <View style={[styles.favoriteBadge, { backgroundColor: '#f59e0b20', borderColor: '#f59e0b' }]}>
+                <Text style={[styles.favoriteBadgeText, { color: '#f59e0b' }]}>
+                  ★ {t('meals.favoriteBadge') || 'Favorite'}
+                </Text>
+              </View>
+            ) : null}
+            {meal.mealType ? (
+              <View style={[styles.slotBadge, { backgroundColor: `${colors.primary}20`, borderColor: colors.primary }]}>
+                <Text style={[styles.slotBadgeText, { color: colors.primary }]}>
+                  {t(`meals.${meal.mealType}` as any) || meal.mealType}
+                </Text>
+              </View>
+            ) : null}
+          </View>
           {meal.notes ? (
             <Text style={[styles.notesText, directionalText, { color: colors.textMuted }]}>
               {meal.notes}
@@ -149,6 +219,17 @@ export function MealDetailsScreen({ t, meal, profile, onEdit, onDelete }: MealDe
           ) : null}
         </View>
       )}
+
+      {onRepeat ? (
+        <AppButton
+          title={isRepeating ? (t('common.loading') || 'Loading...') : t('meals.logAgainToday')}
+          icon="repeat-outline"
+          variant="secondary"
+          disabled={isRepeating || isDeleting}
+          onPress={handleRepeat}
+          style={styles.repeatButton}
+        />
+      ) : null}
 
       {deleteError ? (
         <View style={[styles.errorBanner, { backgroundColor: colors.card, borderColor: colors.danger }]}>
@@ -239,8 +320,40 @@ const styles = StyleSheet.create({
     paddingBottom: 120,
     gap: spacing.lg,
   },
+  headerActions: {
+    gap: spacing.xs,
+    alignItems: 'center',
+  },
   metaCard: {
     gap: spacing.xs,
+  },
+  badgeRow: {
+    gap: spacing.xs,
+    flexWrap: 'wrap',
+    alignItems: 'center',
+  },
+  favoriteBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+  },
+  favoriteBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  repeatButton: {
+    width: '100%',
+  },
+  feedbackBanner: {
+    borderRadius: radius.md,
+    borderWidth: 1,
+    padding: spacing.md,
+  },
+  feedbackBannerText: {
+    ...typography.caption,
+    fontWeight: '600',
   },
   slotBadge: {
     alignSelf: 'flex-start',

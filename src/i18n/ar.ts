@@ -239,7 +239,22 @@ export const ar = {
     "editPortion": "تعديل الحصة",
     "emptyItemsError": "يرجى إضافة صنف طعام واحد على الأقل.",
     "itemDeleted": "تمت إزالة الصنف",
-    "itemCount": "{{count}} أصناف"
+    "itemCount": "{{count}} أصناف",
+    "repeatMeal": "تكرار الوجبة",
+    "logAgainToday": "تسجيلها مجدداً اليوم",
+    "quickAdd": "إضافة سريعة",
+    "quickAddTitle": "إضافة سعرات سريعة",
+    "quickAddSubtitle": "سجّل السعرات والماكروز مباشرة دون إضافة عناصر مفصلة.",
+    "favoriteBadge": "مفضلة",
+    "markFavorite": "إضافة للمفضلة",
+    "unmarkFavorite": "إزالة من المفضلة",
+    "favorites": "المفضلة",
+    "allMeals": "جميع الوجبات",
+    "quickSnack": "وجبة خفيفة سريعة",
+    "quickMeal": "وجبة سريعة",
+    "quickAddSuccess": "تم تسجيل الوجبة السريعة بنجاح",
+    "repeatedMealSuccess": "تم تكرار الوجبة لليوم",
+    "templates": "القوالب"
   },
   "foodPicker": {
     "title": "اختر صنف طعام",

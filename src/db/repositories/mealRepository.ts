@@ -35,6 +35,24 @@ async function getTableColumns(t: IDatabase, tableName: string): Promise<Set<str
   return new Set(cols.map((c) => c.name));
 }
 
+function encodeMealNotes(notes?: string, isFavorite?: boolean): string | null {
+  const clean = notes ? notes.replace(/\[favorite\]\s*/g, '').trim() : '';
+  if (isFavorite) {
+    return clean ? `[favorite] ${clean}` : '[favorite]';
+  }
+  return clean || null;
+}
+
+function decodeMealNotes(notes?: string | null): { cleanNotes?: string; isFavorite: boolean } {
+  if (!notes) return { isFavorite: false };
+  const isFavorite = notes.includes('[favorite]');
+  const clean = notes.replace(/\[favorite\]\s*/g, '').trim();
+  return {
+    cleanNotes: clean || undefined,
+    isFavorite,
+  };
+}
+
 export class SQLiteMealRepository implements MealRepository {
   constructor(private db: IDatabase) {}
 
@@ -70,8 +88,9 @@ export class SQLiteMealRepository implements MealRepository {
       itemsByMealId.set(item.meal_id, list);
     }
 
-    return mealRows.map((m) =>
-      normalizeMeal({
+    return mealRows.map((m) => {
+      const decoded = decodeMealNotes(m.notes);
+      return normalizeMeal({
         id: m.id,
         title: m.title,
         date: m.date,
@@ -81,10 +100,11 @@ export class SQLiteMealRepository implements MealRepository {
         totalCarbs: m.total_carbs,
         totalFat: m.total_fat,
         mealType: m.meal_type ?? undefined,
-        notes: m.notes ?? undefined,
+        notes: decoded.cleanNotes,
+        isFavorite: Boolean(decoded.isFavorite || (m as any).is_favorite),
         items: itemsByMealId.get(m.id) || [],
-      })
-    );
+      });
+    });
   }
 
   async getMealById(id: string): Promise<Meal | null> {
@@ -116,6 +136,7 @@ export class SQLiteMealRepository implements MealRepository {
       })
     );
 
+    const decoded = decodeMealNotes(mealRow.notes);
     return normalizeMeal({
       id: mealRow.id,
       title: mealRow.title,
@@ -126,7 +147,8 @@ export class SQLiteMealRepository implements MealRepository {
       totalCarbs: mealRow.total_carbs,
       totalFat: mealRow.total_fat,
       mealType: mealRow.meal_type ?? undefined,
-      notes: mealRow.notes ?? undefined,
+      notes: decoded.cleanNotes,
+      isFavorite: Boolean(decoded.isFavorite || (mealRow as any).is_favorite),
       items,
     });
   }
@@ -147,6 +169,7 @@ export class SQLiteMealRepository implements MealRepository {
 
       const mealCols = await getTableColumns(t, 'meals');
       const itemCols = await getTableColumns(t, 'meal_items');
+      const notesToStore = encodeMealNotes(normalized.notes, normalized.isFavorite);
 
       if (mealCols.has('meal_type') && mealCols.has('notes')) {
         await t.runAsync(
@@ -161,7 +184,7 @@ export class SQLiteMealRepository implements MealRepository {
           normalized.totalCarbs,
           normalized.totalFat,
           normalized.mealType ?? null,
-          normalized.notes ?? null,
+          notesToStore,
           now
         );
       } else {
@@ -240,6 +263,7 @@ export class SQLiteMealRepository implements MealRepository {
 
       const mealCols = await getTableColumns(t, 'meals');
       const itemCols = await getTableColumns(t, 'meal_items');
+      const notesToStore = encodeMealNotes(normalized.notes, normalized.isFavorite);
 
       if (mealCols.has('meal_type') && mealCols.has('notes')) {
         await t.runAsync(
@@ -262,7 +286,7 @@ export class SQLiteMealRepository implements MealRepository {
           normalized.totalCarbs,
           normalized.totalFat,
           normalized.mealType ?? null,
-          normalized.notes ?? null,
+          notesToStore,
           normalized.id
         );
       } else {

@@ -8,6 +8,7 @@ import { EmptyState } from '../components/EmptyState';
 import { MacroCard } from '../components/MacroCard';
 import { MacroDistributionBar } from '../components/MacroDistributionBar';
 import { MealCard } from '../components/MealCard';
+import { QuickAddMealModal } from '../components/QuickAddMealModal';
 import { useBottomNavScrollHandler } from '../context/BottomNavContext';
 import { useLiveLocalDate } from '../hooks/useLiveLocalDate';
 import type { Translator } from '../i18n';
@@ -41,6 +42,7 @@ type MealsScreenProps = {
   onSelectDate?: (date: string) => void;
   initialDate?: string;
   clock?: () => Date;
+  onQuickAddMeal?: (meal: Meal) => Promise<void> | void;
 };
 
 const MEAL_SLOT_ORDER: { type: MealType | 'other'; key: string; icon: string }[] = [
@@ -62,10 +64,13 @@ export function MealsScreen({
   onSelectDate,
   initialDate,
   clock,
+  onQuickAddMeal,
 }: MealsScreenProps) {
   const colors = themeColors();
   const isRTL = language === 'ar';
   const handleBottomNavScroll = useBottomNavScrollHandler();
+  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
+  const [filterMode, setFilterMode] = useState<'all' | 'favorites'>('all');
 
   const directionalText = {
     textAlign: activeTextAlign(),
@@ -98,6 +103,11 @@ export function MealsScreen({
       return trimmed.slice(0, 10) === activeDate;
     });
   }, [meals, activeDate]);
+
+  // Favorite meals list
+  const favoriteMeals = useMemo(() => {
+    return meals.filter((m) => Boolean(m.isFavorite));
+  }, [meals]);
 
   // Separate undated legacy records for recovery without corrupting daily totals
   const undatedMeals = useMemo(() => {
@@ -189,11 +199,21 @@ export function MealsScreen({
         title={t('meals.title')}
         subtitle={t('meals.subtitle')}
         action={
-          <AppButton
-            title={t('common.add')}
-            icon="add"
-            onPress={() => onAddMeal(activeDate)}
-          />
+          <View style={[styles.headerActions, activeRowStyle()]}>
+            {onQuickAddMeal ? (
+              <AppButton
+                title={t('meals.quickAdd') || 'Quick Add'}
+                icon="flash-outline"
+                variant="secondary"
+                onPress={() => setIsQuickAddOpen(true)}
+              />
+            ) : null}
+            <AppButton
+              title={t('common.add')}
+              icon="add"
+              onPress={() => onAddMeal(activeDate)}
+            />
+          </View>
         }
       />
 
@@ -398,60 +418,130 @@ export function MealsScreen({
         )}
       </View>
 
-      {/* Meals Grouped by Slot */}
-      {selectedDateMeals.length > 0 ? (
-        MEAL_SLOT_ORDER.map((slot) => {
-          const slotMeals = groupedMeals[slot.type] || [];
-          if (slotMeals.length === 0) return null;
+      {/* Filter Mode Selector: All Meals vs Favorites */}
+      <View style={[styles.filterRow, activeRowStyle()]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('meals.allMeals') || 'All Meals'}
+          onPress={() => setFilterMode('all')}
+          style={[
+            styles.filterChip,
+            filterMode === 'all'
+              ? { backgroundColor: colors.accent, borderColor: colors.accent }
+              : { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <Text
+            style={[
+              styles.filterChipText,
+              { color: filterMode === 'all' ? colors.buttonText : colors.text },
+            ]}
+          >
+            {t('meals.allMeals') || 'All Meals'}
+          </Text>
+        </Pressable>
 
-          // Slot subtotal calories
-          const slotCalories = slotMeals.reduce((acc, m) => {
-            if (m.totalCalories !== undefined) return acc + m.totalCalories;
-            if (m.items) return acc + m.items.reduce((sum, it) => sum + it.calories, 0);
-            return acc;
-          }, 0);
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('meals.favorites') || 'Favorites'}
+          onPress={() => setFilterMode('favorites')}
+          style={[
+            styles.filterChip,
+            filterMode === 'favorites'
+              ? { backgroundColor: colors.accent, borderColor: colors.accent }
+              : { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <Text
+            style={[
+              styles.filterChipText,
+              { color: filterMode === 'favorites' ? colors.buttonText : colors.text },
+            ]}
+          >
+            ★ {t('meals.favorites') || 'Favorites'} {favoriteMeals.length > 0 ? `(${favoriteMeals.length})` : ''}
+          </Text>
+        </Pressable>
+      </View>
 
-          return (
-            <View key={slot.type} style={styles.slotSection}>
-              {/* Slot Header */}
-              <View style={[styles.slotHeaderRow, activeRowStyle()]}>
-                <View style={[styles.slotTitleWithIcon, activeRowStyle()]}>
-                  <Ionicons name={slot.icon as any} size={18} color={colors.primary} style={{ marginEnd: 6 }} />
-                  <Text style={[styles.slotHeaderText, directionalText, { color: colors.text }]}>
-                    {t(slot.key as any) || slot.type}
+      {/* Conditional: Favorite Meals vs Daily Grouped Slot Meals */}
+      {filterMode === 'favorites' ? (
+        favoriteMeals.length > 0 ? (
+          <View style={styles.favoritesSection}>
+            {favoriteMeals.map((meal) => (
+              <MealCard
+                key={`fav-${meal.id}`}
+                meal={meal}
+                caloriesLabel={t('common.kcal')}
+                itemLabel={t('meals.itemLabel')}
+                language={language}
+                onPress={() => onMealPress(meal)}
+              />
+            ))}
+          </View>
+        ) : (
+          <EmptyState
+            icon="star-outline"
+            title={t('meals.favorites') || 'Favorites'}
+            description={t('meals.emptyMessage') || 'No favorite meals or templates saved yet.'}
+          />
+        )
+      ) : (
+        /* Meals Grouped by Slot */
+        selectedDateMeals.length > 0 ? (
+          MEAL_SLOT_ORDER.map((slot) => {
+            const slotMeals = groupedMeals[slot.type] || [];
+            if (slotMeals.length === 0) return null;
+
+            // Slot subtotal calories
+            const slotCalories = slotMeals.reduce((acc, m) => {
+              if (m.totalCalories !== undefined) return acc + m.totalCalories;
+              if (m.items) return acc + m.items.reduce((sum, it) => sum + it.calories, 0);
+              return acc;
+            }, 0);
+
+            return (
+              <View key={slot.type} style={styles.slotSection}>
+                {/* Slot Header */}
+                <View style={[styles.slotHeaderRow, activeRowStyle()]}>
+                  <View style={[styles.slotTitleWithIcon, activeRowStyle()]}>
+                    <Ionicons name={slot.icon as any} size={18} color={colors.primary} style={{ marginEnd: 6 }} />
+                    <Text style={[styles.slotHeaderText, directionalText, { color: colors.text }]}>
+                      {t(slot.key as any) || slot.type}
+                    </Text>
+                  </View>
+                  <Text style={[styles.slotCaloriesSubtotal, directionalText, { color: colors.textMuted }]}>
+                    {`${Math.round(slotCalories)} ${t('common.kcal')}`}
                   </Text>
                 </View>
-                <Text style={[styles.slotCaloriesSubtotal, directionalText, { color: colors.textMuted }]}>
-                  {`${Math.round(slotCalories)} ${t('common.kcal')}`}
-                </Text>
-              </View>
 
-              {/* Slot Meals */}
-              {slotMeals.map((meal) => (
-                <MealCard
-                  key={meal.id}
-                  meal={meal}
-                  caloriesLabel={t('common.kcal')}
-                  itemLabel={t('meals.itemLabel')}
-                  onPress={() => onMealPress(meal)}
-                />
-              ))}
-            </View>
-          );
-        })
-      ) : (
-        <EmptyState
-          icon="calendar-outline"
-          title={t('meals.noMealsForDate') || 'No meals logged for this day'}
-          description={t('meals.emptyMessage') || 'Add a meal to see nutrition totals.'}
-          actionTitle={t('meals.addTitle') || 'Add meal'}
-          actionIcon="add"
-          onAction={() => onAddMeal(activeDate)}
-        />
+                {/* Slot Meals */}
+                {slotMeals.map((meal) => (
+                  <MealCard
+                    key={meal.id}
+                    meal={meal}
+                    caloriesLabel={t('common.kcal')}
+                    itemLabel={t('meals.itemLabel')}
+                    language={language}
+                    onPress={() => onMealPress(meal)}
+                  />
+                ))}
+              </View>
+            );
+          })
+        ) : (
+          <EmptyState
+            icon="calendar-outline"
+            title={t('meals.noMealsForDate') || 'No meals logged for this day'}
+            description={t('meals.emptyMessage') || 'Add a meal to see nutrition totals.'}
+            actionTitle={t('meals.addTitle') || 'Add meal'}
+            actionIcon="add"
+            onAction={() => onAddMeal(activeDate)}
+          />
+        )
       )}
 
       {/* Recoverable Unassigned Date Legacy Meals Section */}
-      {undatedMeals.length > 0 && (
+      {undatedMeals.length > 0 && filterMode === 'all' && (
         <View
           accessibilityRole="region"
           accessibilityLabel={t('meals.unassignedDateTitle') || 'Unassigned Date Meals'}
@@ -478,11 +568,26 @@ export function MealsScreen({
                 meal={meal}
                 caloriesLabel={t('common.kcal')}
                 itemLabel={t('meals.itemLabel')}
+                language={language}
                 onPress={() => onMealPress(meal)}
               />
             ))}
           </View>
         </View>
+      )}
+
+      {onQuickAddMeal && (
+        <QuickAddMealModal
+          visible={isQuickAddOpen}
+          initialDate={activeDate}
+          onClose={() => setIsQuickAddOpen(false)}
+          onSaveQuickMeal={async (newMeal) => {
+            await onQuickAddMeal(newMeal);
+            setIsQuickAddOpen(false);
+          }}
+          language={language}
+          t={t}
+        />
       )}
     </ScrollView>
   );
@@ -496,6 +601,29 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     paddingBottom: 120,
     gap: spacing.lg,
+  },
+  headerActions: {
+    gap: spacing.xs,
+    alignItems: 'center',
+  },
+  filterRow: {
+    gap: spacing.sm,
+    alignItems: 'center',
+  },
+  filterChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  filterChipText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  favoritesSection: {
+    gap: spacing.sm,
   },
   dateNavBar: {
     alignItems: 'center',
