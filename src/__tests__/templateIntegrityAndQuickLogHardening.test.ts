@@ -631,6 +631,22 @@ test('MealsScreen: renders All Meals, Favorites, and Templates filter tabs', () 
   assert.ok(html.includes('All Meals'), 'Must render All Meals filter chip');
   assert.ok(html.includes('Favorites'), 'Must render Favorites filter chip');
   assert.ok(html.includes('Templates'), 'Must render Templates filter chip');
+
+  // Also verify Arabic rendering
+  const htmlAr = renderToStaticMarkup(
+    React.createElement(MealsScreen, {
+      t: tAr,
+      meals,
+      mealTemplates: templates,
+      onAddMeal: () => {},
+      onMealPress: () => {},
+      language: 'ar',
+      selectedDate: '2026-11-15',
+      profile: createMockProfile(),
+    })
+  );
+  assert.ok(htmlAr.includes(tAr('meals.title')), 'Must render Arabic meals title');
+  assert.ok(htmlAr.includes(tAr('meals.templates')), 'Must render Arabic templates filter chip');
 });
 
 test('MealDetailsScreen: renders Save as Template button and unknown macro status', () => {
