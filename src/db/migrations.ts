@@ -319,6 +319,61 @@ export const MIGRATIONS: SchemaMigration[] = [
       `);
     },
   },
+  {
+    version: 11,
+    name: 'add_meal_template_nutrient_fidelity_and_favorite_repair_v11',
+    up: async (db: IDatabase) => {
+      // 1. Add nutrient totals and macro completeness columns to meal_templates
+      await addMissingColumns(db, 'meal_templates', [
+        { name: 'total_calories', ddl: 'ALTER TABLE meal_templates ADD COLUMN total_calories REAL NOT NULL DEFAULT 0;' },
+        { name: 'total_protein', ddl: 'ALTER TABLE meal_templates ADD COLUMN total_protein REAL NOT NULL DEFAULT 0;' },
+        { name: 'total_carbs', ddl: 'ALTER TABLE meal_templates ADD COLUMN total_carbs REAL NOT NULL DEFAULT 0;' },
+        { name: 'total_fat', ddl: 'ALTER TABLE meal_templates ADD COLUMN total_fat REAL NOT NULL DEFAULT 0;' },
+        { name: 'nutrition_completeness', ddl: "ALTER TABLE meal_templates ADD COLUMN nutrition_completeness TEXT NOT NULL DEFAULT 'complete';" },
+        { name: 'protein_known', ddl: 'ALTER TABLE meal_templates ADD COLUMN protein_known INTEGER NOT NULL DEFAULT 1;' },
+        { name: 'carbs_known', ddl: 'ALTER TABLE meal_templates ADD COLUMN carbs_known INTEGER NOT NULL DEFAULT 1;' },
+        { name: 'fat_known', ddl: 'ALTER TABLE meal_templates ADD COLUMN fat_known INTEGER NOT NULL DEFAULT 1;' },
+      ]);
+
+      // 2. Backfill existing meal_templates nutrient totals from their child items
+      await db.runAsync(`
+        UPDATE meal_templates
+        SET total_calories = (
+              SELECT COALESCE(SUM(calories), 0)
+              FROM meal_template_items
+              WHERE meal_template_items.template_id = meal_templates.id
+            ),
+            total_protein = (
+              SELECT COALESCE(ROUND(SUM(protein), 1), 0)
+              FROM meal_template_items
+              WHERE meal_template_items.template_id = meal_templates.id
+            ),
+            total_carbs = (
+              SELECT COALESCE(ROUND(SUM(carbs), 1), 0)
+              FROM meal_template_items
+              WHERE meal_template_items.template_id = meal_templates.id
+            ),
+            total_fat = (
+              SELECT COALESCE(ROUND(SUM(fats), 1), 0)
+              FROM meal_template_items
+              WHERE meal_template_items.template_id = meal_templates.id
+            )
+        WHERE (SELECT COUNT(*) FROM meal_template_items WHERE meal_template_items.template_id = meal_templates.id) > 0;
+      `);
+
+      // 3. Repair falsely favorited meals from Migration 10 substring matching
+      // Distinguish historical marker prefix ([favorite] at start of notes) from legitimate user prose
+      await db.runAsync(`
+        UPDATE meals
+        SET is_favorite = 0
+        WHERE is_favorite = 1
+          AND notes IS NOT NULL
+          AND notes LIKE '%[favorite]%'
+          AND TRIM(notes) NOT LIKE '[favorite]%'
+          AND TRIM(notes) NOT LIKE '[favorite]';
+      `);
+    },
+  },
 ];
 
 /**

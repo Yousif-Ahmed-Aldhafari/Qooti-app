@@ -138,7 +138,11 @@ export function normalizeMeal(
 
   const hasItems = items.length > 0;
 
-  const isFavorite = Boolean(meal.isFavorite || (meal.notes && meal.notes.includes('[favorite]')));
+  const isFavorite = Boolean(
+    meal.isFavorite !== undefined
+      ? meal.isFavorite
+      : (meal.notes && /^\[favorite\](?:\s|$)/i.test(meal.notes.trim()))
+  );
   const isTemplate = Boolean(meal.isTemplate || isFavorite);
 
   let defaultCompleteness: NutritionCompleteness = 'complete';

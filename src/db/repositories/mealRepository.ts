@@ -41,7 +41,7 @@ async function getTableColumns(t: IDatabase, tableName: string): Promise<Set<str
 }
 
 export function encodeMealNotes(notes?: string, isFavorite?: boolean): string | null {
-  const clean = notes ? notes.replace(/\[favorite\]\s*/g, '').trim() : '';
+  const clean = notes ? notes.replace(/^\[favorite\]\s*/i, '').trim() : '';
   if (isFavorite) {
     return clean ? `[favorite] ${clean}` : '[favorite]';
   }
@@ -50,8 +50,9 @@ export function encodeMealNotes(notes?: string, isFavorite?: boolean): string | 
 
 export function decodeMealNotes(notes?: string | null): { cleanNotes?: string; isFavorite: boolean } {
   if (!notes) return { isFavorite: false };
-  const isFavorite = notes.includes('[favorite]');
-  const clean = notes.replace(/\[favorite\]\s*/g, '').trim();
+  const trimmed = notes.trim();
+  const isFavorite = /^\[favorite\](?:\s|$)/i.test(trimmed);
+  const clean = trimmed.replace(/^\[favorite\]\s*/i, '').trim();
   return {
     cleanNotes: clean || undefined,
     isFavorite,
@@ -96,7 +97,7 @@ export class SQLiteMealRepository implements MealRepository {
     return mealRows.map((m) => {
       const isFavorite = m.is_favorite !== undefined && m.is_favorite !== null
         ? m.is_favorite === 1
-        : Boolean(m.notes && m.notes.includes('[favorite]'));
+        : Boolean(m.notes && /^\[favorite\](?:\s|$)/i.test(m.notes.trim()));
 
       const cleanNotes = m.notes
         ? (m.notes.startsWith('[favorite] ') ? m.notes.slice(11).trim() : (m.notes === '[favorite]' ? undefined : m.notes))
@@ -172,7 +173,7 @@ export class SQLiteMealRepository implements MealRepository {
 
     const isFavorite = mealRow.is_favorite !== undefined && mealRow.is_favorite !== null
       ? mealRow.is_favorite === 1
-      : Boolean(mealRow.notes && mealRow.notes.includes('[favorite]'));
+      : Boolean(mealRow.notes && /^\[favorite\](?:\s|$)/i.test(mealRow.notes.trim()));
 
     const cleanNotes = mealRow.notes
       ? (mealRow.notes.startsWith('[favorite] ') ? mealRow.notes.slice(11).trim() : (mealRow.notes === '[favorite]' ? undefined : mealRow.notes))

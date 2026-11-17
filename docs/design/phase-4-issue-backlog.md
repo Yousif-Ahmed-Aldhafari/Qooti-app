@@ -315,6 +315,24 @@
   - Added 12 tests in `src/__tests__/templateIntegrityAndQuickLogHardening.test.ts` (662 total tests passing).
 - **Target Task:** Task 4.5A
 
+#### ISSUE-NUT-17B: Synthetic Template Items, Lost Unknown Macros & False Favorites in Migration 10
+- **Severity:** P1 (High)
+- **Status:** RESOLVED (Task 4.5B)
+- **Location:** `src/models/mealTemplate.ts`, `src/db/migrations.ts`, `src/db/repositories/mealTemplateRepository.ts`, `src/db/repositories/mealRepository.ts`, `src/models/meal.ts`
+- **Description:** Itemless calorie-only meals converted to templates fabricated a synthetic food item with 0g protein, carbs, and fat, falsely converting unknown macros into confirmed 0g complete intake upon logging. Furthermore, Migration 10 erroneously updated `is_favorite = 1` for meals whose notes contained `[favorite]` in middle-of-text user prose.
+- **Root Cause:**
+  1. Synthesizing a fake food item when `items.length === 0` instead of supporting explicit itemless templates with direct nutrient totals.
+  2. In Migration 10, using unanchored `WHERE notes LIKE '%[favorite]%'` without checking for leading prefix marker.
+- **Impact:** Falsely reported zero macro intake on logged meals; corrupted favorite classification on user notes mentioning `[favorite]`.
+- **Resolution & Verification:**
+  - Extended `MealTemplate` domain model and `meal_templates` table to store direct nutrient totals and completeness flags (`nutritionCompleteness`, `proteinKnown`, `carbsKnown`, `fatKnown`).
+  - Updated `createTemplateFromMeal` to keep explicit `items: []` for itemless meals without fabricating synthetic food items.
+  - Updated `createMealFromTemplate` to preserve itemless structure and completeness flags, never inventing confirmed zeros.
+  - Added Migration 11 (`add_meal_template_nutrient_fidelity_and_favorite_repair_v11`) adding totals columns to `meal_templates`, backfilling existing template totals from items, and resetting `is_favorite = 0` on meals where notes contained `[favorite]` in user prose without leading prefix.
+  - Hardened note encoding/decoding and repository fallback using anchored regex (`/^\[favorite\](?:\s|$)/i`).
+  - Added 9 tests in `src/__tests__/templateNutrientFidelityAndLegacyFavorites.test.ts` (671 total passing tests).
+- **Target Task:** Task 4.5B
+
 ---
 
 ### P3: Low Priority Polish & Maintenance Items

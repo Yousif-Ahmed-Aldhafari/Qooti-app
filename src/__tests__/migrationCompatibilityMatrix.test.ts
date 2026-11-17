@@ -49,13 +49,15 @@ test('Matrix - Test 1: Fresh installation V0 -> latest (V8) runs cleanly', async
   const migrations = await db.getAllAsync<{ version: number; name: string }>(
     'SELECT version, name FROM schema_migrations ORDER BY version ASC;'
   );
-  assert.equal(migrations.length, 10);
+  assert.equal(migrations.length, 11);
   assert.equal(migrations[7].version, 8);
   assert.equal(migrations[7].name, 'clarify_session_recovery_provenance_v8');
   assert.equal(migrations[8].version, 9);
   assert.equal(migrations[8].name, 'add_custom_foods_and_meal_enhancements_v9');
   assert.equal(migrations[9].version, 10);
   assert.equal(migrations[9].name, 'add_meal_templates_and_structured_favorites_v10');
+  assert.equal(migrations[10].version, 11);
+  assert.equal(migrations[10].name, 'add_meal_template_nutrient_fidelity_and_favorite_repair_v11');
 });
 
 test('Matrix - Test 2: V1 populated database upgrades to V8 preserving profiles, meals, workouts, and settings', async () => {
@@ -366,5 +368,5 @@ test('Matrix - Test 11: Idempotency of runMigrations across repeated executions'
   const applied = await db.getAllAsync<{ version: number }>(
     `SELECT version FROM schema_migrations ORDER BY version ASC;`
   );
-  assert.equal(applied.length, 10);
+  assert.equal(applied.length, 11);
 });

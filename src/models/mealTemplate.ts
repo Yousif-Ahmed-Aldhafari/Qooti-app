@@ -1,4 +1,4 @@
-import type { Meal, MealItem, MealType } from './meal';
+import type { Meal, MealItem, MealType, NutritionCompleteness } from './meal';
 import { createId } from '../utils/id';
 
 export interface MealTemplateItem {
@@ -24,7 +24,15 @@ export interface MealTemplate {
   notes?: string;
   isFavorite?: boolean;
   items: MealTemplateItem[];
-  totalCalories?: number;
+  totalCalories: number;
+  totalProtein?: number;
+  totalCarbs?: number;
+  totalFat?: number;
+  totalFats?: number;
+  nutritionCompleteness?: NutritionCompleteness;
+  proteinKnown?: boolean;
+  carbsKnown?: boolean;
+  fatKnown?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -36,11 +44,19 @@ export function getMealTemplateTotals(template: MealTemplate): {
   fats: number;
 } {
   const items = template.items || [];
+  if (items.length > 0) {
+    return {
+      calories: items.reduce((sum, it) => sum + (it.calories || 0), 0),
+      protein: Math.round(items.reduce((sum, it) => sum + (it.protein || 0), 0) * 10) / 10,
+      carbs: Math.round(items.reduce((sum, it) => sum + (it.carbs || 0), 0) * 10) / 10,
+      fats: Math.round(items.reduce((sum, it) => sum + (it.fats || 0), 0) * 10) / 10,
+    };
+  }
   return {
-    calories: items.reduce((sum, it) => sum + (it.calories || 0), 0),
-    protein: Math.round(items.reduce((sum, it) => sum + (it.protein || 0), 0) * 10) / 10,
-    carbs: Math.round(items.reduce((sum, it) => sum + (it.carbs || 0), 0) * 10) / 10,
-    fats: Math.round(items.reduce((sum, it) => sum + (it.fats || 0), 0) * 10) / 10,
+    calories: Math.round(template.totalCalories || 0),
+    protein: Math.round((template.totalProtein || 0) * 10) / 10,
+    carbs: Math.round((template.totalCarbs || 0) * 10) / 10,
+    fats: Math.round(((template.totalFat ?? template.totalFats) || 0) * 10) / 10,
   };
 }
 
@@ -76,10 +92,56 @@ export function normalizeMealTemplate(raw: Partial<MealTemplate>): MealTemplate 
   );
 
   const title = (raw.title || raw.name || '').trim();
-  const totalCalories =
-    Number.isFinite(raw.totalCalories) && (raw.totalCalories ?? 0) >= 0
-      ? raw.totalCalories!
-      : items.reduce((sum, it) => sum + it.calories, 0);
+  const hasItems = items.length > 0;
+
+  const computedCalories = items.reduce((sum, it) => sum + it.calories, 0);
+  const computedProtein = Math.round(items.reduce((sum, it) => sum + it.protein, 0) * 10) / 10;
+  const computedCarbs = Math.round(items.reduce((sum, it) => sum + it.carbs, 0) * 10) / 10;
+  const computedFats = Math.round(items.reduce((sum, it) => sum + it.fats, 0) * 10) / 10;
+
+  const totalCalories = hasItems
+    ? computedCalories
+    : (Number.isFinite(raw.totalCalories) && (raw.totalCalories ?? 0) >= 0 ? raw.totalCalories! : 0);
+
+  const totalProtein = hasItems
+    ? computedProtein
+    : (Number.isFinite(raw.totalProtein) && (raw.totalProtein ?? 0) >= 0 ? raw.totalProtein! : 0);
+
+  const totalCarbs = hasItems
+    ? computedCarbs
+    : (Number.isFinite(raw.totalCarbs) && (raw.totalCarbs ?? 0) >= 0 ? raw.totalCarbs! : 0);
+
+  const totalFat = hasItems
+    ? computedFats
+    : (Number.isFinite(raw.totalFat) && (raw.totalFat ?? 0) >= 0
+        ? raw.totalFat!
+        : (Number.isFinite(raw.totalFats) && (raw.totalFats ?? 0) >= 0 ? raw.totalFats! : 0));
+
+  let defaultCompleteness: NutritionCompleteness = 'complete';
+  if (!hasItems) {
+    if (raw.nutritionCompleteness) {
+      defaultCompleteness = raw.nutritionCompleteness;
+    } else if (
+      totalCalories > 0 &&
+      totalProtein === 0 &&
+      totalCarbs === 0 &&
+      totalFat === 0
+    ) {
+      defaultCompleteness = 'indeterminate';
+    }
+  }
+
+  const proteinKnown = raw.proteinKnown !== undefined
+    ? Boolean(raw.proteinKnown)
+    : hasItems || (defaultCompleteness !== 'calories_only' && defaultCompleteness !== 'indeterminate');
+
+  const carbsKnown = raw.carbsKnown !== undefined
+    ? Boolean(raw.carbsKnown)
+    : hasItems || (defaultCompleteness !== 'calories_only' && defaultCompleteness !== 'indeterminate');
+
+  const fatKnown = raw.fatKnown !== undefined
+    ? Boolean(raw.fatKnown)
+    : hasItems || (defaultCompleteness !== 'calories_only' && defaultCompleteness !== 'indeterminate');
 
   return {
     id: raw.id || createId('meal-template'),
@@ -90,6 +152,14 @@ export function normalizeMealTemplate(raw: Partial<MealTemplate>): MealTemplate 
     isFavorite: Boolean(raw.isFavorite),
     items,
     totalCalories,
+    totalProtein,
+    totalCarbs,
+    totalFat,
+    totalFats: totalFat,
+    nutritionCompleteness: defaultCompleteness,
+    proteinKnown,
+    carbsKnown,
+    fatKnown,
     createdAt: raw.createdAt || now,
     updatedAt: raw.updatedAt || now,
   };
@@ -99,7 +169,8 @@ export function normalizeMealTemplate(raw: Partial<MealTemplate>): MealTemplate 
  * Creates an independent MealTemplate from an existing Meal.
  * - Generates new template ID and child template item IDs.
  * - Preserves item order, parameters, units, catalog references.
- * - Supports itemless quick-add meals by synthesizing a template item.
+ * - Retains explicit itemless structure (items: []) without fabricating synthetic food items.
+ * - Preserves nutrient completeness, macro known flags, and exact nutrient totals.
  * - Does not mutate source meal and does not affect historical logs.
  */
 export function createTemplateFromMeal(meal: Meal, titleOverride?: string): MealTemplate {
@@ -121,30 +192,27 @@ export function createTemplateFromMeal(meal: Meal, titleOverride?: string): Meal
       portionUnit: item.portionUnit,
       sortOrder: index,
     }));
-  } else if ((meal.totalCalories ?? 0) > 0) {
-    items = [
-      {
-        id: createId('template-item'),
-        name: title,
-        quantity: 1,
-        unit: 'serving',
-        calories: meal.totalCalories ?? 0,
-        protein: meal.totalProtein ?? 0,
-        carbs: meal.totalCarbs ?? 0,
-        fats: meal.totalFat ?? meal.totalFats ?? 0,
-        sortOrder: 0,
-      },
-    ];
   }
+
+  const cleanNotes = meal.notes ? meal.notes.replace(/^\[favorite\]\s*/i, '').trim() : undefined;
 
   return normalizeMealTemplate({
     id: createId('meal-template'),
     title,
     name: title,
     mealType: meal.mealType,
-    notes: meal.notes ? meal.notes.replace(/^\[favorite\]\s*/, '').trim() : undefined,
+    notes: cleanNotes || undefined,
     isFavorite: false,
     items,
+    totalCalories: meal.totalCalories ?? 0,
+    totalProtein: meal.totalProtein ?? 0,
+    totalCarbs: meal.totalCarbs ?? 0,
+    totalFat: meal.totalFat ?? meal.totalFats ?? 0,
+    totalFats: meal.totalFats ?? meal.totalFat ?? 0,
+    nutritionCompleteness: meal.nutritionCompleteness ?? (items.length > 0 ? 'complete' : 'calories_only'),
+    proteinKnown: meal.proteinKnown,
+    carbsKnown: meal.carbsKnown,
+    fatKnown: meal.fatKnown,
     createdAt: now,
     updatedAt: now,
   });
@@ -153,6 +221,8 @@ export function createTemplateFromMeal(meal: Meal, titleOverride?: string): Meal
 /**
  * Logs a fresh Meal from a MealTemplate.
  * - Generates fresh meal ID and meal-item IDs.
+ * - Preserves itemless structure if template is itemless (no fake items created).
+ * - Faithfully preserves nutrient completeness and macro known/unknown flags.
  * - Sets target date and time.
  * - Template itself is NOT consumed, altered, or deleted.
  */
@@ -164,6 +234,7 @@ export function createMealFromTemplate(
   const now = new Date();
   const time = targetTime || `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
+  const hasItems = (template.items || []).length > 0;
   const items: MealItem[] = (template.items || []).map((tItem) => ({
     id: createId('meal-item'),
     foodName: tItem.name,
@@ -179,10 +250,20 @@ export function createMealFromTemplate(
     portionUnit: tItem.portionUnit,
   }));
 
-  const totalCalories = items.reduce((sum, it) => sum + it.calories, 0);
-  const totalProtein = items.reduce((sum, it) => sum + it.protein, 0);
-  const totalCarbs = items.reduce((sum, it) => sum + it.carbs, 0);
-  const totalFats = items.reduce((sum, it) => sum + it.fats, 0);
+  const totalCalories = hasItems
+    ? items.reduce((sum, it) => sum + it.calories, 0)
+    : (template.totalCalories ?? 0);
+  const totalProtein = hasItems
+    ? items.reduce((sum, it) => sum + it.protein, 0)
+    : (template.totalProtein ?? 0);
+  const totalCarbs = hasItems
+    ? items.reduce((sum, it) => sum + it.carbs, 0)
+    : (template.totalCarbs ?? 0);
+  const totalFats = hasItems
+    ? items.reduce((sum, it) => sum + it.fats, 0)
+    : (template.totalFat ?? template.totalFats ?? 0);
+
+  const completeness = template.nutritionCompleteness ?? (hasItems ? 'complete' : 'calories_only');
 
   return {
     id: createId('meal'),
@@ -200,9 +281,15 @@ export function createMealFromTemplate(
     totalFats,
     isFavorite: false,
     isTemplate: false,
-    nutritionCompleteness: 'complete',
-    proteinKnown: true,
-    carbsKnown: true,
-    fatKnown: true,
+    nutritionCompleteness: completeness,
+    proteinKnown: template.proteinKnown !== undefined
+      ? template.proteinKnown
+      : hasItems || (completeness !== 'calories_only' && completeness !== 'indeterminate'),
+    carbsKnown: template.carbsKnown !== undefined
+      ? template.carbsKnown
+      : hasItems || (completeness !== 'calories_only' && completeness !== 'indeterminate'),
+    fatKnown: template.fatKnown !== undefined
+      ? template.fatKnown
+      : hasItems || (completeness !== 'calories_only' && completeness !== 'indeterminate'),
   };
 }

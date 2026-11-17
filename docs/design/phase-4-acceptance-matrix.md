@@ -23,6 +23,8 @@
 | **Task 4.4** | Nutrition Analytics & Daily Targets | **575** (+10) | **605 Passed (+40)** — Pure aggregator `getDailyNutritionSummary`, target progress engine with fallback handling, Atwater 4/4/9 macro distribution with 100% integer normalization, `MacroDistributionBar` component, `MealsScreen` dashboard card, and `ProgressScreen` real meal aggregation. |
 | **Task 4.4A** | Nutrition Trend Integrity & Coverage Hardening | **615** (+10) | **640 Passed (+35)** — Independent 7-day calendar series, zero synthetic fallback to `ProgressEntry.calories`, genuine Hamilton-Hare largest-remainder rounding, rendered component regression coverage (92.58% line coverage). |
 | **Task 4.5** | Meal Templates, Favorites & Quick-Log | **650** (+10) | **650 Passed (+10)** — Repeat meal ID isolation (`createId('meal')` and `createId('meal-item')`), favorite SQLite persistence via note encoding, quick calorie logging (`QuickAddMealModal`) with strict parsing, itemless daily summary aggregation, rendered component coverage in EN & AR. |
+| **Task 4.5A** | Template Integrity, Unknown Macros & Quick-Log Hardening | **662** (+12) | **662 Passed (+12)** — Independent `meal_templates` and `meal_template_items` SQLite tables (Migration 10), clean note preservation without synthetic markers, explicit unknown macro semantics (`NutritionCompleteness`, `proteinKnown`, `carbsKnown`, `fatKnown`), safe repeat-meal workflows, quick-add error recovery with draft retention. |
+| **Task 4.5B** | Template Nutrient Fidelity & Legacy Favorites | **671** (+9) | **671 Passed (+9)** — Itemless templates retain explicit itemless structure (`items: []`) with direct nutrient totals, full completeness and macro known flag preservation across template save and log, forward Migration 11 adding totals columns to `meal_templates` with item backfill, and repair of false favorites from Migration 10 user-prose substring matches. |
 | **Task 4.6** | Cross-Platform UX, A11y & RTL Parity | **450** (+8) | Touch target bounds, screen reader accessibility labels, RTL layout symmetry. |
 | **Task 4.7** | Final Acceptance & Merge Readiness | **450+** | Full 11-step migration upgrade matrix (V0 through V9), cross-platform regression suite. |
 
@@ -99,6 +101,12 @@
 - [x] **AC-TPL-12:** Quick-Add error recovery displays a localized error banner upon SQLite failure, preserves user draft input without clearing, and prevents duplicate submissions.
 - [x] **AC-TPL-13:** Repeated meal draft defaults to `isFavorite: false` and `isTemplate: false`, preserving unknown macro completeness flags.
 
+### 2.9 Template Nutrient Fidelity & Legacy Favorites (Task 4.5B) Acceptance Criteria
+- [x] **AC-TPL-14:** `MealTemplate` domain model and `meal_templates` table store direct nutrient totals (`totalCalories`, `totalProtein`, `totalCarbs`, `totalFat`) and completeness flags (`nutritionCompleteness`, `proteinKnown`, `carbsKnown`, `fatKnown`).
+- [x] **AC-TPL-15:** Itemless calorie-only or partial meals saved as templates produce explicit itemless templates (`items: []`) without fabricating synthetic food items.
+- [x] **AC-TPL-16:** Logging from a template (`createMealFromTemplate`) preserves itemless structure and exact completeness and macro known/unknown flags, never inventing confirmed zero macros.
+- [x] **AC-TPL-17:** Migration 11 (`add_meal_template_nutrient_fidelity_and_favorite_repair_v11`) safely adds nutrient totals to `meal_templates`, backfills existing template totals from items, and repairs false favorites resulting from Migration 10 user-prose substring matches while preserving legitimate prefix markers and user favorites.
+
 ---
 
 ## 3. Physical Device Acceptance Matrix (Android & iOS)
@@ -124,3 +132,4 @@
 | **V4** | **V9** | Preserves workout catalog IDs alongside new meal catalog IDs. | No column collision; clean schema coexistence. |
 | **V8** | **V9** | Direct forward upgrade from latest Phase 3 schema. | Zero disruption to workout sessions, sets, profile, or settings. |
 | **V9** | **V10** | Adds independent `meal_templates` and `meal_template_items` tables, plus structured favorite and unknown macro columns to `meals`. | Preserves all existing meals, migrates `[favorite]` in notes to `is_favorite = 1`, and safely flags legacy 0-macro meals as indeterminate. |
+| **V10** | **V11** | Adds nutrient totals and completeness columns to `meal_templates`, backfills template totals, and repairs falsely favorited meals. | Preserves all existing meals and templates, backfills totals, and accurately clears false favorites from prose substring matches while keeping legitimate prefix favorites. |

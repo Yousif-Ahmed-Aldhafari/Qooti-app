@@ -52,6 +52,12 @@
 [ Task 4.5: Meal Templates, Favorites & Quick-Log ] ──► (COMPLETE - 650 Tests)
        │
        ▼
+[ Task 4.5A: Template Integrity, Unknown Macros & Quick-Log Hardening ] ──► (COMPLETE - 662 Tests)
+       │
+       ▼
+[ Task 4.5B: Template Nutrient Fidelity & Legacy Favorites ] ──► (COMPLETE - 671 Tests)
+       │
+       ▼
 [ Task 4.6: Cross-Platform UI/UX, A11y & Arabic Parity Hardening ] ──► (NEXT)
        │
        ▼
@@ -463,6 +469,35 @@
   - `src/i18n/en.ts` & `src/i18n/ar.ts`
   - `src/__tests__/templateIntegrityAndQuickLogHardening.test.ts` (new)
 - **Success Criteria:** Independent template lifecycle; uncorrupted notes; explicit unknown macro semantics; 662 passing tests.
+
+---
+
+### Task 4.5B: Template Nutrient Fidelity & Legacy Favorites [COMPLETED]
+- **Status:** COMPLETED
+- **Objective:** Eliminate synthetic food items for itemless calorie-only templates, maintain explicit unknown macronutrient semantics and completeness across template creation and logging, and repair false favorites caused by Migration 10 substring matching on user prose.
+- **Pre-conditions:** Task 4.5A completed and verified; 662 baseline tests passing.
+- **Outcome Metrics:** 671 total passing tests (+9 new tests in `templateNutrientFidelityAndLegacyFavorites.test.ts`), 0 failures, 0 skipped, 91.48% overall line coverage, 0 TypeScript errors, 0 ESLint warnings, 20/20 expo-doctor checks passing.
+- **Technical Specifications:**
+  1. **Template Nutrient Fidelity & Itemless Structure:**
+     - `MealTemplate` domain model and SQLite table extended with nutrient totals and completeness flags: `totalCalories`, `totalProtein`, `totalCarbs`, `totalFat`, `totalFats`, `nutritionCompleteness`, `proteinKnown`, `carbsKnown`, `fatKnown`.
+     - `createTemplateFromMeal` maintains explicit `items: []` for itemless meals without fabricating synthetic food items.
+     - `createMealFromTemplate` logs itemless meals preserving `items: []`, original nutrient totals, and completeness flags without inventing confirmed zeros.
+     - `getMealTemplateTotals` returns stored totals directly when `template.items.length === 0`.
+  2. **Migration 11 (`add_meal_template_nutrient_fidelity_and_favorite_repair_v11`):**
+     - Forward-only version 11 migration adds missing nutrient totals and completeness columns to `meal_templates`.
+     - Backfills totals for existing templates from child `meal_template_items`.
+     - Repairs legacy favorite misclassifications where `notes LIKE '%[favorite]%'` set `is_favorite = 1` for user prose in the middle or end of notes, resetting them to `is_favorite = 0` while strictly preserving legitimate prefix markers (`[favorite]` at start of notes) and direct user favorites.
+  3. **Repository & Decoding Hardening:**
+     - `SQLiteMealTemplateRepository` saves, updates, and restores new nutrient and completeness columns.
+     - `decodeMealNotes` and `encodeMealNotes` use anchored regex (`/^\[favorite\](?:\s|$)/i`) preventing corruption of user prose containing `[favorite]`.
+- **Files Affected:**
+  - `src/db/migrations.ts` (Migration 11)
+  - `src/models/mealTemplate.ts`
+  - `src/models/meal.ts`
+  - `src/db/repositories/mealTemplateRepository.ts`
+  - `src/db/repositories/mealRepository.ts`
+  - `src/__tests__/templateNutrientFidelityAndLegacyFavorites.test.ts` (new)
+- **Success Criteria:** Zero synthetic food items for itemless templates; preserved unknown macro semantics; repaired legacy favorites; 671 passing tests.
 
 ---
 

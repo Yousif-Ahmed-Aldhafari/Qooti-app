@@ -294,7 +294,7 @@ test('SQLiteMealTemplateRepository: full CRUD and lifecycle decoupling from meal
   assert.ok(survivingLoggedMeal, 'Historical logged meal must survive template deletion');
 });
 
-test('createTemplateFromMeal: supports itemless quick-add meals by synthesizing template item', () => {
+test('createTemplateFromMeal: supports itemless quick-add meals by preserving itemless structure and totals', () => {
   const quickMeal: Meal = {
     id: 'quick-meal-1',
     title: 'Protein Bar',
@@ -311,12 +311,11 @@ test('createTemplateFromMeal: supports itemless quick-add meals by synthesizing 
 
   const template = createTemplateFromMeal(quickMeal);
   assert.equal(template.title, 'Protein Bar');
-  assert.equal(template.items.length, 1);
-  assert.equal(template.items[0].name, 'Protein Bar');
-  assert.equal(template.items[0].calories, 210);
-  assert.equal(template.items[0].protein, 20);
-  assert.equal(template.items[0].carbs, 22);
-  assert.equal(template.items[0].fats, 7);
+  assert.equal(template.items.length, 0, 'Must retain explicit itemless structure without fabricating synthetic items');
+  assert.equal(template.totalCalories, 210);
+  assert.equal(template.totalProtein, 20);
+  assert.equal(template.totalCarbs, 22);
+  assert.equal(template.totalFat, 7);
 
   const totals = getMealTemplateTotals(template);
   assert.equal(totals.calories, 210);
