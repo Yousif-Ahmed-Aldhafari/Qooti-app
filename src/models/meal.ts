@@ -24,6 +24,8 @@ export type FoodItem = MealItem;
 
 export type NutritionCompleteness = 'complete' | 'partial' | 'calories_only' | 'indeterminate';
 
+export type FavoriteSource = 'explicit' | 'legacy_marker' | 'ambiguous' | 'none';
+
 export type Meal = {
   id: string;
   title: string;
@@ -40,6 +42,7 @@ export type Meal = {
   notes?: string;
   isFavorite?: boolean;
   isTemplate?: boolean;
+  favoriteSource?: FavoriteSource;
   nutritionCompleteness?: NutritionCompleteness;
   proteinKnown?: boolean;
   carbsKnown?: boolean;
@@ -145,6 +148,25 @@ export function normalizeMeal(
   );
   const isTemplate = Boolean(meal.isTemplate || isFavorite);
 
+  let favoriteSource: FavoriteSource = meal.favoriteSource || 'none';
+  if (!meal.favoriteSource) {
+    if (isFavorite) {
+      if (meal.notes && /^\[favorite\](?:\s|$)/i.test(meal.notes.trim())) {
+        favoriteSource = 'legacy_marker';
+      } else if (meal.notes && meal.notes.includes('[favorite]')) {
+        favoriteSource = 'ambiguous';
+      } else {
+        favoriteSource = 'explicit';
+      }
+    } else {
+      if (meal.notes && meal.notes.includes('[favorite]')) {
+        favoriteSource = 'ambiguous';
+      } else {
+        favoriteSource = 'none';
+      }
+    }
+  }
+
   let defaultCompleteness: NutritionCompleteness = 'complete';
   if (!hasItems) {
     if (meal.nutritionCompleteness) {
@@ -173,6 +195,7 @@ export function normalizeMeal(
     notes: meal.notes,
     isFavorite,
     isTemplate,
+    favoriteSource,
     nutritionCompleteness: defaultCompleteness,
     proteinKnown: meal.proteinKnown !== undefined ? Boolean(meal.proteinKnown) : defaultCompleteness !== 'calories_only' && defaultCompleteness !== 'indeterminate',
     carbsKnown: meal.carbsKnown !== undefined ? Boolean(meal.carbsKnown) : defaultCompleteness !== 'calories_only' && defaultCompleteness !== 'indeterminate',

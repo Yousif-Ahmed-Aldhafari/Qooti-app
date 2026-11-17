@@ -333,6 +333,22 @@
   - Added 9 tests in `src/__tests__/templateNutrientFidelityAndLegacyFavorites.test.ts` (671 total passing tests).
 - **Target Task:** Task 4.5B
 
+#### ISSUE-NUT-17C: Legacy Favorite Provenance Ambiguity & Pre-4.5B Calorie-Only Template Repair
+- **Severity:** P1 (High)
+- **Status:** RESOLVED (Task 4.6)
+- **Location:** `src/db/migrations.ts`, `src/db/repositories/mealRepository.ts`, `src/models/meal.ts`, `src/models/mealTemplate.ts`, `src/screens/MealsScreen.tsx`, `src/components/MacroCard.tsx`
+- **Description:** Migration 11 cleared `is_favorite` for notes containing `[favorite]` inside user prose. However, if a user had explicitly favorited that meal in Task 4.5A, that choice was cleared with no provenance tracking. In addition, V10 templates created before Task 4.5B retained 0g macros from their synthetic items, displaying as false confirmed 0g instead of unknown/unmeasured.
+- **Root Cause:** Lack of favorite provenance tracking (`favorite_source`); ambiguous historical classification between user prose and explicit UI selection; V10 templates lacking `indeterminate` tag.
+- **Impact:** Users who explicitly favorited prose-noted meals lost favorites; legacy V10 templates claimed confirmed 0g protein, carbs, and fat.
+- **Resolution & Verification:**
+  - Added forward Migration 12 (`add_provenance_and_repair_legacy_templates_v12`) adding `favorite_source` column (`legacy_marker`, `ambiguous`, `explicit`, `none`).
+  - Backfilled provenance conservatively without destructive data loss; explicit user toggles update `favorite_source = 'explicit'` preventing repeated reclassification.
+  - Repaired V10 legacy templates with positive calories and 0g macros to `nutrition_completeness = 'indeterminate'` with unknown macros (`protein_known = 0`, `carbs_known = 0`, `fat_known = 0`).
+  - Hardened touch targets across all nutrition UI to meet Android $\ge 48\text{dp}$ and iOS $\ge 44\text{pt}$.
+  - Mirrored directional arrows and back navigation dynamically in Arabic RTL; preserved Latin digits (`ar-SA-u-nu-latn`).
+  - Added 12 tests in `src/__tests__/crossPlatformA11yAndArabicParity.test.ts` (683 total passing tests).
+- **Target Task:** Task 4.6
+
 ---
 
 ### P3: Low Priority Polish & Maintenance Items

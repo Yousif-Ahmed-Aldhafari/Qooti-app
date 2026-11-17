@@ -118,30 +118,28 @@ export function normalizeMealTemplate(raw: Partial<MealTemplate>): MealTemplate 
         : (Number.isFinite(raw.totalFats) && (raw.totalFats ?? 0) >= 0 ? raw.totalFats! : 0));
 
   let defaultCompleteness: NutritionCompleteness = 'complete';
-  if (!hasItems) {
-    if (raw.nutritionCompleteness) {
-      defaultCompleteness = raw.nutritionCompleteness;
-    } else if (
-      totalCalories > 0 &&
-      totalProtein === 0 &&
-      totalCarbs === 0 &&
-      totalFat === 0
-    ) {
-      defaultCompleteness = 'indeterminate';
-    }
+  if (raw.nutritionCompleteness) {
+    defaultCompleteness = raw.nutritionCompleteness;
+  } else if (
+    totalCalories > 0 &&
+    totalProtein === 0 &&
+    totalCarbs === 0 &&
+    totalFat === 0
+  ) {
+    defaultCompleteness = 'indeterminate';
   }
 
   const proteinKnown = raw.proteinKnown !== undefined
     ? Boolean(raw.proteinKnown)
-    : hasItems || (defaultCompleteness !== 'calories_only' && defaultCompleteness !== 'indeterminate');
+    : (defaultCompleteness !== 'calories_only' && defaultCompleteness !== 'indeterminate');
 
   const carbsKnown = raw.carbsKnown !== undefined
     ? Boolean(raw.carbsKnown)
-    : hasItems || (defaultCompleteness !== 'calories_only' && defaultCompleteness !== 'indeterminate');
+    : (defaultCompleteness !== 'calories_only' && defaultCompleteness !== 'indeterminate');
 
   const fatKnown = raw.fatKnown !== undefined
     ? Boolean(raw.fatKnown)
-    : hasItems || (defaultCompleteness !== 'calories_only' && defaultCompleteness !== 'indeterminate');
+    : (defaultCompleteness !== 'calories_only' && defaultCompleteness !== 'indeterminate');
 
   return {
     id: raw.id || createId('meal-template'),
@@ -284,12 +282,12 @@ export function createMealFromTemplate(
     nutritionCompleteness: completeness,
     proteinKnown: template.proteinKnown !== undefined
       ? template.proteinKnown
-      : hasItems || (completeness !== 'calories_only' && completeness !== 'indeterminate'),
+      : (completeness !== 'calories_only' && completeness !== 'indeterminate'),
     carbsKnown: template.carbsKnown !== undefined
       ? template.carbsKnown
-      : hasItems || (completeness !== 'calories_only' && completeness !== 'indeterminate'),
+      : (completeness !== 'calories_only' && completeness !== 'indeterminate'),
     fatKnown: template.fatKnown !== undefined
       ? template.fatKnown
-      : hasItems || (completeness !== 'calories_only' && completeness !== 'indeterminate'),
+      : (completeness !== 'calories_only' && completeness !== 'indeterminate'),
   };
 }

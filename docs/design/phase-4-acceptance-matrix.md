@@ -25,8 +25,8 @@
 | **Task 4.5** | Meal Templates, Favorites & Quick-Log | **650** (+10) | **650 Passed (+10)** — Repeat meal ID isolation (`createId('meal')` and `createId('meal-item')`), favorite SQLite persistence via note encoding, quick calorie logging (`QuickAddMealModal`) with strict parsing, itemless daily summary aggregation, rendered component coverage in EN & AR. |
 | **Task 4.5A** | Template Integrity, Unknown Macros & Quick-Log Hardening | **662** (+12) | **662 Passed (+12)** — Independent `meal_templates` and `meal_template_items` SQLite tables (Migration 10), clean note preservation without synthetic markers, explicit unknown macro semantics (`NutritionCompleteness`, `proteinKnown`, `carbsKnown`, `fatKnown`), safe repeat-meal workflows, quick-add error recovery with draft retention. |
 | **Task 4.5B** | Template Nutrient Fidelity & Legacy Favorites | **671** (+9) | **671 Passed (+9)** — Itemless templates retain explicit itemless structure (`items: []`) with direct nutrient totals, full completeness and macro known flag preservation across template save and log, forward Migration 11 adding totals columns to `meal_templates` with item backfill, and repair of false favorites from Migration 10 user-prose substring matches. |
-| **Task 4.6** | Cross-Platform UX, A11y & RTL Parity | **450** (+8) | Touch target bounds, screen reader accessibility labels, RTL layout symmetry. |
-| **Task 4.7** | Final Acceptance & Merge Readiness | **450+** | Full 11-step migration upgrade matrix (V0 through V9), cross-platform regression suite. |
+| **Task 4.6** | Cross-Platform UX, A11y & RTL Parity | **683** (+12) | **683 Passed (+12)** — Migration 12 (`favorite_source` provenance & V10 template repair), touch target bounds ($\ge 48\text{dp}$ Android, $\ge 44\text{pt}$ iOS), `android_ripple` vs opacity, TalkBack/VoiceOver labels, bidirectional RTL symmetry, and Latin numeral preservation (`ar-SA-u-nu-latn`). |
+| **Task 4.7** | Final Acceptance & Merge Readiness | **683+** | Full 12-step migration upgrade matrix (V0 through V12), cross-platform regression suite. |
 
 ---
 
@@ -119,7 +119,7 @@
 | **PHY-NUT-04** | **Meal Deletion:** Tap delete in details screen, confirm alert. | Android Material dialog with dismiss/confirm, returns to meals list, meal removed. | iOS ActionSheet / Alert dialog, returns to meals list, meal removed. | Verified (Task 4.1) |
 | **PHY-NUT-05** | **Midnight Boundary Logging:** Set device clock to 01:15 AM (UTC+3). Log a meal. | Meal appears under current calendar day, NOT yesterday. | Meal appears under current calendar day, NOT yesterday. | Verified (Task 4.1) |
 | **PHY-NUT-06** | **Search in Arabic:** Search for "دجاج" (chicken) in Arabic mode. | Instant search results in Arabic, RTL text alignment, Latin numbers for macros. | Instant search results in Arabic, RTL text alignment, Latin numbers for macros. | Verified (Task 4.3) |
-| **PHY-NUT-07** | **Touch Target Clearance:** Tap food delete icon and quantity steppers. | $\ge 48\text{dp}$ touch target, no accidental adjacent taps. | $\ge 44\text{pt}$ touch target, no accidental adjacent taps. | Pending Task 4.6 |
+| **PHY-NUT-07** | **Touch Target Clearance:** Tap food delete icon and quantity steppers. | $\ge 48\text{dp}$ touch target, no accidental adjacent taps. | $\ge 44\text{pt}$ touch target, no accidental adjacent taps. | Verified (Task 4.6) |
 | **PHY-NUT-08** | **App Kill & Relaunch:** Log 2 meals, kill app from recents, relaunch. | All meals immediately hydrated from SQLite, exact macros intact. | All meals immediately hydrated from SQLite, exact macros intact. | Verified (Task 4.1) |
 
 ---
@@ -133,3 +133,4 @@
 | **V8** | **V9** | Direct forward upgrade from latest Phase 3 schema. | Zero disruption to workout sessions, sets, profile, or settings. |
 | **V9** | **V10** | Adds independent `meal_templates` and `meal_template_items` tables, plus structured favorite and unknown macro columns to `meals`. | Preserves all existing meals, migrates `[favorite]` in notes to `is_favorite = 1`, and safely flags legacy 0-macro meals as indeterminate. |
 | **V10** | **V11** | Adds nutrient totals and completeness columns to `meal_templates`, backfills template totals, and repairs falsely favorited meals. | Preserves all existing meals and templates, backfills totals, and accurately clears false favorites from prose substring matches while keeping legitimate prefix favorites. |
+| **V11** | **V12** | Adds `favorite_source` column to `meals`, backfills favorite provenance without reclassification, and repairs V10 legacy synthetic templates with positive calories and 0g macros to indeterminate with unknown macros. | Preserves all existing meals and templates, tracks provenance without destructive data loss, and repairs false 0g macros to indeterminate without guessing. |

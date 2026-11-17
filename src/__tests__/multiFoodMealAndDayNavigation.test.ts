@@ -648,7 +648,7 @@ test('Task 4.3 - Test 29: Existing V9 database migration executes cleanly', asyn
     'SELECT version, name FROM schema_migrations ORDER BY version ASC;'
   );
   assert.equal(applied.length, MIGRATIONS.length);
-  assert.equal(applied[applied.length - 1].version, 11);
+  assert.equal(applied[applied.length - 1].version, 12);
 });
 
 // ---------------------------------------------------------------------------

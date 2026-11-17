@@ -484,7 +484,7 @@ export function AddMealScreen({
                               disabled={isFirst}
                               accessibilityRole="button"
                               accessibilityLabel={t('meals.moveUp')}
-                              hitSlop={6}
+                              hitSlop={Platform.OS === 'android' ? 6 : 4}
                               style={[styles.itemActionBtn, { opacity: isFirst ? 0.3 : 1 }]}
                             >
                               <Ionicons name="chevron-up" size={18} color={colors.text} />
@@ -495,7 +495,7 @@ export function AddMealScreen({
                               disabled={isLast}
                               accessibilityRole="button"
                               accessibilityLabel={t('meals.moveDown')}
-                              hitSlop={6}
+                              hitSlop={Platform.OS === 'android' ? 6 : 4}
                               style={[styles.itemActionBtn, { opacity: isLast ? 0.3 : 1 }]}
                             >
                               <Ionicons name="chevron-down" size={18} color={colors.text} />
@@ -505,7 +505,7 @@ export function AddMealScreen({
                               onPress={() => handleRemoveItem(item.id)}
                               accessibilityRole="button"
                               accessibilityLabel={t('meals.remove')}
-                              hitSlop={6}
+                              hitSlop={Platform.OS === 'android' ? 6 : 4}
                               style={styles.itemActionBtn}
                             >
                               <Ionicons name="trash-outline" size={18} color={colors.danger} />
@@ -741,8 +741,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   itemActionBtn: {
-    minWidth: 32,
-    minHeight: 32,
+    minWidth: Platform.OS === 'android' ? 48 : 44,
+    minHeight: Platform.OS === 'android' ? 48 : 44,
     alignItems: 'center',
     justifyContent: 'center',
   },

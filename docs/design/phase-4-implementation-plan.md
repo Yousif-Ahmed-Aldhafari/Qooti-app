@@ -58,10 +58,10 @@
 [ Task 4.5B: Template Nutrient Fidelity & Legacy Favorites ] ──► (COMPLETE - 671 Tests)
        │
        ▼
-[ Task 4.6: Cross-Platform UI/UX, A11y & Arabic Parity Hardening ] ──► (NEXT)
+[ Task 4.6: Cross-Platform UI/UX, A11y & Arabic Parity Hardening ] ──► (COMPLETE - 683 Tests)
        │
        ▼
-[ Task 4.7: Final Acceptance, Regression & Merge Readiness ]
+[ Task 4.7: Final Acceptance, Regression & Merge Readiness ] ──► (NEXT)
 ```
 
 ---
@@ -501,27 +501,42 @@
 
 ---
 
-### Task 4.6: Cross-Platform UI/UX, A11y & Arabic Parity Hardening
-- **Objective:** Audit and harden all nutrition screens for Apple HIG, Android Material 3, accessibility, and RTL layout symmetry.
-- **Pre-conditions:** Task 4.5 completed and verified.
+### Task 4.6: Cross-Platform UI/UX, A11y & Arabic Parity Hardening [COMPLETED]
+- **Status:** COMPLETED
+- **Objective:** Audit and harden all nutrition screens for Apple HIG, Android Material 3, accessibility, and RTL layout symmetry; resolve legacy favorite provenance and V10 template repair via Migration 12.
+- **Pre-conditions:** Task 4.5B completed and verified (671 tests).
+- **Outcome Metrics:** 683 passing automated tests (+12 substantive regression tests in `crossPlatformA11yAndArabicParity.test.ts`), 91.56% line coverage, 0 TypeScript errors, 0 ESLint warnings, 20/20 Expo Doctor checks.
 - **Technical Specifications:**
-  1. **Touch Target Sizing:**
-     - Ensure all buttons, picker rows, and icons meet $\ge 48\text{dp}$ on Android and $\ge 44\text{pt}$ on iOS.
-  2. **Touch Feedback:**
-     - Android: `android_ripple` on cards, food rows, and buttons.
-     - iOS: Smooth opacity feedback (`activeOpacity={0.7}`).
-  3. **Accessibility (VoiceOver & TalkBack):**
-     - Screen reader announcements for macro distributions and targets.
-     - Accessible labels on quantity steppers and food removal buttons.
-  4. **Bidirectional Symmetry (RTL / LTR):**
-     - Verify Arabic food names, category pills, and table alignments.
-     - Keep numbers in Latin numerals (`ar-SA-u-nu-latn`).
+  1. **Migration 12 (`add_provenance_and_repair_legacy_templates_v12`):**
+     - Added `favorite_source` column to `meals` (`legacy_marker`, `ambiguous`, `explicit`, `none`).
+     - Backfilled provenance safely without repeated reclassification.
+     - Repaired V10 legacy synthetic templates with positive calories and 0g macros to `nutrition_completeness = 'indeterminate'` with unknown macros (`protein_known = 0`, `carbs_known = 0`, `fat_known = 0`).
+  2. **Touch Target Sizing:**
+     - Enforced $\ge 48\text{dp}$ on Android and $\ge 44\text{pt}$ on iOS across date nav arrows, filter chips, template delete buttons, food item reorder/delete steppers, modal close buttons, and category chips.
+  3. **Touch Feedback:**
+     - Android: `android_ripple` feedback on date navigation arrows, template delete buttons, and filter chips.
+     - iOS: Smooth opacity feedback (`activeOpacity={0.7}`) without dual-firing.
+  4. **Accessibility (VoiceOver & TalkBack):**
+     - Screen reader announcements and labels on navigation arrows, filter chips, delete buttons, and macro cards.
+     - MacroCard renders `—` (dash) without false unit claiming for unknown macros.
+  5. **Bidirectional Symmetry (RTL / LTR):**
+     - Icon mirroring: `chevron-back` / `chevron-forward` and modal back arrows flip directions dynamically in RTL mode.
+     - Preserved Latin numerals (`ar-SA-u-nu-latn`) in date formatting and measurement values.
 - **Files Affected:**
-  - All screens and components created in Tasks 4.1–4.5.
-- **Automated Test Requirements:**
-  - RTL style and writing direction regression tests.
-  - Accessibility label tests for nutrition UI.
-- **Success Criteria:** 100% visual symmetry in Arabic and English; flawless physical device touch interaction.
+  - `src/db/migrations.ts` (Migration 12)
+  - `src/db/repositories/mealRepository.ts`
+  - `src/models/meal.ts`
+  - `src/models/mealTemplate.ts`
+  - `src/screens/MealsScreen.tsx`
+  - `src/screens/AddMealScreen.tsx`
+  - `src/screens/EditMealScreen.tsx`
+  - `src/screens/MealDetailsScreen.tsx`
+  - `src/components/MacroCard.tsx`
+  - `src/components/FoodPickerModal.tsx`
+  - `src/components/ManualFoodModal.tsx`
+  - `src/components/QuickAddMealModal.tsx`
+  - `src/__tests__/crossPlatformA11yAndArabicParity.test.ts`
+- **Success Criteria:** 100% visual symmetry in Arabic and English; verified minimum touch targets; clean test suite pass at 683 tests.
 
 ---
 

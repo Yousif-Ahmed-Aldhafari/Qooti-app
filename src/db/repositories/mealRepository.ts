@@ -14,6 +14,7 @@ interface MealRow {
   meal_type?: string | null;
   notes?: string | null;
   is_favorite?: number;
+  favorite_source?: string | null;
   nutrition_completeness?: string | null;
   protein_known?: number | null;
   carbs_known?: number | null;
@@ -133,6 +134,7 @@ export class SQLiteMealRepository implements MealRepository {
         mealType: m.meal_type ?? undefined,
         notes: cleanNotes,
         isFavorite,
+        favoriteSource: (m.favorite_source as any) ?? undefined,
         nutritionCompleteness: completeness,
         proteinKnown,
         carbsKnown,
@@ -208,6 +210,7 @@ export class SQLiteMealRepository implements MealRepository {
       mealType: mealRow.meal_type ?? undefined,
       notes: cleanNotes,
       isFavorite,
+      favoriteSource: (mealRow.favorite_source as any) ?? undefined,
       nutritionCompleteness: completeness,
       proteinKnown,
       carbsKnown,
@@ -234,8 +237,32 @@ export class SQLiteMealRepository implements MealRepository {
       const itemCols = await getTableColumns(t, 'meal_items');
       const hasCompleteness = mealCols.has('nutrition_completeness');
       const hasFavorite = mealCols.has('is_favorite');
+      const hasFavSource = mealCols.has('favorite_source');
+      const favSource = normalized.favoriteSource ?? (normalized.isFavorite ? 'explicit' : 'none');
 
-      if (hasCompleteness && hasFavorite) {
+      if (hasCompleteness && hasFavorite && hasFavSource) {
+        await t.runAsync(
+          `INSERT INTO meals (id, title, date, time, total_calories, total_protein, total_carbs, total_fat, meal_type, notes, is_favorite, favorite_source, nutrition_completeness, protein_known, carbs_known, fat_known, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+          normalized.id,
+          normalized.title,
+          normalized.date,
+          normalized.time,
+          normalized.totalCalories,
+          normalized.totalProtein,
+          normalized.totalCarbs,
+          normalized.totalFat,
+          normalized.mealType ?? null,
+          normalized.notes ?? null,
+          normalized.isFavorite ? 1 : 0,
+          favSource,
+          normalized.nutritionCompleteness ?? 'complete',
+          normalized.proteinKnown !== false ? 1 : 0,
+          normalized.carbsKnown !== false ? 1 : 0,
+          normalized.fatKnown !== false ? 1 : 0,
+          now
+        );
+      } else if (hasCompleteness && hasFavorite) {
         await t.runAsync(
           `INSERT INTO meals (id, title, date, time, total_calories, total_protein, total_carbs, total_fat, meal_type, notes, is_favorite, nutrition_completeness, protein_known, carbs_known, fat_known, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
@@ -350,8 +377,46 @@ export class SQLiteMealRepository implements MealRepository {
       const itemCols = await getTableColumns(t, 'meal_items');
       const hasCompleteness = mealCols.has('nutrition_completeness');
       const hasFavorite = mealCols.has('is_favorite');
+      const hasFavSource = mealCols.has('favorite_source');
+      const favSource = normalized.favoriteSource ?? (normalized.isFavorite ? 'explicit' : 'none');
 
-      if (hasCompleteness && hasFavorite) {
+      if (hasCompleteness && hasFavorite && hasFavSource) {
+        await t.runAsync(
+          `UPDATE meals SET
+             title = ?,
+             date = ?,
+             time = ?,
+             total_calories = ?,
+             total_protein = ?,
+             total_carbs = ?,
+             total_fat = ?,
+             meal_type = ?,
+             notes = ?,
+             is_favorite = ?,
+             favorite_source = ?,
+             nutrition_completeness = ?,
+             protein_known = ?,
+             carbs_known = ?,
+             fat_known = ?
+           WHERE id = ?;`,
+          normalized.title,
+          normalized.date,
+          normalized.time,
+          normalized.totalCalories,
+          normalized.totalProtein,
+          normalized.totalCarbs,
+          normalized.totalFat,
+          normalized.mealType ?? null,
+          normalized.notes ?? null,
+          normalized.isFavorite ? 1 : 0,
+          favSource,
+          normalized.nutritionCompleteness ?? 'complete',
+          normalized.proteinKnown !== false ? 1 : 0,
+          normalized.carbsKnown !== false ? 1 : 0,
+          normalized.fatKnown !== false ? 1 : 0,
+          normalized.id
+        );
+      } else if (hasCompleteness && hasFavorite) {
         await t.runAsync(
           `UPDATE meals SET
              title = ?,
@@ -513,7 +578,14 @@ export class SQLiteMealRepository implements MealRepository {
 
     const executeInTxn = async (t: IDatabase): Promise<void> => {
       const mealCols = await getTableColumns(t, 'meals');
-      if (mealCols.has('is_favorite')) {
+      if (mealCols.has('favorite_source')) {
+        await t.runAsync(
+          'UPDATE meals SET is_favorite = ?, favorite_source = ? WHERE id = ?;',
+          isFavorite ? 1 : 0,
+          isFavorite ? 'explicit' : 'none',
+          cleanId
+        );
+      } else if (mealCols.has('is_favorite')) {
         await t.runAsync(
           'UPDATE meals SET is_favorite = ? WHERE id = ?;',
           isFavorite ? 1 : 0,

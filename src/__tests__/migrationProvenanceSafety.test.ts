@@ -231,7 +231,7 @@ test('Task 3.5C - Test 6: After reconcilePreMigrationConflicts, subsequent runMi
   const applied = await db.getAllAsync<{ version: number }>(
     `SELECT version FROM schema_migrations ORDER BY version ASC;`
   );
-  assert.equal(applied.length, 11);
+  assert.equal(applied.length, 12);
   assert.equal(applied[7].version, 8);
 });
 
@@ -240,7 +240,7 @@ test('Task 3.5C - Test 7: Fresh database install runs migrations 1-8 cleanly wit
   const applied = await db.getAllAsync<{ version: number; name: string }>(
     `SELECT version, name FROM schema_migrations ORDER BY version ASC;`
   );
-  assert.equal(applied.length, 11);
+  assert.equal(applied.length, 12);
   assert.equal(applied[0].name, 'initial_schema_v1');
   assert.equal(applied[7].name, 'clarify_session_recovery_provenance_v8');
 });
@@ -293,7 +293,7 @@ test('Task 3.5C - Test 9: Database at original V6 runs forward migrations 7 and 
   const applied = await db.getAllAsync<{ version: number }>(
     `SELECT version FROM schema_migrations ORDER BY version ASC;`
   );
-  assert.equal(applied.length, 11);
+  assert.equal(applied.length, 12);
 
   const session = await db.getFirstAsync<{ recovery_state: string }>(
     `SELECT recovery_state FROM workout_sessions WHERE id = 's-v6-discarded';`
@@ -333,7 +333,7 @@ test('Task 3.5C - Test 10: Database at V7 runs forward migration 8 cleanly', asy
   const applied = await db.getAllAsync<{ version: number }>(
     `SELECT version FROM schema_migrations ORDER BY version ASC;`
   );
-  assert.equal(applied.length, 11);
+  assert.equal(applied.length, 12);
   assert.equal(applied[7].version, 8);
 });
 

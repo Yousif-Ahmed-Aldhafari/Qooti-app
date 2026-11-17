@@ -374,6 +374,67 @@ export const MIGRATIONS: SchemaMigration[] = [
       `);
     },
   },
+  {
+    version: 12,
+    name: 'add_provenance_and_repair_legacy_templates_v12',
+    up: async (db: IDatabase) => {
+      // 1. Add favorite_source column to meals
+      await addMissingColumns(db, 'meals', [
+        {
+          name: 'favorite_source',
+          ddl: "ALTER TABLE meals ADD COLUMN favorite_source TEXT NOT NULL DEFAULT 'none';",
+        },
+      ]);
+
+      // 2. Backfill favorite_source provenance on existing meals:
+      // a) Historical marker prefix [favorite] at start of notes
+      await db.runAsync(`
+        UPDATE meals
+        SET favorite_source = 'legacy_marker'
+        WHERE notes IS NOT NULL
+          AND (TRIM(notes) LIKE '[favorite]%' OR TRIM(notes) LIKE '[favorite]');
+      `);
+
+      // b) Notes containing [favorite] within legitimate user prose (ambiguous)
+      await db.runAsync(`
+        UPDATE meals
+        SET favorite_source = 'ambiguous'
+        WHERE notes IS NOT NULL
+          AND notes LIKE '%[favorite]%'
+          AND TRIM(notes) NOT LIKE '[favorite]%'
+          AND TRIM(notes) NOT LIKE '[favorite]';
+      `);
+
+      // c) Explicitly favorited meals without legacy [favorite] marker strings
+      await db.runAsync(`
+        UPDATE meals
+        SET favorite_source = 'explicit'
+        WHERE is_favorite = 1
+          AND (notes IS NULL OR notes NOT LIKE '%[favorite]%');
+      `);
+
+      // 3. Repair V10 legacy templates:
+      // Prior to Task 4.5B, calorie-only templates had a synthetic child item and were
+      // backfilled in Migration 11 without distinguishing whether 0g macros were measured/confirmed
+      // or unmeasured. Mark uncertain templates with total_calories > 0 and 0g macros as indeterminate.
+      await db.runAsync(`
+        UPDATE meal_templates
+        SET nutrition_completeness = 'indeterminate',
+            protein_known = 0,
+            carbs_known = 0,
+            fat_known = 0
+        WHERE total_calories > 0
+          AND total_protein = 0
+          AND total_carbs = 0
+          AND total_fat = 0;
+      `);
+
+      // 4. Index favorite_source
+      await db.runAsync(`
+        CREATE INDEX IF NOT EXISTS idx_meals_favorite_source ON meals(favorite_source);
+      `);
+    },
+  },
 ];
 
 /**

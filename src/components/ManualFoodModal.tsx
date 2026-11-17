@@ -350,8 +350,8 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   closeButton: {
-    minWidth: 44,
-    minHeight: 44,
+    minWidth: Platform.OS === 'android' ? 48 : 44,
+    minHeight: Platform.OS === 'android' ? 48 : 44,
     alignItems: 'center',
     justifyContent: 'center',
   },

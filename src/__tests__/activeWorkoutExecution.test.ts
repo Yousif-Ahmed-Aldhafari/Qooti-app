@@ -112,7 +112,7 @@ test('Task 3.5 - Test 2: V0 -> 7 fresh migration runs cleanly and records schema
   const rows = await db.getAllAsync<{ version: number; name: string }>(
     'SELECT version, name FROM schema_migrations ORDER BY version ASC;'
   );
-  assert.equal(rows.length, 11);
+  assert.equal(rows.length, 12);
   assert.equal(rows[4].version, 5);
   assert.equal(rows[4].name, 'add_workout_execution_sessions_v5');
   assert.equal(rows[5].version, 6);
@@ -127,6 +127,8 @@ test('Task 3.5 - Test 2: V0 -> 7 fresh migration runs cleanly and records schema
   assert.equal(rows[9].name, 'add_meal_templates_and_structured_favorites_v10');
   assert.equal(rows[10].version, 11);
   assert.equal(rows[10].name, 'add_meal_template_nutrient_fidelity_and_favorite_repair_v11');
+  assert.equal(rows[11].version, 12);
+  assert.equal(rows[11].name, 'add_provenance_and_repair_legacy_templates_v12');
 });
 
 // 3. Migration idempotence
@@ -138,7 +140,7 @@ test('Task 3.5 - Test 3: Running migrations multiple times does not fail or dupl
   const rows = await db.getAllAsync<{ version: number }>(
     'SELECT version FROM schema_migrations;'
   );
-  assert.equal(rows.length, 11);
+  assert.equal(rows.length, 12);
 });
 
 // 4. Legacy workouts preservation

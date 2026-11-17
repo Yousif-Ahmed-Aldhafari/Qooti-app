@@ -116,7 +116,7 @@ test('Migration 10 -> 11: adds nutrient fidelity columns, backfills totals, and 
   const applied = await db.getAllAsync<{ version: number; name: string }>(
     'SELECT version, name FROM schema_migrations ORDER BY version ASC;'
   );
-  assert.equal(applied.length, 11);
+  assert.equal(applied.length, 12);
   const mig11 = applied[10];
   assert.equal(mig11.version, 11);
   assert.equal(mig11.name, 'add_meal_template_nutrient_fidelity_and_favorite_repair_v11');
@@ -166,8 +166,9 @@ test('Migration 11 idempotence: re-running migrations does not fail, alter schem
   const applied = await db.getAllAsync<{ version: number }>(
     'SELECT version FROM schema_migrations ORDER BY version ASC;'
   );
-  assert.equal(applied.length, 11);
+  assert.equal(applied.length, 12);
   assert.equal(applied[10].version, 11);
+  assert.equal(applied[11].version, 12);
 });
 
 // ============================================================================

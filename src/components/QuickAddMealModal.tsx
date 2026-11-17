@@ -477,6 +477,10 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   closeBtn: {
+    minWidth: Platform.OS === 'android' ? 48 : 44,
+    minHeight: Platform.OS === 'android' ? 48 : 44,
+    alignItems: 'center',
+    justifyContent: 'center',
     padding: spacing.xs,
   },
   scroll: {
@@ -500,10 +504,12 @@ const styles = StyleSheet.create({
   slotChip: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: radius.pill,
     borderWidth: 1,
+    minHeight: Platform.OS === 'android' ? 48 : 44,
   },
   slotChipText: {
     fontSize: 13,

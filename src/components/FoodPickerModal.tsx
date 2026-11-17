@@ -289,7 +289,7 @@ export function FoodPickerModal({
               }}
               style={({ pressed }) => [styles.closeButton, { opacity: pressed ? 0.6 : 1 }]}
             >
-              <Ionicons name={selectedItem ? 'arrow-back' : 'close'} size={24} color={colors.text} />
+              <Ionicons name={selectedItem ? (isRTL ? 'arrow-forward' : 'arrow-back') : 'close'} size={24} color={colors.text} />
             </Pressable>
           </View>
 
@@ -706,8 +706,8 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   closeButton: {
-    minWidth: 44,
-    minHeight: 44,
+    minWidth: Platform.OS === 'android' ? 48 : 44,
+    minHeight: Platform.OS === 'android' ? 48 : 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -741,7 +741,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: radius.pill,
     borderWidth: 1,
-    minHeight: 36,
+    minHeight: Platform.OS === 'android' ? 48 : 44,
     justifyContent: 'center',
   },
   categoryChipText: {
@@ -863,7 +863,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: radius.md,
     borderWidth: 1,
-    minHeight: 44,
+    minHeight: Platform.OS === 'android' ? 48 : 44,
     justifyContent: 'center',
   },
   servingOptionChipText: {

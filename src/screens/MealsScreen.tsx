@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { AppButton } from '../components/AppButton';
@@ -230,7 +230,8 @@ export function MealsScreen({
           accessibilityRole="button"
           accessibilityLabel={t('meals.previousDay') || 'Previous day'}
           onPress={handlePreviousDay}
-          style={({ pressed }) => [styles.navArrowBtn, { opacity: pressed ? 0.6 : 1 }]}
+          android_ripple={{ color: `${colors.textMuted}30`, borderless: true }}
+          style={({ pressed }) => [styles.navArrowBtn, { opacity: Platform.OS === 'ios' && pressed ? 0.6 : 1 }]}
         >
           <Ionicons
             name={isRTL ? 'chevron-forward' : 'chevron-back'}
@@ -243,7 +244,8 @@ export function MealsScreen({
           onPress={handleJumpToToday}
           accessibilityRole="button"
           accessibilityLabel={dateHeaderLabel}
-          style={styles.dateLabelWrap}
+          android_ripple={{ color: `${colors.textMuted}20`, borderless: false }}
+          style={({ pressed }) => [styles.dateLabelWrap, { opacity: Platform.OS === 'ios' && pressed ? 0.7 : 1 }]}
         >
           <Text style={[styles.dateLabelText, { color: colors.text }]}>
             {dateHeaderLabel}
@@ -261,7 +263,8 @@ export function MealsScreen({
           accessibilityRole="button"
           accessibilityLabel={t('meals.nextDay') || 'Next day'}
           onPress={handleNextDay}
-          style={({ pressed }) => [styles.navArrowBtn, { opacity: pressed ? 0.6 : 1 }]}
+          android_ripple={{ color: `${colors.textMuted}30`, borderless: true }}
+          style={({ pressed }) => [styles.navArrowBtn, { opacity: Platform.OS === 'ios' && pressed ? 0.6 : 1 }]}
         >
           <Ionicons
             name={isRTL ? 'chevron-back' : 'chevron-forward'}
@@ -457,12 +460,15 @@ export function MealsScreen({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('meals.allMeals') || 'All Meals'}
+          accessibilityState={{ selected: filterMode === 'all' }}
+          android_ripple={{ color: `${colors.accent}20` }}
           onPress={() => setFilterMode('all')}
-          style={[
+          style={({ pressed }) => [
             styles.filterChip,
             filterMode === 'all'
               ? { backgroundColor: colors.accent, borderColor: colors.accent }
               : { backgroundColor: colors.card, borderColor: colors.border },
+            { opacity: Platform.OS === 'ios' && pressed ? 0.7 : 1 },
           ]}
         >
           <Text
@@ -478,12 +484,15 @@ export function MealsScreen({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('meals.favorites') || 'Favorites'}
+          accessibilityState={{ selected: filterMode === 'favorites' }}
+          android_ripple={{ color: `${colors.accent}20` }}
           onPress={() => setFilterMode('favorites')}
-          style={[
+          style={({ pressed }) => [
             styles.filterChip,
             filterMode === 'favorites'
               ? { backgroundColor: colors.accent, borderColor: colors.accent }
               : { backgroundColor: colors.card, borderColor: colors.border },
+            { opacity: Platform.OS === 'ios' && pressed ? 0.7 : 1 },
           ]}
         >
           <Text
@@ -499,12 +508,15 @@ export function MealsScreen({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('meals.templates') || 'Templates'}
+          accessibilityState={{ selected: filterMode === 'templates' }}
+          android_ripple={{ color: `${colors.accent}20` }}
           onPress={() => setFilterMode('templates')}
-          style={[
+          style={({ pressed }) => [
             styles.filterChip,
             filterMode === 'templates'
               ? { backgroundColor: colors.accent, borderColor: colors.accent }
               : { backgroundColor: colors.card, borderColor: colors.border },
+            { opacity: Platform.OS === 'ios' && pressed ? 0.7 : 1 },
           ]}
         >
           <Text
@@ -569,7 +581,9 @@ export function MealsScreen({
                       onPress={() => onDeleteTemplate(template)}
                       accessibilityRole="button"
                       accessibilityLabel={t('meals.deleteTemplate') || 'Delete template'}
-                      style={styles.templateDeleteBtn}
+                      android_ripple={{ color: `${colors.danger}20`, borderless: true }}
+                      hitSlop={Platform.OS === 'android' ? 6 : undefined}
+                      style={({ pressed }) => [styles.templateDeleteBtn, { opacity: Platform.OS === 'ios' && pressed ? 0.6 : 1 }]}
                     >
                       <Ionicons name="trash-outline" size={20} color={colors.danger} />
                     </Pressable>
@@ -738,6 +752,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: Platform.OS === 'android' ? 48 : 44,
   },
   filterChipText: {
     fontSize: 13,
@@ -753,11 +769,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: radius.md,
     borderWidth: 1,
-    minHeight: 48,
+    minHeight: Platform.OS === 'android' ? 48 : 44,
   },
   navArrowBtn: {
-    minWidth: 44,
-    minHeight: 44,
+    minWidth: Platform.OS === 'android' ? 48 : 44,
+    minHeight: Platform.OS === 'android' ? 48 : 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -767,7 +783,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     flex: 1,
-    minHeight: 44,
+    minHeight: Platform.OS === 'android' ? 48 : 44,
   },
   dateLabelText: {
     fontSize: 15,
@@ -971,7 +987,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   templateDeleteBtn: {
-    padding: spacing.sm,
+    minWidth: Platform.OS === 'android' ? 48 : 44,
+    minHeight: Platform.OS === 'android' ? 48 : 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.xs,
     borderRadius: radius.md,
   },
 });

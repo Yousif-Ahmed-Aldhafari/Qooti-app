@@ -66,8 +66,8 @@ export function MacroCard({
         ) : null}
       </View>
       <Text style={[styles.value, directionalText, { color: colors.text }]}>
-        {hasValue ? Math.round(value) : '--'}{' '}
-        <Text style={[styles.unit, { color: colors.textMuted }]}>{unit}</Text>
+        {hasValue ? Math.round(value) : (unavailableLabel ?? '—')}
+        {hasValue ? <Text style={[styles.unit, { color: colors.textMuted }]}>{` ${unit}`}</Text> : null}
       </Text>
       <View style={[styles.track, { backgroundColor: colors.cardMuted }]}>
         {validTarget ? (
