@@ -16,6 +16,7 @@ interface MealTemplateRow {
   protein_known?: number | null;
   carbs_known?: number | null;
   fat_known?: number | null;
+  review_status?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -91,6 +92,7 @@ export class SQLiteMealTemplateRepository implements MealTemplateRepository {
         proteinKnown: t.protein_known !== undefined && t.protein_known !== null ? t.protein_known === 1 : undefined,
         carbsKnown: t.carbs_known !== undefined && t.carbs_known !== null ? t.carbs_known === 1 : undefined,
         fatKnown: t.fat_known !== undefined && t.fat_known !== null ? t.fat_known === 1 : undefined,
+        reviewStatus: (t.review_status as any) ?? undefined,
         createdAt: t.created_at,
         updatedAt: t.updated_at,
         items,
@@ -141,6 +143,7 @@ export class SQLiteMealTemplateRepository implements MealTemplateRepository {
       proteinKnown: templateRow.protein_known !== undefined && templateRow.protein_known !== null ? templateRow.protein_known === 1 : undefined,
       carbsKnown: templateRow.carbs_known !== undefined && templateRow.carbs_known !== null ? templateRow.carbs_known === 1 : undefined,
       fatKnown: templateRow.fat_known !== undefined && templateRow.fat_known !== null ? templateRow.fat_known === 1 : undefined,
+      reviewStatus: (templateRow.review_status as any) ?? undefined,
       createdAt: templateRow.created_at,
       updatedAt: templateRow.updated_at,
       items,
@@ -153,31 +156,59 @@ export class SQLiteMealTemplateRepository implements MealTemplateRepository {
     const operation = async (t: IDatabase) => {
       const cols = await getTableColumns(t, 'meal_templates');
       const hasTotals = cols.has('total_calories');
+      const hasReviewStatus = cols.has('review_status');
 
       if (hasTotals) {
-        await t.runAsync(
-          `INSERT INTO meal_templates (
-            id, title, meal_type, notes, is_favorite,
-            total_calories, total_protein, total_carbs, total_fat,
-            nutrition_completeness, protein_known, carbs_known, fat_known,
-            created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
-          normalized.id,
-          normalized.title,
-          normalized.mealType ?? null,
-          normalized.notes ?? null,
-          normalized.isFavorite ? 1 : 0,
-          normalized.totalCalories,
-          normalized.totalProtein ?? 0,
-          normalized.totalCarbs ?? 0,
-          normalized.totalFat ?? 0,
-          normalized.nutritionCompleteness ?? 'complete',
-          normalized.proteinKnown !== false ? 1 : 0,
-          normalized.carbsKnown !== false ? 1 : 0,
-          normalized.fatKnown !== false ? 1 : 0,
-          normalized.createdAt,
-          normalized.updatedAt
-        );
+        if (hasReviewStatus) {
+          await t.runAsync(
+            `INSERT INTO meal_templates (
+              id, title, meal_type, notes, is_favorite,
+              total_calories, total_protein, total_carbs, total_fat,
+              nutrition_completeness, protein_known, carbs_known, fat_known,
+              review_status, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+            normalized.id,
+            normalized.title,
+            normalized.mealType ?? null,
+            normalized.notes ?? null,
+            normalized.isFavorite ? 1 : 0,
+            normalized.totalCalories,
+            normalized.totalProtein ?? 0,
+            normalized.totalCarbs ?? 0,
+            normalized.totalFat ?? 0,
+            normalized.nutritionCompleteness ?? 'complete',
+            normalized.proteinKnown !== false ? 1 : 0,
+            normalized.carbsKnown !== false ? 1 : 0,
+            normalized.fatKnown !== false ? 1 : 0,
+            normalized.reviewStatus ?? 'confirmed',
+            normalized.createdAt,
+            normalized.updatedAt
+          );
+        } else {
+          await t.runAsync(
+            `INSERT INTO meal_templates (
+              id, title, meal_type, notes, is_favorite,
+              total_calories, total_protein, total_carbs, total_fat,
+              nutrition_completeness, protein_known, carbs_known, fat_known,
+              created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+            normalized.id,
+            normalized.title,
+            normalized.mealType ?? null,
+            normalized.notes ?? null,
+            normalized.isFavorite ? 1 : 0,
+            normalized.totalCalories,
+            normalized.totalProtein ?? 0,
+            normalized.totalCarbs ?? 0,
+            normalized.totalFat ?? 0,
+            normalized.nutritionCompleteness ?? 'complete',
+            normalized.proteinKnown !== false ? 1 : 0,
+            normalized.carbsKnown !== false ? 1 : 0,
+            normalized.fatKnown !== false ? 1 : 0,
+            normalized.createdAt,
+            normalized.updatedAt
+          );
+        }
       } else {
         await t.runAsync(
           `INSERT INTO meal_templates (id, title, meal_type, notes, is_favorite, created_at, updated_at)
@@ -231,30 +262,57 @@ export class SQLiteMealTemplateRepository implements MealTemplateRepository {
     const operation = async (t: IDatabase) => {
       const cols = await getTableColumns(t, 'meal_templates');
       const hasTotals = cols.has('total_calories');
+      const hasReviewStatus = cols.has('review_status');
 
       if (hasTotals) {
-        await t.runAsync(
-          `UPDATE meal_templates
-           SET title = ?, meal_type = ?, notes = ?, is_favorite = ?,
-               total_calories = ?, total_protein = ?, total_carbs = ?, total_fat = ?,
-               nutrition_completeness = ?, protein_known = ?, carbs_known = ?, fat_known = ?,
-               updated_at = ?
-           WHERE id = ?;`,
-          normalized.title,
-          normalized.mealType ?? null,
-          normalized.notes ?? null,
-          normalized.isFavorite ? 1 : 0,
-          normalized.totalCalories,
-          normalized.totalProtein ?? 0,
-          normalized.totalCarbs ?? 0,
-          normalized.totalFat ?? 0,
-          normalized.nutritionCompleteness ?? 'complete',
-          normalized.proteinKnown !== false ? 1 : 0,
-          normalized.carbsKnown !== false ? 1 : 0,
-          normalized.fatKnown !== false ? 1 : 0,
-          normalized.updatedAt,
-          normalized.id
-        );
+        if (hasReviewStatus) {
+          await t.runAsync(
+            `UPDATE meal_templates
+             SET title = ?, meal_type = ?, notes = ?, is_favorite = ?,
+                 total_calories = ?, total_protein = ?, total_carbs = ?, total_fat = ?,
+                 nutrition_completeness = ?, protein_known = ?, carbs_known = ?, fat_known = ?,
+                 review_status = ?, updated_at = ?
+             WHERE id = ?;`,
+            normalized.title,
+            normalized.mealType ?? null,
+            normalized.notes ?? null,
+            normalized.isFavorite ? 1 : 0,
+            normalized.totalCalories,
+            normalized.totalProtein ?? 0,
+            normalized.totalCarbs ?? 0,
+            normalized.totalFat ?? 0,
+            normalized.nutritionCompleteness ?? 'complete',
+            normalized.proteinKnown !== false ? 1 : 0,
+            normalized.carbsKnown !== false ? 1 : 0,
+            normalized.fatKnown !== false ? 1 : 0,
+            normalized.reviewStatus ?? 'confirmed',
+            normalized.updatedAt,
+            normalized.id
+          );
+        } else {
+          await t.runAsync(
+            `UPDATE meal_templates
+             SET title = ?, meal_type = ?, notes = ?, is_favorite = ?,
+                 total_calories = ?, total_protein = ?, total_carbs = ?, total_fat = ?,
+                 nutrition_completeness = ?, protein_known = ?, carbs_known = ?, fat_known = ?,
+                 updated_at = ?
+             WHERE id = ?;`,
+            normalized.title,
+            normalized.mealType ?? null,
+            normalized.notes ?? null,
+            normalized.isFavorite ? 1 : 0,
+            normalized.totalCalories,
+            normalized.totalProtein ?? 0,
+            normalized.totalCarbs ?? 0,
+            normalized.totalFat ?? 0,
+            normalized.nutritionCompleteness ?? 'complete',
+            normalized.proteinKnown !== false ? 1 : 0,
+            normalized.carbsKnown !== false ? 1 : 0,
+            normalized.fatKnown !== false ? 1 : 0,
+            normalized.updatedAt,
+            normalized.id
+          );
+        }
       } else {
         await t.runAsync(
           `UPDATE meal_templates
@@ -331,5 +389,29 @@ export class SQLiteMealTemplateRepository implements MealTemplateRepository {
     } else {
       await this.db.withExclusiveTransactionAsync(operation);
     }
+  }
+
+  async reconfirmTemplate(
+    id: string,
+    completeness: NutritionCompleteness,
+    macros?: { proteinKnown?: boolean; carbsKnown?: boolean; fatKnown?: boolean },
+    txn?: IDatabase
+  ): Promise<MealTemplate> {
+    const existing = await this.getTemplateById(id);
+    if (!existing) {
+      throw new Error(`Template not found: ${id}`);
+    }
+
+    const updated = normalizeMealTemplate({
+      ...existing,
+      nutritionCompleteness: completeness,
+      proteinKnown: macros?.proteinKnown !== undefined ? macros.proteinKnown : (completeness === 'complete'),
+      carbsKnown: macros?.carbsKnown !== undefined ? macros.carbsKnown : (completeness === 'complete'),
+      fatKnown: macros?.fatKnown !== undefined ? macros.fatKnown : (completeness === 'complete'),
+      reviewStatus: 'confirmed',
+      updatedAt: new Date().toISOString(),
+    });
+
+    return this.updateTemplate(updated, txn);
   }
 }

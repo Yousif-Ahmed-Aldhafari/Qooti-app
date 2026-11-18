@@ -267,6 +267,8 @@ export const en = {
     "partialMacrosNotice": "Contains calories-only or partial macro logs. Macronutrient totals exclude unrecorded values.",
     "caloriesOnlyNotice": "Calories-only log. Macronutrients not recorded.",
     "indeterminateNotice": "Legacy meal totals without confirmed item breakdown.",
+    "ambiguousNotice": "Macronutrients need review. Values were not definitively confirmed.",
+    "reconfirmMacros": "Confirm Macros",
     "saveFailed": "Failed to save meal. Please try again.",
     "emptyTemplates": "No meal templates saved yet.",
     "emptyTemplatesDescription": "Save any meal as a template to log it again with 1 tap."

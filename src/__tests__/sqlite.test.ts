@@ -30,7 +30,7 @@ test('SQLite: Empty database initialization', async () => {
   const migrations = await db.getAllAsync<{ version: number; name: string }>(
     'SELECT version, name FROM schema_migrations ORDER BY version ASC;'
   );
-  assert.equal(migrations.length, 14);
+  assert.equal(migrations.length, 15);
   assert.equal(migrations[0].version, 1);
   assert.equal(migrations[0].name, 'initial_schema_v1');
   assert.equal(migrations[1].version, 2);
@@ -59,6 +59,8 @@ test('SQLite: Empty database initialization', async () => {
   assert.equal(migrations[12].name, 'harden_template_nutrient_fidelity_and_favorite_provenance_v13');
   assert.equal(migrations[13].version, 14);
   assert.equal(migrations[13].name, 'reconcile_template_unknown_macros_and_preserve_uncertainty_v14');
+  assert.equal(migrations[14].version, 15);
+  assert.equal(migrations[14].name, 'add_meal_template_review_status_and_reconcile_ambiguity_v15');
 
   // Verify core tables exist
   const tables = await db.getAllAsync<{ name: string }>(
@@ -87,7 +89,7 @@ test('SQLite: Schema migration idempotency and repeat initialization', async () 
   const migrations = await db.getAllAsync<{ version: number }>(
     'SELECT version FROM schema_migrations;'
   );
-  assert.equal(migrations.length, 14, 'Migrations should not be re-applied or duplicated');
+  assert.equal(migrations.length, 15, 'Migrations should not be re-applied or duplicated');
 });
 
 test('SQLite: CRUD operations for Meals and parent/child relationship integrity', async () => {

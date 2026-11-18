@@ -555,6 +555,11 @@ export function MealsScreen({
                           : ''}
                       </Text>
                     ) : null}
+                    {template.reviewStatus === 'ambiguous' ? (
+                      <Text style={[styles.templateCardSubtitle, directionalText, { color: colors.warning || '#EF8B45', marginTop: 2 }]}>
+                        ⚠️ {t('meals.ambiguousNotice') || 'Macronutrients need review'}
+                      </Text>
+                    ) : null}
                   </View>
                   <Text style={[styles.templateCardCalories, { color: colors.accent }]}>
                     {Math.round(template.totalCalories ?? 0)} {t('common.kcal')}

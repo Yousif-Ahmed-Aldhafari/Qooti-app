@@ -247,7 +247,7 @@ test('SQLite: Migration 2 upgrades V1 schema to V2 preserving existing profile d
   const migrationsAfter = await db.getAllAsync<{ version: number; name: string }>(
     'SELECT version, name FROM schema_migrations ORDER BY version ASC;'
   );
-  assert.equal(migrationsAfter.length, 14);
+  assert.equal(migrationsAfter.length, 15);
   assert.equal(migrationsAfter[1].version, 2);
   assert.equal(migrationsAfter[1].name, 'add_profile_personalization_v2');
   assert.equal(migrationsAfter[2].version, 3);
@@ -319,7 +319,7 @@ test('SQLite: Migration 2 upgrades V1 schema to V2 preserving existing profile d
   // 7. Test migration idempotence by running runMigrations again
   await runMigrations(db);
   const finalMigrations = await db.getAllAsync<{ version: number }>('SELECT version FROM schema_migrations;');
-  assert.equal(finalMigrations.length, 14, 'Migrations must not be re-applied or duplicated');
+  assert.equal(finalMigrations.length, 15, 'Migrations must not be re-applied or duplicated');
 });
 
 test('Personalization Safety: Age 17 vs 18 eligibility and adolescent protection', () => {
@@ -667,7 +667,7 @@ test('SQLite: Already-applied original V2 (ce7bbe1) upgrades cleanly to V3 prese
   const migrations = await db.getAllAsync<{ version: number; name: string }>(
     'SELECT version, name FROM schema_migrations ORDER BY version ASC;'
   );
-  assert.equal(migrations.length, 14);
+  assert.equal(migrations.length, 15);
   assert.equal(migrations[2].version, 3);
   assert.equal(migrations[2].name, 'add_profile_confirmation_and_bmr_ref_v3');
   assert.equal(migrations[3].version, 4);
@@ -692,6 +692,8 @@ test('SQLite: Already-applied original V2 (ce7bbe1) upgrades cleanly to V3 prese
   assert.equal(migrations[12].name, 'harden_template_nutrient_fidelity_and_favorite_provenance_v13');
   assert.equal(migrations[13].version, 14);
   assert.equal(migrations[13].name, 'reconcile_template_unknown_macros_and_preserve_uncertainty_v14');
+  assert.equal(migrations[14].version, 15);
+  assert.equal(migrations[14].name, 'add_meal_template_review_status_and_reconcile_ambiguity_v15');
 
   // 4. Confirm both new columns exist
   const cols = await db.getAllAsync<{ name: string }>('PRAGMA table_info(user_profiles);');
@@ -740,7 +742,7 @@ test('SQLite: Interrupted migration recovery and repeated migration idempotence'
   const migrations = await db.getAllAsync<{ version: number }>('SELECT version FROM schema_migrations ORDER BY version ASC;');
   assert.deepEqual(
     migrations.map((m) => m.version),
-    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
   );
 });
 

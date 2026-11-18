@@ -36,3 +36,12 @@ export async function toggleMealTemplateFavorite(id: string, isFavorite: boolean
   const repo = await getMealTemplateRepository();
   await repo.toggleTemplateFavorite(id, isFavorite);
 }
+
+export async function reconfirmMealTemplate(
+  id: string,
+  completeness: import('../models/meal').NutritionCompleteness,
+  macros?: { proteinKnown?: boolean; carbsKnown?: boolean; fatKnown?: boolean }
+): Promise<MealTemplate> {
+  const repo = await getMealTemplateRepository();
+  return await repo.reconfirmTemplate(id, completeness, macros);
+}

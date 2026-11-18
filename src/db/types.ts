@@ -1,4 +1,4 @@
-import { Meal } from '../models/meal';
+import { Meal, NutritionCompleteness } from '../models/meal';
 import { MealTemplate } from '../models/mealTemplate';
 import { Workout } from '../models/workout';
 import { UserProfile } from '../models/profile';
@@ -73,6 +73,12 @@ export interface MealTemplateRepository {
   updateTemplate(template: MealTemplate, txn?: IDatabase): Promise<MealTemplate>;
   deleteTemplate(id: string, txn?: IDatabase): Promise<void>;
   toggleTemplateFavorite(id: string, isFavorite: boolean, txn?: IDatabase): Promise<void>;
+  reconfirmTemplate(
+    id: string,
+    completeness: NutritionCompleteness,
+    macros?: { proteinKnown?: boolean; carbsKnown?: boolean; fatKnown?: boolean },
+    txn?: IDatabase
+  ): Promise<MealTemplate>;
 }
 
 export interface WorkoutRepository {

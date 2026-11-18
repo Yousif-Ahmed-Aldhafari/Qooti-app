@@ -1,6 +1,8 @@
 import type { Meal, MealItem, MealType, NutritionCompleteness } from './meal';
 import { createId } from '../utils/id';
 
+export type { NutritionCompleteness };
+
 export interface MealTemplateItem {
   id: string;
   templateId?: string;
@@ -33,6 +35,7 @@ export interface MealTemplate {
   proteinKnown?: boolean;
   carbsKnown?: boolean;
   fatKnown?: boolean;
+  reviewStatus?: 'confirmed' | 'ambiguous';
   createdAt: string;
   updatedAt: string;
 }
@@ -160,6 +163,11 @@ export function normalizeMealTemplate(raw: Partial<MealTemplate>): MealTemplate 
     proteinKnown,
     carbsKnown,
     fatKnown,
+    reviewStatus: raw.reviewStatus ?? (
+      defaultCompleteness === 'indeterminate' && totalCalories > 0 && totalProtein === 0 && totalCarbs === 0 && totalFat === 0 && !raw.nutritionCompleteness
+        ? 'ambiguous'
+        : 'confirmed'
+    ),
     createdAt: raw.createdAt || now,
     updatedAt: raw.updatedAt || now,
   };
@@ -213,6 +221,7 @@ export function createTemplateFromMeal(meal: Meal, titleOverride?: string): Meal
     proteinKnown: meal.proteinKnown,
     carbsKnown: meal.carbsKnown,
     fatKnown: meal.fatKnown,
+    reviewStatus: meal.nutritionCompleteness === 'indeterminate' && (meal.totalCalories ?? 0) > 0 ? 'ambiguous' : 'confirmed',
     createdAt: now,
     updatedAt: now,
   });

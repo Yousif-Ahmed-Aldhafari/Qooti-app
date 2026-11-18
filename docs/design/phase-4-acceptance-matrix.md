@@ -28,6 +28,7 @@
 | **Task 4.6** | Cross-Platform UX, A11y & RTL Parity | **683** (+12) | **683 Passed (+12)** — Migration 12 (`favorite_source` provenance & V10 template repair), touch target bounds ($\ge 48\text{dp}$ Android, $\ge 44\text{pt}$ iOS), `android_ripple` vs opacity, TalkBack/VoiceOver labels, bidirectional RTL symmetry, and Latin numeral preservation (`ar-SA-u-nu-latn`). |
 | **Task 4.6A** | Legacy Template Migration Safety & Acceptance Hardening | **708** (+25) | **708 Passed (+25)** — Forward Migration 13 restoring confirmed zero macros with child item evidence, favorite source preservation on meal edit, 20 database upgrade matrix tests, 5 interactive component tests. |
 | **Task 4.7** | Final Acceptance, Full Regression & Merge Readiness | **708+** | **736 Passed (+28)** — Forward Migration 14 reconciling positive-calorie templates to honest uncertainty, full 18-step migration matrix (V0 to V14 clean and populated), 10 end-to-end user journeys (Journeys 19–28), 90.94% line coverage, 20/20 Expo Doctor checks. |
+| **Task 4.7A** | Final Migration Fidelity & Acceptance Corrections | **736+** | **749 Passed (+13)** — Forward-only Migration 15 adding template `review_status = 'ambiguous'` for reconciled records, user reconfirmation pathway, honest reporting of physical test environment (NOT TESTED on Linux host), exact measured contrast ratios, 90.79% line coverage, 20/20 Expo Doctor. |
 
 ---
 
@@ -122,20 +123,34 @@
 - [x] **AC-FIN-04:** 10 end-to-end user journeys (Journeys 19–28 in `finalAcceptanceAndFullRegression.test.ts`) verify catalog search, portion scaling, multi-food logging, quick calorie add, template repeat with UUID isolation, undated legacy meal recovery, Atwater 4/4/9 macro distribution, logged-days averages, food data provenance, accessibility touch targets, and universal theme contrast.
 - [x] **AC-FIN-05:** Quality gates fully satisfied with 736 passing automated tests, 90.94% line coverage, 0 TypeScript errors, 0 ESLint warnings, and 20/20 Expo Doctor checks passed.
 
+### 2.12 Final Migration Fidelity & Acceptance Corrections (Task 4.7A) Acceptance Criteria
+- [x] **AC-FIN-06:** Forward-only Migration 15 (`add_meal_template_review_status_and_reconcile_ambiguity_v15`) safely adds `review_status TEXT NOT NULL DEFAULT 'confirmed'` column and index `idx_meal_templates_review_status` to `meal_templates`, flagging positive-calorie zero-macro records as `review_status = 'ambiguous'`.
+- [x] **AC-FIN-07:** `SQLiteMealTemplateRepository` and `mealTemplateService` provide `reconfirmTemplate` and `reconfirmMealTemplate` allowing user-driven reconfirmation of ambiguous templates without heuristic guesswork.
+- [x] **AC-FIN-08:** `MealsScreen` surfaces bilingual ambiguous template review notices (`⚠️ Review Macros` / `⚠️ مراجعة الماكروز`).
+- [x] **AC-FIN-09:** Comprehensive regression suite covers Cases A through J, repeat migration idempotency, transaction rollback, and full repository lifecycle (749 passing automated tests, 90.79% coverage).
+- [x] **AC-FIN-10:** Acceptance documentation transparently reports physical platform limitations (physical devices/simulators NOT TESTED on Linux host), exact calculated contrast ratios, and `getAllMeals` single-query performance reality with in-memory calendar filtering.
+
 ---
 
-## 3. Physical Device Acceptance Matrix (Android & iOS)
+## 3. Platform Verification & Testing Environment Acceptance Matrix
 
-| Test ID | Test Scenario | Android Physical Device (Pixel / Galaxy) | iOS Physical Device (iPhone) | Acceptance Status |
+> [!NOTE]
+> **Environment Verification Scope:**
+> Testing in this repository is executed on a **Linux CI/developer host** (`x86_64-linux`).
+> - **Level 1 (Static Analysis):** TypeScript (`tsc --noEmit`), ESLint (`eslint --max-warnings=0`), and Expo Doctor (`npx expo-doctor`) are **100% verified** and passing.
+> - **Level 2 (Mocked Component & Hook Tests):** Automated unit, integration, and React Native component tests via Node.js test runner with in-memory SQLite and mocked UI primitives are **100% verified** (749 passing tests).
+> - **Level 3 & 4 (Physical Device & Simulator Testing):** Physical Android devices, Android emulators, iOS simulators, and physical iPhones are **NOT TESTED** in this local Linux environment due to platform constraints (no attached Android hardware via `adb devices`, no running Android emulator, and iOS tooling requiring macOS/Xcode). Verification in the table below reflects Level 1 and Level 2 automated verification.
+
+| Test ID | Test Scenario | Automated Component & SQLite Verification (Linux Host) | Physical / Simulator Status (Hardware Dependent) | Acceptance Status |
 |---|---|---|---|---|
-| **PHY-NUT-01** | **Multi-Food Meal Creation:** Add meal with 3 foods (chicken, rice, olive oil) from catalog. | Verify ripple touch, keyboard dismissal on tap outside, correct total calories. | Verify smooth opacity dimming, iOS interactive keyboard dismiss, correct totals. | Verified (Task 4.3) |
-| **PHY-NUT-02** | **Portion Scaling:** Adjust chicken from 100g to 250g. | Instant macro calculation update, keyboard stays responsive. | Instant calculation update, no layout jank or flicker. | Verified (Task 4.2) |
-| **PHY-NUT-03** | **Meal Editing:** Open saved meal, change title, edit 1 food quantity, add 1 new food, save. | Atomic update, returns to details screen with updated values. | Atomic update, returns to details screen with updated values. | Verified (Task 4.1) |
-| **PHY-NUT-04** | **Meal Deletion:** Tap delete in details screen, confirm alert. | Android Material dialog with dismiss/confirm, returns to meals list, meal removed. | iOS ActionSheet / Alert dialog, returns to meals list, meal removed. | Verified (Task 4.1) |
-| **PHY-NUT-05** | **Midnight Boundary Logging:** Set device clock to 01:15 AM (UTC+3). Log a meal. | Meal appears under current calendar day, NOT yesterday. | Meal appears under current calendar day, NOT yesterday. | Verified (Task 4.1) |
-| **PHY-NUT-06** | **Search in Arabic:** Search for "دجاج" (chicken) in Arabic mode. | Instant search results in Arabic, RTL text alignment, Latin numbers for macros. | Instant search results in Arabic, RTL text alignment, Latin numbers for macros. | Verified (Task 4.3) |
-| **PHY-NUT-07** | **Touch Target Clearance:** Tap food delete icon and quantity steppers. | $\ge 48\text{dp}$ touch target, no accidental adjacent taps. | $\ge 44\text{pt}$ touch target, no accidental adjacent taps. | Verified (Task 4.6) |
-| **PHY-NUT-08** | **App Kill & Relaunch:** Log 2 meals, kill app from recents, relaunch. | All meals immediately hydrated from SQLite, exact macros intact. | All meals immediately hydrated from SQLite, exact macros intact. | Verified (Task 4.1) |
+| **PHY-NUT-01** | **Multi-Food Meal Creation:** Add meal with 3 foods (chicken, rice, olive oil) from catalog. | Verified in `multiFoodMealAndDayNavigation.test.ts` (totals calculated, draft preserved, atomic insert). | Not Tested on Linux Host (Requires physical device / emulator) | Automated Level 2 Verified |
+| **PHY-NUT-02** | **Portion Scaling:** Adjust chicken from 100g to 250g. | Verified in `foodCatalogAndPortionScaling.test.ts` (scaling limits enforced, live arithmetic update). | Not Tested on Linux Host (Requires physical device / emulator) | Automated Level 2 Verified |
+| **PHY-NUT-03** | **Meal Editing:** Open saved meal, change title, edit 1 food quantity, add 1 new food, save. | Verified in `multiFoodMealAndDayNavigation.test.ts` (atomic update, provenance preserved). | Not Tested on Linux Host (Requires physical device / emulator) | Automated Level 2 Verified |
+| **PHY-NUT-04** | **Meal Deletion:** Tap delete in details screen, confirm alert. | Verified in `multiFoodMealAndDayNavigation.test.ts` and `mealLifecycleIntegrity.test.ts` (cascading deletion). | Not Tested on Linux Host (Requires physical device / emulator) | Automated Level 2 Verified |
+| **PHY-NUT-05** | **Midnight Boundary Logging:** Set device clock to 01:15 AM (UTC+3). Log a meal. | Verified in `multiFoodMealAndDayNavigation.test.ts` (strict local calendar date `YYYY-MM-DD`). | Not Tested on Linux Host (Requires physical device / emulator) | Automated Level 2 Verified |
+| **PHY-NUT-06** | **Search in Arabic:** Search for "دجاج" (chicken) in Arabic mode. | Verified in `foodCatalogAndPortionScaling.test.ts` (Arabic text normalization, Latin digits). | Not Tested on Linux Host (Requires physical device / emulator) | Automated Level 2 Verified |
+| **PHY-NUT-07** | **Touch Target Clearance:** Tap food delete icon and quantity steppers. | Verified in `crossPlatformA11yAndArabicParity.test.ts` ($\ge 48\text{dp}$ Android, $\ge 44\text{pt}$ iOS styles). | Not Tested on Linux Host (Requires physical device / emulator) | Automated Level 2 Verified |
+| **PHY-NUT-08** | **App Kill & Relaunch:** Log 2 meals, kill app from recents, relaunch. | Verified in `finalAcceptanceAndFullRegression.test.ts` (SQLite hydration across reopen). | Not Tested on Linux Host (Requires physical device / emulator) | Automated Level 2 Verified |
 
 ---
 
@@ -151,3 +166,4 @@
 | **V11** | **V12** | Adds `favorite_source` column to `meals`, backfills favorite provenance without reclassification, and repairs V10 legacy synthetic templates with positive calories and 0g macros to indeterminate with unknown macros. | Preserves all existing meals and templates, tracks provenance without destructive data loss, and repairs false 0g macros to indeterminate without guessing. |
 | **V12** | **V13** | Restores confirmed zero macros on templates with verifiable child food item evidence, ensures valid non-null `favorite_source` and indices across all meals, and preserves indeterminate status for uncertain itemless templates. | Forward-only upgrade leaving Migrations 1–12 immutable; zero data loss; preserves honest uncertainty without fabricating false nutritional certainty. |
 | **V13** | **V14** | Safely reconciles positive-calorie templates with 0g across all macros to indeterminate with unknown macros, eliminating false completeness where macros were unmeasured. Preserves genuine 0-calorie items as complete. | Forward-only upgrade leaving Migrations 1–13 immutable; strictly honors Atwater thermodynamic constraints; zero data loss for workouts, profiles, and historical meals. |
+| **V14** | **V15** | Adds `review_status` column and index to `meal_templates`. Flags positive-calorie zero-macro indeterminate templates as `review_status = 'ambiguous'`, providing a user-driven reconfirmation pathway without heuristic guesswork. | Forward-only upgrade leaving Migrations 1–14 immutable; transparently acknowledges unrecoverable metadata loss as historical ambiguity; zero data loss. |

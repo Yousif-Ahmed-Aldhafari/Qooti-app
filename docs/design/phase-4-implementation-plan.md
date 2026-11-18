@@ -601,3 +601,40 @@
   - `src/__tests__/finalAcceptanceAndFullRegression.test.ts` (new - 28 tests)
   - 11 existing migration test files updated with Migration 14 assertions
 - **Success Criteria:** Zero false certainty; full migration backward compatibility from V0 to V14; 736 passing automated tests; all quality gates verified.
+
+---
+
+### Task 4.7A: Final Migration Fidelity & Acceptance Corrections [COMPLETED]
+- **Status:** COMPLETED
+- **Objective:** Correct Migration 14's blanket heuristic rule using forward-only Migration 15 (`add_meal_template_review_status_and_reconcile_ambiguity_v15`), introduce transparent review status and user reconfirmation pathway for ambiguous templates, add mandatory regression test suite covering Cases A through J, and align acceptance documentation with verified physical test constraints, exact contrast measurements, and database query realities.
+- **Pre-conditions:** Task 4.7 completed and verified (736 baseline tests).
+- **Outcome Metrics:** 749 total passing automated tests (+13 new tests in `templateMigrationFidelityAndAmbiguityReconciliation.test.ts`), 90.79% overall line coverage, 0 TypeScript errors, 0 ESLint warnings, 20/20 Expo Doctor checks passing.
+- **Technical Specifications:**
+  1. **Forward-Only Migration 15 (`add_meal_template_review_status_and_reconcile_ambiguity_v15`):**
+     - Migrations 1–14 preserved strictly immutable and forward-only.
+     - Added `review_status TEXT NOT NULL DEFAULT 'confirmed'` column and index `idx_meal_templates_review_status` to `meal_templates`.
+     - Flags positive-calorie zero-macro indeterminate templates affected by Migration 14 as `review_status = 'ambiguous'`, declaring historical uncertainty honestly rather than fabricating data.
+  2. **Domain Models & Repositories Resilience:**
+     - `MealTemplate`: added `reviewStatus?: 'confirmed' | 'ambiguous'`, updated `normalizeMealTemplate` and `createTemplateFromMeal`.
+     - `mealTemplateRepository`: updated `getTemplateById` and `getAllTemplates` to map `review_status`; updated `createTemplate` and `updateTemplate` to insert/update `review_status`; implemented `reconfirmTemplate(id, completeness, macros)` to allow user-driven resolution of ambiguous states.
+     - `mealTemplateService`: added `reconfirmMealTemplate(id, completeness, macros)` service wrapper.
+  3. **UI Transparency & Localization:**
+     - `MealsScreen`: added warning badge (`⚠️ Review Macros`) for templates with `reviewStatus === 'ambiguous'`.
+     - `en.ts` and `ar.ts`: added `ambiguousNotice` and `reconfirmMacros` translation keys.
+  4. **Mandatory Regression Matrix (Cases A through J):**
+     - 13 comprehensive tests in `src/__tests__/templateMigrationFidelityAndAmbiguityReconciliation.test.ts` covering Cases A through J, idempotency, transaction rollback, and repository lifecycle.
+  5. **Documentation & Acceptance Alignment:**
+     - Transparently acknowledged Linux host testing limitations: physical Android/iOS devices and simulators reported honestly as NOT TESTED.
+     - Documented exact calculated WCAG contrast ratios across Light and Dark themes.
+     - Accurately documented `getAllMeals()` single-query performance reality with in-memory calendar date filtering.
+- **Files Affected:**
+  - `src/db/migrations.ts` (Migration 15 added)
+  - `src/models/mealTemplate.ts`
+  - `src/db/repositories/mealTemplateRepository.ts`
+  - `src/db/types.ts`
+  - `src/services/mealTemplateService.ts`
+  - `src/screens/MealsScreen.tsx`
+  - `src/i18n/en.ts` & `src/i18n/ar.ts`
+  - `src/__tests__/templateMigrationFidelityAndAmbiguityReconciliation.test.ts` (new - 13 tests)
+  - 12 existing test suites updated with Migration 15 assertions
+- **Success Criteria:** Historical ambiguity transparently flagged without data destruction; full forward-only Migration 15 compatibility; 749 passing automated tests; all quality gates verified.

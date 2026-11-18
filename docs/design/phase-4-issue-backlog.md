@@ -379,6 +379,23 @@
   - Added 28 comprehensive automated regression and E2E acceptance tests in `src/__tests__/finalAcceptanceAndFullRegression.test.ts` (736 total passing tests, 90.94% coverage).
 - **Target Task:** Task 4.7
 
+#### ISSUE-NUT-19: Migration 14 Blanket Rule, Historical Metadata Ambiguity & User Reconfirmation Path via Migration 15
+- **Severity:** P1 (High)
+- **Status:** RESOLVED (Task 4.7A)
+- **Location:** `src/db/migrations.ts`, `src/models/mealTemplate.ts`, `src/db/repositories/mealTemplateRepository.ts`, `src/services/mealTemplateService.ts`, `src/screens/MealsScreen.tsx`
+- **Description:** Migration 14 applied a blanket heuristic rule overwriting all templates with `total_calories > 0 AND total_protein = 0 AND total_carbs = 0 AND total_fat = 0` to `indeterminate`, erasing user-entered known-zero records (e.g. black coffee, herbal tea, diet soda) where 0g was explicitly recorded from product labels. Because Migration 14 permanently overwrote these columns on existing databases without retaining original flags, original values could not be scientifically recovered via heuristic inference (such as food name matching or child item counts) without repeating Migration 13's defect.
+- **Root Cause:** Blanket database mutation in Migration 14 without preserving provenance or providing a user-driven reconfirmation pathway.
+- **Impact:** Irreversible alteration of nutrient completeness on existing databases; inability to distinguish genuinely unmeasured macro records from user-confirmed zero-macro records.
+- **Resolution & Verification:**
+  - Preserved Migrations 1–14 strictly immutable and forward-only.
+  - Implemented forward-only Migration 15 (`add_meal_template_review_status_and_reconcile_ambiguity_v15`).
+  - Added `review_status TEXT NOT NULL DEFAULT 'confirmed'` column and index `idx_meal_templates_review_status` to `meal_templates`.
+  - Flags positive-calorie zero-macro records affected by Migration 14 as `review_status = 'ambiguous'`, transparently declaring historical uncertainty without inventing data.
+  - Provided `reconfirmTemplate` in `SQLiteMealTemplateRepository` and `reconfirmMealTemplate` in `mealTemplateService` allowing users to review and reconfirm macro completeness.
+  - Added bilingual review indicator in `MealsScreen` notifying users of templates requiring macro reconfirmation.
+  - Created 13 focused regression and lifecycle tests in `src/__tests__/templateMigrationFidelityAndAmbiguityReconciliation.test.ts` covering Cases A through J, idempotency, transaction rollback, and full repository lifecycle (749 total passing tests, 90.79% coverage).
+- **Target Task:** Task 4.7A
+
 ---
 
 ### P3: Low Priority Polish & Maintenance Items
@@ -391,6 +408,23 @@
 - **Impact:** Code clutter, developer confusion, duplicate filenames.
 - **Proposed Remediation:** Safely archive or remove orphaned files during Phase 4 implementation.
 - **Target Task:** Task 4.7
+
+#### ISSUE-NUT-19: Migration 14 Blanket Rule, Historical Metadata Ambiguity & User Reconfirmation Path via Migration 15
+- **Severity:** P1 (High)
+- **Status:** RESOLVED (Task 4.7A)
+- **Location:** `src/db/migrations.ts`, `src/models/mealTemplate.ts`, `src/db/repositories/mealTemplateRepository.ts`, `src/services/mealTemplateService.ts`, `src/screens/MealsScreen.tsx`
+- **Description:** Migration 14 applied a blanket heuristic rule overwriting all templates with `total_calories > 0 AND total_protein = 0 AND total_carbs = 0 AND total_fat = 0` to `indeterminate`, erasing user-entered known-zero records (e.g. black coffee, herbal tea, diet soda) where 0g was explicitly recorded from product labels. Because Migration 14 permanently overwrote these columns on existing databases without retaining original flags, original values could not be scientifically recovered via heuristic inference (such as food name matching or child item counts) without repeating Migration 13's defect.
+- **Root Cause:** Blanket database mutation in Migration 14 without preserving provenance or providing a user-driven reconfirmation pathway.
+- **Impact:** Irreversible alteration of nutrient completeness on existing databases; inability to distinguish genuinely unmeasured macro records from user-confirmed zero-macro records.
+- **Resolution & Verification:**
+  - Preserved Migrations 1–14 strictly immutable and forward-only.
+  - Implemented forward-only Migration 15 (`add_meal_template_review_status_and_reconcile_ambiguity_v15`).
+  - Added `review_status TEXT NOT NULL DEFAULT 'confirmed'` column and index `idx_meal_templates_review_status` to `meal_templates`.
+  - Flags positive-calorie zero-macro records affected by Migration 14 as `review_status = 'ambiguous'`, transparently declaring historical uncertainty without inventing data.
+  - Provided `reconfirmTemplate` in `SQLiteMealTemplateRepository` and `reconfirmMealTemplate` in `mealTemplateService` allowing users to review and reconfirm macro completeness.
+  - Added bilingual review indicator in `MealsScreen` notifying users of templates requiring macro reconfirmation.
+  - Created 13 focused regression and lifecycle tests in `src/__tests__/templateMigrationFidelityAndAmbiguityReconciliation.test.ts` covering Cases A through J, idempotency, transaction rollback, and full repository lifecycle (749 total passing tests, 90.79% coverage).
+- **Target Task:** Task 4.7A
 
 #### ISSUE-NUT-16: Naming Redundancies (`name`/`foodName`, `fats`/`fat`, `title`/`name`)
 - **Severity:** P3 (Low)

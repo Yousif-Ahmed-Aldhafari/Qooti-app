@@ -504,6 +504,41 @@ export const MIGRATIONS: SchemaMigration[] = [
       `);
     },
   },
+  {
+    version: 15,
+    name: 'add_meal_template_review_status_and_reconcile_ambiguity_v15',
+    up: async (db: IDatabase) => {
+      // 1. Add review_status column to meal_templates to track explicit user confirmation
+      // vs unresolved historical migration ambiguity without inventing recovered metadata.
+      await addMissingColumns(db, 'meal_templates', [
+        {
+          name: 'review_status',
+          ddl: "ALTER TABLE meal_templates ADD COLUMN review_status TEXT NOT NULL DEFAULT 'confirmed';",
+        },
+      ]);
+
+      // 2. Identify templates where positive calories exist alongside 0g across all macros
+      // and nutrition_completeness is indeterminate. Because Migration 14 overwrote historical
+      // metadata on existing databases, their true previous completeness cannot be reconstructed
+      // with certainty from database columns alone without user input. Flag them as 'ambiguous'
+      // (requiring explicit user review/reconfirmation) rather than fabricating false certainty
+      // or inventing an automated promotion.
+      await db.runAsync(`
+        UPDATE meal_templates
+        SET review_status = 'ambiguous'
+        WHERE total_calories > 0
+          AND total_protein = 0
+          AND total_carbs = 0
+          AND total_fat = 0
+          AND nutrition_completeness = 'indeterminate';
+      `);
+
+      // 3. Ensure index exists for review_status queries
+      await db.runAsync(`
+        CREATE INDEX IF NOT EXISTS idx_meal_templates_review_status ON meal_templates(review_status);
+      `);
+    },
+  },
 ];
 
 /**
