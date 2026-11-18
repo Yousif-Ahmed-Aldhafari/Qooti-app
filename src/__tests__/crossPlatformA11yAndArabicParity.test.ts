@@ -199,9 +199,11 @@ test('Task 4.6 - Test 3: Fresh V0 -> 12 installation creates complete schema and
   const migrations = await db.getAllAsync<{ version: number; name: string }>(
     `SELECT version, name FROM schema_migrations ORDER BY version ASC;`
   );
-  assert.equal(migrations.length, 12);
+  assert.equal(migrations.length, 13);
   assert.equal(migrations[11].version, 12);
   assert.equal(migrations[11].name, 'add_provenance_and_repair_legacy_templates_v12');
+  assert.equal(migrations[12].version, 13);
+  assert.equal(migrations[12].name, 'harden_template_nutrient_fidelity_and_favorite_provenance_v13');
 
   // Verify favorite_source column exists on meals
   const mealCols = await db.getAllAsync<{ name: string }>('PRAGMA table_info(meals);');
@@ -214,7 +216,7 @@ test('Task 4.6 - Test 3: Fresh V0 -> 12 installation creates complete schema and
   const repeated = await db.getAllAsync<{ version: number }>(
     `SELECT version FROM schema_migrations ORDER BY version ASC;`
   );
-  assert.equal(repeated.length, 12);
+  assert.equal(repeated.length, 13);
 });
 
 // ============================================================================

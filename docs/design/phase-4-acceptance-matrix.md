@@ -107,6 +107,13 @@
 - [x] **AC-TPL-16:** Logging from a template (`createMealFromTemplate`) preserves itemless structure and exact completeness and macro known/unknown flags, never inventing confirmed zero macros.
 - [x] **AC-TPL-17:** Migration 11 (`add_meal_template_nutrient_fidelity_and_favorite_repair_v11`) safely adds nutrient totals to `meal_templates`, backfills existing template totals from items, and repairs false favorites resulting from Migration 10 user-prose substring matches while preserving legitimate prefix markers and user favorites.
 
+### 2.10 Legacy Template Migration Safety & Acceptance Hardening (Task 4.6A) Acceptance Criteria
+- [x] **AC-TPL-18:** Forward-only Migration 13 (`harden_template_nutrient_fidelity_and_favorite_provenance_v13`) restores confirmed zero macros (`complete`, `protein_known = 1`, `carbs_known = 1`, `fat_known = 1`) for templates with verifiable child food items (catalog identity, portion units, non-serving units, distinct food names, or multiple items) without altering Migrations 1–12.
+- [x] **AC-TPL-19:** Honest uncertainty is strictly preserved for templates lacking child item evidence or matching synthetic footprints; they remain `indeterminate` with unknown macros without fabricating false certainty.
+- [x] **AC-TPL-20:** Updating meal details in `EditMealScreen` and `mealRepository.updateMeal` strictly preserves existing `is_favorite`, `favorite_source`, `nutrition_completeness`, and macro known flags from SQLite if omitted from the update payload.
+- [x] **AC-TPL-21:** Full regression and upgrade matrix (20 database state tests) verifies clean forward upgrades across V9->V13, V10->V13, V11->V13, V12->V13, and fresh V0->V13 with transactional rollback on failure and idempotence.
+- [x] **AC-TPL-22:** Interactive component tests verify touch targets ($\ge 48\text{dp}$ Android, $\ge 44\text{pt}$ iOS), callback firing, modal state preservation, accessible error presentation, and RTL back arrow symmetry across `MealsScreen`, `FoodPickerModal`, `ManualFoodModal`, `QuickAddMealModal`, and `MacroCard`.
+
 ---
 
 ## 3. Physical Device Acceptance Matrix (Android & iOS)
@@ -134,3 +141,4 @@
 | **V9** | **V10** | Adds independent `meal_templates` and `meal_template_items` tables, plus structured favorite and unknown macro columns to `meals`. | Preserves all existing meals, migrates `[favorite]` in notes to `is_favorite = 1`, and safely flags legacy 0-macro meals as indeterminate. |
 | **V10** | **V11** | Adds nutrient totals and completeness columns to `meal_templates`, backfills template totals, and repairs falsely favorited meals. | Preserves all existing meals and templates, backfills totals, and accurately clears false favorites from prose substring matches while keeping legitimate prefix favorites. |
 | **V11** | **V12** | Adds `favorite_source` column to `meals`, backfills favorite provenance without reclassification, and repairs V10 legacy synthetic templates with positive calories and 0g macros to indeterminate with unknown macros. | Preserves all existing meals and templates, tracks provenance without destructive data loss, and repairs false 0g macros to indeterminate without guessing. |
+| **V12** | **V13** | Restores confirmed zero macros on templates with verifiable child food item evidence, ensures valid non-null `favorite_source` and indices across all meals, and preserves indeterminate status for uncertain itemless templates. | Forward-only upgrade leaving Migrations 1–12 immutable; zero data loss; preserves honest uncertainty without fabricating false nutritional certainty. |

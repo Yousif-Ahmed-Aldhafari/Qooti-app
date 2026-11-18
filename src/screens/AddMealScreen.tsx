@@ -247,6 +247,12 @@ export function AddMealScreen({
         totalCarbs: mealTotals.carbs,
         totalFat: mealTotals.fats,
         totalFats: mealTotals.fats,
+        isFavorite: false,
+        favoriteSource: 'none',
+        nutritionCompleteness: 'complete',
+        proteinKnown: true,
+        carbsKnown: true,
+        fatKnown: true,
       };
 
       await onSave(mealPayload);

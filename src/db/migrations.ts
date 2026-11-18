@@ -435,6 +435,49 @@ export const MIGRATIONS: SchemaMigration[] = [
       `);
     },
   },
+  {
+    version: 13,
+    name: 'harden_template_nutrient_fidelity_and_favorite_provenance_v13',
+    up: async (db: IDatabase) => {
+      // 1. Restore confirmed zero macros for templates with genuine child food items:
+      // Migration 12 unconditionally marked all templates with total_calories > 0 and 0g macros
+      // as indeterminate. Where genuine child items exist (catalogId present, portion unit,
+      // non-generic unit, non-template name, or multiple items), restore confirmed complete macros.
+      await db.runAsync(`
+        UPDATE meal_templates
+        SET nutrition_completeness = 'complete',
+            protein_known = 1,
+            carbs_known = 1,
+            fat_known = 1
+        WHERE total_calories > 0
+          AND total_protein = 0
+          AND total_carbs = 0
+          AND total_fat = 0
+          AND id IN (
+            SELECT DISTINCT t.id
+            FROM meal_templates t
+            JOIN meal_template_items ti ON ti.template_id = t.id
+            WHERE ti.catalog_id IS NOT NULL
+               OR ti.portion_unit IS NOT NULL
+               OR (ti.unit IS NOT NULL AND LOWER(TRIM(ti.unit)) NOT IN ('serving', ''))
+               OR LOWER(TRIM(ti.name)) != LOWER(TRIM(t.title))
+               OR (SELECT COUNT(*) FROM meal_template_items WHERE template_id = t.id) > 1
+          );
+      `);
+
+      // 2. Ensure favorite_source is non-null across all meals
+      await db.runAsync(`
+        UPDATE meals
+        SET favorite_source = 'none'
+        WHERE favorite_source IS NULL;
+      `);
+
+      // 3. Ensure favorite_source index exists
+      await db.runAsync(`
+        CREATE INDEX IF NOT EXISTS idx_meals_favorite_source ON meals(favorite_source);
+      `);
+    },
+  },
 ];
 
 /**

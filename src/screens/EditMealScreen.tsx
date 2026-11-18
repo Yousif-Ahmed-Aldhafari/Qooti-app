@@ -287,6 +287,12 @@ export function EditMealScreen({
         totalCarbs: mealTotals.carbs,
         totalFat: mealTotals.fats,
         totalFats: mealTotals.fats,
+        isFavorite: meal.isFavorite,
+        favoriteSource: meal.favoriteSource,
+        nutritionCompleteness: meal.nutritionCompleteness,
+        proteinKnown: meal.proteinKnown,
+        carbsKnown: meal.carbsKnown,
+        fatKnown: meal.fatKnown,
       };
 
       await onSave(updatedMeal);

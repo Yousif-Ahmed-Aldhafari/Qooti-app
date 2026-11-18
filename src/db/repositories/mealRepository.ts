@@ -1,5 +1,5 @@
 import { IDatabase, MealRepository } from '../types';
-import { Meal, MealItem, normalizeMeal, normalizeMealItem, validateMeal } from '../../models/meal';
+import { Meal, MealItem, NutritionCompleteness, normalizeMeal, normalizeMealItem, validateMeal } from '../../models/meal';
 
 interface MealRow {
   id: string;
@@ -365,8 +365,8 @@ export class SQLiteMealRepository implements MealRepository {
     validateMeal(normalized);
 
     const executeInTxn = async (t: IDatabase): Promise<void> => {
-      const existing = await t.getFirstAsync<{ id: string; created_at: string }>(
-        'SELECT id, created_at FROM meals WHERE id = ?;',
+      const existing = await t.getFirstAsync<MealRow>(
+        'SELECT * FROM meals WHERE id = ?;',
         normalized.id
       );
       if (!existing) {
@@ -378,7 +378,30 @@ export class SQLiteMealRepository implements MealRepository {
       const hasCompleteness = mealCols.has('nutrition_completeness');
       const hasFavorite = mealCols.has('is_favorite');
       const hasFavSource = mealCols.has('favorite_source');
-      const favSource = normalized.favoriteSource ?? (normalized.isFavorite ? 'explicit' : 'none');
+
+      const isFavorite = meal.isFavorite !== undefined
+        ? (normalized.isFavorite ? 1 : 0)
+        : (existing.is_favorite ?? (normalized.isFavorite ? 1 : 0));
+
+      const favSource = meal.favoriteSource !== undefined
+        ? normalized.favoriteSource
+        : (existing.favorite_source || (isFavorite === 1 ? 'explicit' : 'none'));
+
+      const completeness = meal.nutritionCompleteness !== undefined
+        ? (normalized.nutritionCompleteness ?? 'complete')
+        : ((existing.nutrition_completeness as NutritionCompleteness) || normalized.nutritionCompleteness || 'complete');
+
+      const proteinKnown = meal.proteinKnown !== undefined
+        ? (normalized.proteinKnown !== false ? 1 : 0)
+        : (existing.protein_known !== null && existing.protein_known !== undefined ? existing.protein_known : (normalized.proteinKnown !== false ? 1 : 0));
+
+      const carbsKnown = meal.carbsKnown !== undefined
+        ? (normalized.carbsKnown !== false ? 1 : 0)
+        : (existing.carbs_known !== null && existing.carbs_known !== undefined ? existing.carbs_known : (normalized.carbsKnown !== false ? 1 : 0));
+
+      const fatKnown = meal.fatKnown !== undefined
+        ? (normalized.fatKnown !== false ? 1 : 0)
+        : (existing.fat_known !== null && existing.fat_known !== undefined ? existing.fat_known : (normalized.fatKnown !== false ? 1 : 0));
 
       if (hasCompleteness && hasFavorite && hasFavSource) {
         await t.runAsync(
@@ -408,12 +431,12 @@ export class SQLiteMealRepository implements MealRepository {
           normalized.totalFat,
           normalized.mealType ?? null,
           normalized.notes ?? null,
-          normalized.isFavorite ? 1 : 0,
+          isFavorite,
           favSource,
-          normalized.nutritionCompleteness ?? 'complete',
-          normalized.proteinKnown !== false ? 1 : 0,
-          normalized.carbsKnown !== false ? 1 : 0,
-          normalized.fatKnown !== false ? 1 : 0,
+          completeness,
+          proteinKnown,
+          carbsKnown,
+          fatKnown,
           normalized.id
         );
       } else if (hasCompleteness && hasFavorite) {
@@ -443,11 +466,11 @@ export class SQLiteMealRepository implements MealRepository {
           normalized.totalFat,
           normalized.mealType ?? null,
           normalized.notes ?? null,
-          normalized.isFavorite ? 1 : 0,
-          normalized.nutritionCompleteness ?? 'complete',
-          normalized.proteinKnown !== false ? 1 : 0,
-          normalized.carbsKnown !== false ? 1 : 0,
-          normalized.fatKnown !== false ? 1 : 0,
+          isFavorite,
+          completeness,
+          proteinKnown,
+          carbsKnown,
+          fatKnown,
           normalized.id
         );
       } else if (mealCols.has('meal_type') && mealCols.has('notes')) {

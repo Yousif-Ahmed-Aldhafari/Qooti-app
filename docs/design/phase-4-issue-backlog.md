@@ -349,6 +349,21 @@
   - Added 12 tests in `src/__tests__/crossPlatformA11yAndArabicParity.test.ts` (683 total passing tests).
 - **Target Task:** Task 4.6
 
+#### ISSUE-NUT-17D: Migration 12 Over-Generalization of Indeterminate Templates & Favorite Source Overwrite on Edit
+- **Severity:** P1 (High)
+- **Status:** RESOLVED (Task 4.6A)
+- **Location:** `src/db/migrations.ts`, `src/models/mealTemplate.ts`, `src/db/repositories/mealRepository.ts`, `src/screens/EditMealScreen.tsx`, `src/screens/AddMealScreen.tsx`
+- **Description:** Migration 12 unconditionally set `nutrition_completeness = 'indeterminate'` on all templates with `total_calories > 0 AND total_protein = 0 AND total_carbs = 0 AND total_fat = 0`, overwriting genuine templates with confirmed zero macros (such as black coffee or tea with catalogId). Furthermore, updating a meal in `EditMealScreen` previously omitted `favoriteSource` and `isFavorite` on payload, causing `updateMeal` to reset them.
+- **Root Cause:** Migration 12 did not inspect `meal_template_items` for catalog identity, multiple items, or portion evidence; `updateMeal` lacked fallback preservation for unpassed favorite metadata.
+- **Impact:** Genuine zero-macro food templates were misclassified as indeterminate; editing meal details cleared favorite status and provenance metadata.
+- **Resolution & Verification:**
+  - Implemented forward-only Migration 13 (`harden_template_nutrient_fidelity_and_favorite_provenance_v13`) leaving Migrations 1–12 completely untouched.
+  - Migration 13 restores `nutrition_completeness = 'complete'` and known zero flags (`protein_known = 1`, `carbs_known = 1`, `fat_known = 1`) for templates with verifiable child item evidence (`catalog_id IS NOT NULL`, `portion_unit IS NOT NULL`, unit not generic serving, custom item name, or multiple items).
+  - Preserved honest uncertainty (`indeterminate`, unknown macros) for templates lacking child item evidence or matching synthetic footprints.
+  - Updated `mealRepository.updateMeal` and `EditMealScreen` to strictly preserve existing `isFavorite`, `favoriteSource`, and macro known flags across edits.
+  - Added 25 automated regression and interactive component tests in `src/__tests__/legacyTemplateMigrationSafetyAndAcceptance.test.ts` (708 total passing tests).
+- **Target Task:** Task 4.6A
+
 ---
 
 ### P3: Low Priority Polish & Maintenance Items

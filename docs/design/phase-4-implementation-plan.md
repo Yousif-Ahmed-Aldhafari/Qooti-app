@@ -540,6 +540,39 @@
 
 ---
 
+### Task 4.6A: Legacy Template Migration Safety & Acceptance Hardening [COMPLETED]
+- **Status:** COMPLETED
+- **Objective:** Eliminate Migration 12 over-generalization defect, implement forward-only Migration 13 restoring confirmed zero macros for templates with genuine child food items while preserving honest uncertainty on indeterminate itemless records, protect favorite provenance and macro completeness across meal edits, and establish interactive component acceptance evidence.
+- **Pre-conditions:** Task 4.6 completed and verified (683 tests).
+- **Outcome Metrics:** 708 passing automated tests (+25 substantive tests in `legacyTemplateMigrationSafetyAndAcceptance.test.ts`), 90.86% overall line coverage, 0 TypeScript errors, 0 ESLint warnings, 20/20 Expo Doctor checks.
+- **Technical Specifications:**
+  1. **Forward-Only Migration 13 (`harden_template_nutrient_fidelity_and_favorite_provenance_v13`):**
+     - Migrations 1–12 left completely untouched and immutable.
+     - Checks templates with `total_calories > 0 AND total_protein = 0 AND total_carbs = 0 AND total_fat = 0`: if genuine child item evidence exists (`catalog_id IS NOT NULL`, `portion_unit IS NOT NULL`, unit not generic serving, non-template item name, or multiple items), restores `nutrition_completeness = 'complete'`, `protein_known = 1`, `carbs_known = 1`, `fat_known = 1`.
+     - Preserves `indeterminate` with unknown macros for itemless templates or single items matching synthetic footprints without concrete evidence.
+     - Ensures all meals have valid non-null `favorite_source` (`DEFAULT 'none'`) and index `idx_meals_favorite_source`.
+  2. **Domain Models & Repositories Resilience:**
+     - `normalizeMealTemplate`: defaults `nutrition_completeness` to `complete` when items exist; only falls back to `indeterminate` for itemless positive-calorie/0g-macro records.
+     - `mealRepository.updateMeal`: preserves existing `is_favorite`, `favorite_source`, `nutrition_completeness`, and macro known flags from SQLite if omitted from the update payload.
+     - `EditMealScreen`: explicitly retains `isFavorite`, `favoriteSource`, `nutritionCompleteness`, and macro known flags in the updated meal payload.
+     - `AddMealScreen`: explicitly initializes clean defaults (`isFavorite: false`, `favoriteSource: 'none'`).
+  3. **Regression & Upgrade Matrix (20 Database State Tests):**
+     - Verified upgrades across V9->V13, V10->V13, V11->V13, V12->V13, and fresh V0->V13.
+     - Validated synthetic vs genuine single-food zero-macro templates, itemless templates, known zeros, partial macros, restart persistence, and transactional rollback.
+  4. **Interactive Component Acceptance (5 Interactive Tests):**
+     - Component callback execution, modal dismissals, accessible validation messages, and touch target compliance verified across `MealsScreen`, `FoodPickerModal`, `ManualFoodModal`, `QuickAddMealModal`, and `MacroCard`.
+- **Files Affected:**
+  - `src/db/migrations.ts` (Migration 13 added)
+  - `src/models/mealTemplate.ts`
+  - `src/db/repositories/mealRepository.ts`
+  - `src/screens/EditMealScreen.tsx`
+  - `src/screens/AddMealScreen.tsx`
+  - `src/__tests__/legacyTemplateMigrationSafetyAndAcceptance.test.ts` (new)
+  - 9 existing migration test files updated with Migration 13 assertions
+- **Success Criteria:** Zero false certainty; confirmed zeros faithfully restored where evidence exists; uncorrupted favorite provenance on edit; 708 tests passing.
+
+---
+
 ### Task 4.7: Final Acceptance, Regression & Merge Readiness
 - **Objective:** Run complete end-to-end regression across all phases (Phase 1 through Phase 4), execute physical device acceptance, and prepare merge to `main`.
 - **Pre-conditions:** Tasks 4.1 through 4.6 completed and verified.
