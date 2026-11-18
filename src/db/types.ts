@@ -76,7 +76,15 @@ export interface MealTemplateRepository {
   reconfirmTemplate(
     id: string,
     completeness: NutritionCompleteness,
-    macros?: { proteinKnown?: boolean; carbsKnown?: boolean; fatKnown?: boolean },
+    macros?: {
+      proteinKnown?: boolean;
+      carbsKnown?: boolean;
+      fatKnown?: boolean;
+      totalCalories?: number;
+      totalProtein?: number;
+      totalCarbs?: number;
+      totalFat?: number;
+    },
     txn?: IDatabase
   ): Promise<MealTemplate>;
 }

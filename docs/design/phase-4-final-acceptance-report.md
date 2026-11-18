@@ -1,12 +1,12 @@
 # Phase 4 Nutrition System — Final Engineering Acceptance & Merge Readiness Report
 
-- **Document Version:** 1.1.0
+- **Document Version:** 1.2.0
 - **Date:** November 2026
 - **Repository:** `Yousif-Ahmed-Aldhafari/Qooti-app`
 - **Active Branch:** `dev/phase-4-nutrition`
 - **Base Main Commit:** `7ba790621517cafde2847bdd69001b151e1a46ab` (strictly untouched)
-- **Final Test Suite:** **749 Passing Tests (0 Failures, 0 Skipped, 0 Todo)**
-- **Reported Line Coverage:** **90.79%** (across all files)
+- **Final Test Suite:** **759 Passing Tests (0 Failures, 0 Skipped, 0 Todo)**
+- **Reported Line Coverage:** **91.11%** (across all files)
 - **Static Analysis:** **0 TypeScript errors (`tsc --noEmit`), 0 ESLint warnings (`eslint . --max-warnings=0`)**
 - **Expo Health:** **20/20 Expo Doctor checks passed**
 - **Latest SQLite Schema Migration:** **Migration 15 (`add_meal_template_review_status_and_reconcile_ambiguity_v15`)**
@@ -15,11 +15,11 @@
 
 ## 1. Executive Summary
 
-Phase 4 delivers an end-to-end, local-first, privacy-respecting nutrition and meal logging system for Qooti. Over 12 milestone tasks (Tasks 4.0 through 4.7A), the codebase grew from 388 baseline tests to **749 automated tests** with zero regressions, zero flaky tests, and zero data loss across legacy Phase 1–3 records.
+Phase 4 delivers an end-to-end, local-first, privacy-respecting nutrition and meal logging system for Qooti. Over 13 milestone tasks (Tasks 4.0 through 4.7 Closeout), the codebase grew from 388 baseline tests to **759 automated tests** with zero regressions, zero flaky tests, and zero data loss across legacy Phase 1–3 records.
 
 The system replaces the legacy monolithic `saveAllMeals` whole-table wipe pattern with fully transactional, atomic SQLite CRUD operations. It introduces a curated 158-item bilingual food catalog with authoritative USDA FoodData Central and SFDA provenance citations, mass-basis portion scaling, day-by-day calendar navigation resilient to midnight and leap-year boundaries, real-meal nutrition aggregation with Atwater 4/4/9 macro distribution, independent persistent meal templates, granular favorite management, and explicit unknown-macronutrient semantics preserving honest uncertainty.
 
-Following an audit of Migration 14's blanket rewrite of positive-calorie 0g-macro templates, forward-only **Migration 15** was introduced to flag historical indeterminate records as `review_status = 'ambiguous'`, transparently reporting unrecoverable metadata as historical ambiguity rather than fabricating recovered values, and providing an explicit user-driven reconfirmation pathway (`reconfirmTemplate` / `reconfirmMealTemplate`).
+Following an audit of Migration 14's blanket rewrite of positive-calorie 0g-macro templates, forward-only **Migration 15** was introduced to flag historical indeterminate records as `review_status = 'ambiguous'`, transparently reporting unrecoverable metadata as historical ambiguity rather than fabricating recovered values. In the final acceptance closeout, an end-to-end, accessible, bilingual user-facing reconfirmation modal flow (`ReviewTemplateModal` and `MealsScreen` review action) was fully wired to `reconfirmMealTemplate`, allowing users to explicitly review, verify, or correct macronutrients with full SQLite transaction safety and form-state preservation on failure.
 
 All four mandatory engineering quality gates (`typecheck`, `lint`, `test`, `expo-doctor`) have passed with 100% success. The `dev/phase-4-nutrition` branch is completely stable, internally consistent, and **merge-ready for `main`**.
 
@@ -105,7 +105,7 @@ All 15 SQLite schema migrations are forward-only, idempotent, and transactional.
 - **Journey 25 (Nutrition Analytics & Atwater Distribution):** Computes daily intake against user profile targets, verifies Atwater $4/4/9$ macro distribution sums strictly to $100\%$, and averages weekly intake across logged days only (`-- kcal` for unlogged days).
 - **Journey 26 (Food Data Provenance Auditing):** Flags catalog foods with `VERIFIED` (USDA FDC ID), `ESTIMATED` (Saudi composite dish), or `UNVERIFIED` (SFDA staple with disclaimers), with zero unverified data silently presented as measured.
 - **Journey 27 (Cross-Platform Touch Targets & A11y):** Verifies minimum touch targets ($\ge 48\text{dp}$ Android, $\ge 44\text{pt}$ iOS) across all steppers, delete triggers, and filter chips; verifies VoiceOver/TalkBack composite labels.
-- **Journey 28 (Universal Theme & Contrast Compliance):** Validates light, dark, and system theme dynamic tokens, verifying measured contrast ratios across text, borders, and nutrient progress bars.
+- **Journey 28 (Universal Theme & Measured Contrast):** Validates light, dark, and system theme dynamic tokens. Explicitly documents calculated contrast ratios: primary text achieves AAA ($\ge 16:1$), secondary text achieves AA ($\ge 6:1$ to $9:1$), while documenting that brand green tokens ($3.38:1$) and muted text ($4.13:1$ to $4.47:1$) satisfy the 3:1 threshold for UI controls/large text but not the 4.5:1 body text standard.
 
 ### 4.3 Task 4.7A Template Migration Fidelity & Ambiguity Suite (Cases A–J)
 - **Case A:** V13 complete with all macros known zero and positive calories preserves totals (4 kcal) and flags ambiguity under V15 (`review_status = 'ambiguous'`).
@@ -150,49 +150,10 @@ All 15 SQLite schema migrations are forward-only, idempotent, and transactional.
 ### 6.1 Merge Readiness Statement
 Phase 4 Nutrition System is **100% COMPLETE AND MERGE-READY**.
 - Baseline tests on `main`: 388 tests.
-- Final tests on `dev/phase-4-nutrition`: **749 tests (+361 tests added in Phase 4)**.
-- Pass rate: **100% (749/749 passed, 0 failed, 0 skipped)**.
-- Code coverage: **90.79% line coverage**.
-- Schema stability: Migrations 1–14 immutable; forward-only Migration 15 resolves ambiguity transparently with user reconfirmation path.
-- Data preservation: 100% backward-compatible with legacy Phase 1–3 databases.
-
-### 6.2 Recommended Next Steps (Awaiting User Confirmation)
-1. **Pull Request Creation:** Open PR from `dev/phase-4-nutrition` into `main`.
-2. **Squash & Merge:** Perform a clean squash-merge into `main` after user review.
-3. **Phase 5 Initiation:** Begin Phase 5 (Body Tracking & Analytics) on a fresh branch (`dev/phase-5-body-tracking`) branched from updated `main`.
-- **Journey 25 (Nutrition Analytics & Atwater Distribution):** Computes daily intake against user profile targets, verifies Atwater $4/4/9$ macro distribution sums strictly to $100\%$, and averages weekly intake across logged days only (`-- kcal` for unlogged days).
-- **Journey 26 (Food Data Provenance Auditing):** Flags catalog foods with `VERIFIED` (USDA FDC ID), `ESTIMATED` (Saudi composite dish), or `UNVERIFIED` (SFDA staple with disclaimers), with zero unverified data silently presented as measured.
-- **Journey 27 (Cross-Platform Touch Targets & A11y):** Verifies minimum touch targets ($\ge 48\text{dp}$ Android, $\ge 44\text{pt}$ iOS) across all steppers, delete triggers, and filter chips; verifies VoiceOver/TalkBack composite labels.
-- **Journey 28 (Universal Theme & Contrast Compliance):** Validates light, dark, and system theme dynamic tokens, verifying WCAG 2.1 AA contrast ($\ge 4.5:1$) across text, borders, and nutrient progress bars.
-
----
-
-## 5. Mobile UX & Platform Acceptance
-
-| Platform & Level | Status | Evidence & Verification Scope |
-|---|---|---|
-| **Android — Level 1: Static Analysis** | **VERIFIED** | Clean TypeScript compile (`tsc --noEmit`), 0 ESLint warnings, 20/20 Expo Doctor checks. |
-| **Android — Level 2: Mocked Component Testing** | **VERIFIED** | `android_ripple` touch feedback, $\ge 48\text{dp}$ touch target bounds, Material 3 style compliance, Android hardware back navigation handling verified via automated tests. |
-| **Android — Level 3: Headless Emulator** | **NOT TESTED** | Linux CI environment has no Android emulator or device attached (`adb devices` empty). |
-| **Android — Level 4: Physical Device** | **NOT TESTED** | Linux workstation has no physical Android phone connected. |
-| **Android — Level 5: Store/EAS Build** | **NOT TESTED** | Production EAS build generation is scheduled for Phase 8. |
-| **iOS — Level 1: Static Analysis** | **VERIFIED** | Clean TypeScript compile (`tsc --noEmit`), 0 ESLint warnings, 20/20 Expo Doctor checks. |
-| **iOS — Level 2: Mocked Component Testing** | **VERIFIED** | Smooth `activeOpacity={0.7}` dimming, $\ge 44\text{pt}$ touch target bounds, SF Pro typography metrics, interactive keyboard dismissal verified via automated tests. |
-| **iOS — Level 3: Simulator (macOS)** | **NOT TESTED** | Linux host cannot run Xcode or iOS Simulator. |
-| **iOS — Level 4: Physical iPhone** | **NOT TESTED** | Physical iPhone testing requires macOS host or TestFlight distribution. |
-| **iOS — Level 5: Store/EAS Build** | **NOT TESTED** | Production EAS build generation is scheduled for Phase 8. |
-
----
-
-## 6. Release & Merge Recommendation
-
-### 6.1 Merge Readiness Statement
-Phase 4 Nutrition System is **100% COMPLETE AND MERGE-READY**.
-- Baseline tests on `main`: 388 tests.
-- Final tests on `dev/phase-4-nutrition`: **736 tests (+348 tests added in Phase 4)**.
-- Pass rate: **100% (736/736 passed, 0 failed, 0 skipped)**.
-- Code coverage: **90.94% line coverage**.
-- Schema stability: Migrations 1–13 immutable; forward-only Migration 14 resolves all known macro uncertainty edge cases.
+- Final tests on `dev/phase-4-nutrition`: **759 tests (+371 tests added in Phase 4)**.
+- Pass rate: **100% (759/759 passed, 0 failed, 0 skipped)**.
+- Code coverage: **91.11% line coverage**.
+- Schema stability: Migrations 1–14 immutable; forward-only Migration 15 resolves ambiguity transparently with user-facing reconfirmation modal flow.
 - Data preservation: 100% backward-compatible with legacy Phase 1–3 databases.
 
 ### 6.2 Recommended Next Steps (Awaiting User Confirmation)

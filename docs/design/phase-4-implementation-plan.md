@@ -61,7 +61,16 @@
 [ Task 4.6: Cross-Platform UI/UX, A11y & Arabic Parity Hardening ] ──► (COMPLETE - 683 Tests)
        │
        ▼
-[ Task 4.7: Final Acceptance, Regression & Merge Readiness ] ──► (NEXT)
+[ Task 4.6A: Legacy Template Migration Safety & Acceptance Hardening ] ──► (COMPLETE - 708 Tests)
+       │
+       ▼
+[ Task 4.7: Final Acceptance, Full Regression & Merge Readiness ] ──► (COMPLETE - 736 Tests)
+       │
+       ▼
+[ Task 4.7A: Final Migration Fidelity & Acceptance Corrections ] ──► (COMPLETE - 749 Tests)
+       │
+       ▼
+[ Task 4.7 Closeout: Template Macro Review Flow & Final Closeout ] ──► (COMPLETE - 759 Tests)
 ```
 
 ---

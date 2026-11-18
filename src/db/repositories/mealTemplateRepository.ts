@@ -394,7 +394,15 @@ export class SQLiteMealTemplateRepository implements MealTemplateRepository {
   async reconfirmTemplate(
     id: string,
     completeness: NutritionCompleteness,
-    macros?: { proteinKnown?: boolean; carbsKnown?: boolean; fatKnown?: boolean },
+    macros?: {
+      proteinKnown?: boolean;
+      carbsKnown?: boolean;
+      fatKnown?: boolean;
+      totalCalories?: number;
+      totalProtein?: number;
+      totalCarbs?: number;
+      totalFat?: number;
+    },
     txn?: IDatabase
   ): Promise<MealTemplate> {
     const existing = await this.getTemplateById(id);
@@ -402,8 +410,33 @@ export class SQLiteMealTemplateRepository implements MealTemplateRepository {
       throw new Error(`Template not found: ${id}`);
     }
 
+    let items = existing.items;
+    if (
+      existing.items.length === 1 &&
+      (macros?.totalCalories !== undefined ||
+        macros?.totalProtein !== undefined ||
+        macros?.totalCarbs !== undefined ||
+        macros?.totalFat !== undefined)
+    ) {
+      const it = existing.items[0];
+      items = [
+        {
+          ...it,
+          calories: macros?.totalCalories !== undefined ? macros.totalCalories : it.calories,
+          protein: macros?.totalProtein !== undefined ? macros.totalProtein : it.protein,
+          carbs: macros?.totalCarbs !== undefined ? macros.totalCarbs : it.carbs,
+          fats: macros?.totalFat !== undefined ? macros.totalFat : it.fats,
+        },
+      ];
+    }
+
     const updated = normalizeMealTemplate({
       ...existing,
+      items,
+      totalCalories: macros?.totalCalories !== undefined ? macros.totalCalories : existing.totalCalories,
+      totalProtein: macros?.totalProtein !== undefined ? macros.totalProtein : existing.totalProtein,
+      totalCarbs: macros?.totalCarbs !== undefined ? macros.totalCarbs : existing.totalCarbs,
+      totalFat: macros?.totalFat !== undefined ? macros.totalFat : existing.totalFat,
       nutritionCompleteness: completeness,
       proteinKnown: macros?.proteinKnown !== undefined ? macros.proteinKnown : (completeness === 'complete'),
       carbsKnown: macros?.carbsKnown !== undefined ? macros.carbsKnown : (completeness === 'complete'),

@@ -29,6 +29,7 @@
 | **Task 4.6A** | Legacy Template Migration Safety & Acceptance Hardening | **708** (+25) | **708 Passed (+25)** — Forward Migration 13 restoring confirmed zero macros with child item evidence, favorite source preservation on meal edit, 20 database upgrade matrix tests, 5 interactive component tests. |
 | **Task 4.7** | Final Acceptance, Full Regression & Merge Readiness | **708+** | **736 Passed (+28)** — Forward Migration 14 reconciling positive-calorie templates to honest uncertainty, full 18-step migration matrix (V0 to V14 clean and populated), 10 end-to-end user journeys (Journeys 19–28), 90.94% line coverage, 20/20 Expo Doctor checks. |
 | **Task 4.7A** | Final Migration Fidelity & Acceptance Corrections | **736+** | **749 Passed (+13)** — Forward-only Migration 15 adding template `review_status = 'ambiguous'` for reconciled records, user reconfirmation pathway, honest reporting of physical test environment (NOT TESTED on Linux host), exact measured contrast ratios, 90.79% line coverage, 20/20 Expo Doctor. |
+| **Task 4.7 Closeout** | Template Macro Review Flow & Final Acceptance Closeout | **749+** | **759 Passed (+10)** — Localized user-facing template review and reconfirmation modal (`ReviewTemplateModal`), `MealsScreen` review action for ambiguous templates, atomic reconfirmation with nutrient overrides and unknown macro flags, form state preservation on SQLite failure, 91.11% line coverage, 20/20 Expo Doctor. |
 
 ---
 

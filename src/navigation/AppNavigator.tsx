@@ -84,6 +84,7 @@ export function AppNavigator() {
     toggleMealFavorite,
     addMealTemplate,
     deleteMealTemplate,
+    reconfirmMealTemplate,
     addWorkout,
     updateWorkout,
     deleteWorkout,
@@ -486,6 +487,7 @@ export function AppNavigator() {
             onQuickAddMeal={addMeal}
             onLogFromTemplate={handleLogFromTemplate}
             onDeleteTemplate={handleDeleteTemplate}
+            onReconfirmTemplate={reconfirmMealTemplate}
             onMealPress={openMealDetails}
           />
         );
@@ -525,6 +527,7 @@ export function AppNavigator() {
               onQuickAddMeal={addMeal}
               onLogFromTemplate={handleLogFromTemplate}
               onDeleteTemplate={handleDeleteTemplate}
+              onReconfirmTemplate={reconfirmMealTemplate}
               onMealPress={openMealDetails}
             />
           );
@@ -561,6 +564,7 @@ export function AppNavigator() {
               onQuickAddMeal={addMeal}
               onLogFromTemplate={handleLogFromTemplate}
               onDeleteTemplate={handleDeleteTemplate}
+              onReconfirmTemplate={reconfirmMealTemplate}
               onMealPress={openMealDetails}
             />
           );

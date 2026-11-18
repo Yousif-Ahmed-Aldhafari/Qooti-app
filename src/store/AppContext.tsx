@@ -22,6 +22,7 @@ import {
   updateMealTemplate as updateMealTemplateService,
   deleteMealTemplate as deleteMealTemplateService,
   toggleMealTemplateFavorite as toggleMealTemplateFavoriteService,
+  reconfirmMealTemplate as reconfirmMealTemplateService,
 } from '../services/mealTemplateService';
 import { loadProfile, saveProfile } from '../services/profileService';
 import { loadProgressEntries, saveProgressEntries } from '../services/progressService';
@@ -126,6 +127,19 @@ type AppContextValue = AppStateData & {
   updateMealTemplate: (template: MealTemplate) => Promise<void>;
   deleteMealTemplate: (templateId: string) => Promise<void>;
   toggleMealTemplateFavorite: (templateId: string, isFavorite: boolean) => Promise<void>;
+  reconfirmMealTemplate: (
+    templateId: string,
+    completeness: import('../models/meal').NutritionCompleteness,
+    macros?: {
+      proteinKnown?: boolean;
+      carbsKnown?: boolean;
+      fatKnown?: boolean;
+      totalCalories?: number;
+      totalProtein?: number;
+      totalCarbs?: number;
+      totalFat?: number;
+    }
+  ) => Promise<MealTemplate>;
   addWorkout: (workout: Workout) => Promise<void> | void;
   updateWorkout: (workout: Workout) => Promise<void> | void;
   deleteWorkout: (workoutId: string) => Promise<void> | void;
@@ -807,6 +821,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           dispatch({
             type: 'setPersistenceError',
             error: err instanceof Error ? err.message : 'Failed to persist meal template favorite',
+          });
+          throw err;
+        }
+      },
+      reconfirmMealTemplate: async (templateId, completeness, macros) => {
+        try {
+          const updated = await reconfirmMealTemplateService(templateId, completeness, macros);
+          dispatch({ type: 'updateMealTemplate', template: updated });
+          dispatch({ type: 'setPersistenceError', error: null });
+          return updated;
+        } catch (err) {
+          console.error('[AppContext] Failed to reconfirm meal template:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to reconfirm meal template',
           });
           throw err;
         }

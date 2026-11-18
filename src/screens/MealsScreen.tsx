@@ -9,11 +9,13 @@ import { MacroCard } from '../components/MacroCard';
 import { MacroDistributionBar } from '../components/MacroDistributionBar';
 import { MealCard } from '../components/MealCard';
 import { QuickAddMealModal } from '../components/QuickAddMealModal';
+import { ReviewTemplateModal } from '../components/ReviewTemplateModal';
 import { useBottomNavScrollHandler } from '../context/BottomNavContext';
 import { useLiveLocalDate } from '../hooks/useLiveLocalDate';
 import type { Translator } from '../i18n';
-import type { MealType } from '../models/meal';
+import type { MealType, NutritionCompleteness } from '../models/meal';
 import type { MealTemplate } from '../models/mealTemplate';
+import { reconfirmMealTemplate } from '../services/mealTemplateService';
 import { themeColors } from '../theme/colors';
 import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
@@ -40,6 +42,19 @@ type MealsScreenProps = {
   onMealPress: (meal: Meal) => void;
   onLogFromTemplate?: (template: MealTemplate) => Promise<void> | void;
   onDeleteTemplate?: (template: MealTemplate) => Promise<void> | void;
+  onReconfirmTemplate?: (
+    templateId: string,
+    completeness: NutritionCompleteness,
+    macros?: {
+      proteinKnown?: boolean;
+      carbsKnown?: boolean;
+      fatKnown?: boolean;
+      totalCalories?: number;
+      totalProtein?: number;
+      totalCarbs?: number;
+      totalFat?: number;
+    }
+  ) => Promise<MealTemplate | void>;
   profile?: UserProfile;
   language?: 'en' | 'ar';
   selectedDate?: string;
@@ -47,6 +62,7 @@ type MealsScreenProps = {
   initialDate?: string;
   clock?: () => Date;
   onQuickAddMeal?: (meal: Meal) => Promise<void> | void;
+  initialFilterMode?: 'all' | 'favorites' | 'templates';
 };
 
 const MEAL_SLOT_ORDER: { type: MealType | 'other'; key: string; icon: string }[] = [
@@ -65,6 +81,7 @@ export function MealsScreen({
   onMealPress,
   onLogFromTemplate,
   onDeleteTemplate,
+  onReconfirmTemplate,
   profile,
   language = 'en',
   selectedDate: selectedDateProp,
@@ -72,12 +89,14 @@ export function MealsScreen({
   initialDate,
   clock,
   onQuickAddMeal,
+  initialFilterMode,
 }: MealsScreenProps) {
   const colors = themeColors();
   const isRTL = language === 'ar';
   const handleBottomNavScroll = useBottomNavScrollHandler();
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
-  const [filterMode, setFilterMode] = useState<'all' | 'favorites' | 'templates'>('all');
+  const [reviewingTemplate, setReviewingTemplate] = useState<MealTemplate | null>(null);
+  const [filterMode, setFilterMode] = useState<'all' | 'favorites' | 'templates'>(initialFilterMode || 'all');
 
   const directionalText = {
     textAlign: activeTextAlign(),
@@ -573,6 +592,15 @@ export function MealsScreen({
                 ) : null}
 
                 <View style={[styles.templateActions, activeRowStyle()]}>
+                  {template.reviewStatus === 'ambiguous' ? (
+                    <AppButton
+                      title={t('meals.reviewMacrosAction') || 'Review Macros'}
+                      icon="shield-checkmark-outline"
+                      variant="secondary"
+                      onPress={() => setReviewingTemplate(template)}
+                      style={{ flex: 1, marginEnd: spacing.xs }}
+                    />
+                  ) : null}
                   {onLogFromTemplate ? (
                     <AppButton
                       title={t('meals.logFromTemplate') || 'Log Meal'}
@@ -729,6 +757,22 @@ export function MealsScreen({
           t={t}
         />
       )}
+
+      <ReviewTemplateModal
+        visible={Boolean(reviewingTemplate)}
+        template={reviewingTemplate}
+        onClose={() => setReviewingTemplate(null)}
+        onReconfirm={async (templateId, completeness, macros) => {
+          if (onReconfirmTemplate) {
+            await onReconfirmTemplate(templateId, completeness, macros);
+          } else {
+            await reconfirmMealTemplate(templateId, completeness, macros);
+          }
+          setReviewingTemplate(null);
+        }}
+        language={language}
+        t={t}
+      />
     </ScrollView>
   );
 }
