@@ -120,28 +120,28 @@ export function normalizeMealTemplate(raw: Partial<MealTemplate>): MealTemplate 
   let defaultCompleteness: NutritionCompleteness = 'complete';
   if (raw.nutritionCompleteness) {
     defaultCompleteness = raw.nutritionCompleteness;
-  } else if (!hasItems) {
-    if (
-      totalCalories > 0 &&
-      totalProtein === 0 &&
-      totalCarbs === 0 &&
-      totalFat === 0
-    ) {
-      defaultCompleteness = 'indeterminate';
-    }
+  } else if (
+    totalCalories > 0 &&
+    totalProtein === 0 &&
+    totalCarbs === 0 &&
+    totalFat === 0
+  ) {
+    defaultCompleteness = 'indeterminate';
   }
+
+  const isUnknownMacros = defaultCompleteness === 'calories_only' || defaultCompleteness === 'indeterminate';
 
   const proteinKnown = raw.proteinKnown !== undefined
     ? Boolean(raw.proteinKnown)
-    : (hasItems || (defaultCompleteness !== 'calories_only' && defaultCompleteness !== 'indeterminate'));
+    : !isUnknownMacros;
 
   const carbsKnown = raw.carbsKnown !== undefined
     ? Boolean(raw.carbsKnown)
-    : (hasItems || (defaultCompleteness !== 'calories_only' && defaultCompleteness !== 'indeterminate'));
+    : !isUnknownMacros;
 
   const fatKnown = raw.fatKnown !== undefined
     ? Boolean(raw.fatKnown)
-    : (hasItems || (defaultCompleteness !== 'calories_only' && defaultCompleteness !== 'indeterminate'));
+    : !isUnknownMacros;
 
   return {
     id: raw.id || createId('meal-template'),

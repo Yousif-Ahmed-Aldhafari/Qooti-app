@@ -167,18 +167,21 @@ export function normalizeMeal(
     }
   }
 
+  const resolvedCalories = hasItems ? computedCalories : (meal.totalCalories ?? computedCalories);
+  const resolvedProtein = hasItems ? computedProtein : (meal.totalProtein ?? computedProtein);
+  const resolvedCarbs = hasItems ? computedCarbs : (meal.totalCarbs ?? computedCarbs);
+  const resolvedFat = hasItems ? computedFats : (meal.totalFat ?? meal.totalFats ?? computedFats);
+
   let defaultCompleteness: NutritionCompleteness = 'complete';
-  if (!hasItems) {
-    if (meal.nutritionCompleteness) {
-      defaultCompleteness = meal.nutritionCompleteness;
-    } else if (
-      (meal.totalCalories ?? 0) > 0 &&
-      (meal.totalProtein ?? 0) === 0 &&
-      (meal.totalCarbs ?? 0) === 0 &&
-      (meal.totalFat ?? meal.totalFats ?? 0) === 0
-    ) {
-      defaultCompleteness = 'indeterminate';
-    }
+  if (meal.nutritionCompleteness) {
+    defaultCompleteness = meal.nutritionCompleteness;
+  } else if (
+    resolvedCalories > 0 &&
+    resolvedProtein === 0 &&
+    resolvedCarbs === 0 &&
+    resolvedFat === 0
+  ) {
+    defaultCompleteness = 'indeterminate';
   }
 
   return {
@@ -186,11 +189,11 @@ export function normalizeMeal(
     title,
     name: title,
     items,
-    totalCalories: hasItems ? computedCalories : (meal.totalCalories ?? computedCalories),
-    totalProtein: hasItems ? computedProtein : (meal.totalProtein ?? computedProtein),
-    totalCarbs: hasItems ? computedCarbs : (meal.totalCarbs ?? computedCarbs),
-    totalFat: hasItems ? computedFats : (meal.totalFat ?? meal.totalFats ?? computedFats),
-    totalFats: hasItems ? computedFats : (meal.totalFats ?? meal.totalFat ?? computedFats),
+    totalCalories: resolvedCalories,
+    totalProtein: resolvedProtein,
+    totalCarbs: resolvedCarbs,
+    totalFat: resolvedFat,
+    totalFats: resolvedFat,
     mealType: meal.mealType,
     notes: meal.notes,
     isFavorite,

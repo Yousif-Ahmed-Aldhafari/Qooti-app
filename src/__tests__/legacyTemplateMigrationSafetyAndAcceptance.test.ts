@@ -103,11 +103,11 @@ test('Section 4 - Test 1: V10 synthetic calorie-only template remains indetermin
   assert.equal(tpl.fatKnown, false);
 });
 
-test('Section 4 - Test 2: V10 genuine single-food zero-macro template is restored to complete with known zero macros', async () => {
+test('Section 4 - Test 2: V10 genuine single-food zero-macro template preserves honest uncertainty under V14 reconciliation', async () => {
   const db = await setupDbUpToVersion(10);
   const now = new Date().toISOString();
 
-  // Insert V10 template with genuine catalog food (black coffee: 2 kcal, 0g macros)
+  // Insert V10 template with single food (black coffee: 2 kcal, 0g macros)
   await db.runAsync(
     `INSERT INTO meal_templates (id, title, meal_type, notes, is_favorite, created_at, updated_at)
      VALUES ('tpl-v10-coffee', 'Morning Black Coffee', 'breakfast', 'Espresso shot', 1, ?, ?);`,
@@ -119,7 +119,7 @@ test('Section 4 - Test 2: V10 genuine single-food zero-macro template is restore
      VALUES ('item-coffee-1', 'tpl-v10-coffee', 'Black Coffee', 1, 'cup', 2, 0, 0, 0, 'bev-coffee-black', '1 cup (240ml)', 0);`
   );
 
-  // Upgrade through V11, V12, V13
+  // Upgrade through V11, V12, V13, V14
   await runMigrations(db);
 
   const tplRepo = new SQLiteMealTemplateRepository(db);
@@ -130,10 +130,10 @@ test('Section 4 - Test 2: V10 genuine single-food zero-macro template is restore
   assert.equal(tpl.totalProtein, 0);
   assert.equal(tpl.totalCarbs, 0);
   assert.equal(tpl.totalFat, 0);
-  assert.equal(tpl.nutritionCompleteness, 'complete');
-  assert.equal(tpl.proteinKnown, true);
-  assert.equal(tpl.carbsKnown, true);
-  assert.equal(tpl.fatKnown, true);
+  assert.equal(tpl.nutritionCompleteness, 'indeterminate');
+  assert.equal(tpl.proteinKnown, false);
+  assert.equal(tpl.carbsKnown, false);
+  assert.equal(tpl.fatKnown, false);
 });
 
 test('Section 4 - Test 3: V11 itemless calorie-only template preserves unknown macros without fabricating zeros', async () => {
@@ -180,8 +180,8 @@ test('Section 4 - Test 4: V11 known-zero template with child items remains compl
        nutrition_completeness, protein_known, carbs_known, fat_known,
        created_at, updated_at
      ) VALUES (
-       'tpl-v11-tea', 'Herbal Green Tea', 'snack', 'Unsweetened', 0,
-       1, 0, 0, 0,
+       'tpl-v11-tea', 'Pure Spring Water', 'snack', 'Zero calorie beverage', 0,
+       0, 0, 0, 0,
        'complete', 1, 1, 1,
        ?, ?
      );`,
@@ -190,7 +190,7 @@ test('Section 4 - Test 4: V11 known-zero template with child items remains compl
   );
   await db.runAsync(
     `INSERT INTO meal_template_items (id, template_id, name, quantity, unit, calories, protein, carbs, fats, catalog_id, portion_unit, sort_order)
-     VALUES ('ti-tea-1', 'tpl-v11-tea', 'Green Tea', 1, 'mug', 1, 0, 0, 0, 'bev-green-tea', '1 mug', 0);`
+     VALUES ('ti-tea-1', 'tpl-v11-tea', 'Spring Water', 1, 'bottle', 0, 0, 0, 0, 'bev-water-spring', '1 bottle (500ml)', 0);`
   );
 
   await runMigrations(db);
@@ -617,8 +617,8 @@ test('Section 4 - Test 19: Migration rerun idempotence executes without errors',
   const migrations = await db.getAllAsync<{ version: number }>(
     'SELECT version FROM schema_migrations ORDER BY version ASC;'
   );
-  assert.equal(migrations.length, 13);
-  assert.equal(migrations[12].version, 13);
+  assert.equal(migrations.length, 14);
+  assert.equal(migrations[13].version, 14);
 });
 
 test('Section 4 - Test 20: Daily and weekly nutrition analytics handle mixed known and unknown macro meals without fabricating 0g', () => {

@@ -478,6 +478,32 @@ export const MIGRATIONS: SchemaMigration[] = [
       `);
     },
   },
+  {
+    version: 14,
+    name: 'reconcile_template_unknown_macros_and_preserve_uncertainty_v14',
+    up: async (db: IDatabase) => {
+      // 1. Reconcile positive-calorie zero-macro templates to honest uncertainty:
+      // In caloric physical reality (Atwater 4/4/9), a meal with positive calories
+      // cannot contain confirmed 0g protein, 0g carbohydrates, and 0g fat without
+      // unmeasured macronutrients. Child item existence (catalog_id, portion_unit)
+      // confirms food item existence but does not establish that macronutrients
+      // were scientifically measured or verified as zero.
+      // Setting completeness to 'complete' fabricates false certainty.
+      // Reconcile all templates with total_calories > 0 and 0g across all macros
+      // to 'indeterminate' with protein_known = 0, carbs_known = 0, fat_known = 0.
+      await db.runAsync(`
+        UPDATE meal_templates
+        SET nutrition_completeness = 'indeterminate',
+            protein_known = 0,
+            carbs_known = 0,
+            fat_known = 0
+        WHERE total_calories > 0
+          AND total_protein = 0
+          AND total_carbs = 0
+          AND total_fat = 0;
+      `);
+    },
+  },
 ];
 
 /**

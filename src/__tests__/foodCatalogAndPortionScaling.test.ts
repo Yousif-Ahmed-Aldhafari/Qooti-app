@@ -671,7 +671,7 @@ test('Task 4.2 - Test 26: Fresh database migrates cleanly directly from V0 to V9
   const migrations = await db.getAllAsync<{ version: number; name: string }>(
     'SELECT version, name FROM schema_migrations ORDER BY version ASC;'
   );
-  assert.equal(migrations.length, 13);
+  assert.equal(migrations.length, 14);
   assert.equal(migrations[8].version, 9);
   assert.equal(migrations[8].name, 'add_custom_foods_and_meal_enhancements_v9');
   assert.equal(migrations[9].version, 10);
@@ -682,6 +682,8 @@ test('Task 4.2 - Test 26: Fresh database migrates cleanly directly from V0 to V9
   assert.equal(migrations[11].name, 'add_provenance_and_repair_legacy_templates_v12');
   assert.equal(migrations[12].version, 13);
   assert.equal(migrations[12].name, 'harden_template_nutrient_fidelity_and_favorite_provenance_v13');
+  assert.equal(migrations[13].version, 14);
+  assert.equal(migrations[13].name, 'reconcile_template_unknown_macros_and_preserve_uncertainty_v14');
 });
 
 // ---------------------------------------------------------------------------

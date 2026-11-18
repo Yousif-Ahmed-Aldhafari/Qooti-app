@@ -364,6 +364,21 @@
   - Added 25 automated regression and interactive component tests in `src/__tests__/legacyTemplateMigrationSafetyAndAcceptance.test.ts` (708 total passing tests).
 - **Target Task:** Task 4.6A
 
+#### ISSUE-NUT-18: False Completeness for Positive-Calorie Zero-Macro Templates & Reconciliation via Migration 14
+- **Severity:** P1 (High)
+- **Status:** RESOLVED (Task 4.7)
+- **Location:** `src/db/migrations.ts`, `src/models/mealTemplate.ts`, `src/models/meal.ts`
+- **Description:** In Migration 13, templates with `total_calories > 0 AND total_protein = 0 AND total_carbs = 0 AND total_fat = 0` were unconditionally promoted to `'complete'` with known zero macros if child items had `catalog_id`, `portion_unit`, or `COUNT(*) > 1`. However, child item existence does not establish that macronutrients were scientifically measured. In physical science (Atwater 4/4/9 factors), positive calories cannot consist of confirmed 0g protein, 0g carbohydrates, and 0g fat without unmeasured nutrients. Promoting these to 'complete' fabricated false certainty.
+- **Root Cause:** Equating child food existence with complete macro quantification.
+- **Impact:** Templates with positive calories and unmeasured macros displayed fabricated 0g protein, carbs, and fat, falsely skewing macro distribution and intake metrics.
+- **Resolution & Verification:**
+  - Preserved Migrations 1–13 completely immutable.
+  - Implemented forward-only Migration 14 (`reconcile_template_unknown_macros_and_preserve_uncertainty_v14`) reconciling all templates with `total_calories > 0` and 0g across all macros to `nutrition_completeness = 'indeterminate'` with `protein_known = 0`, `carbs_known = 0`, `fat_known = 0`.
+  - Preserved genuine 0-calorie items (0 kcal, 0g macros) as complete and known zero.
+  - Hardened `normalizeMealTemplate` and `normalizeMeal` to safely enforce indeterminate uncertainty on positive calories with 0g macros when explicit completeness is not provided.
+  - Added 28 comprehensive automated regression and E2E acceptance tests in `src/__tests__/finalAcceptanceAndFullRegression.test.ts` (736 total passing tests, 90.94% coverage).
+- **Target Task:** Task 4.7
+
 ---
 
 ### P3: Low Priority Polish & Maintenance Items
