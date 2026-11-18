@@ -74,6 +74,9 @@
        │
        ▼
 [ Task 4.7 Final Fix: Nutrient Integrity, Multi-Item Protection & Strict Parsing ] ──► (COMPLETE - 764 Tests)
+       │
+       ▼
+[ Task 4.7 Data Preservation Fix: Unknown Macro Nutrient Preservation & Hardening ] ──► (COMPLETE - 773 Tests)
 ```
 
 ---

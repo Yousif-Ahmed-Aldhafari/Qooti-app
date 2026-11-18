@@ -141,6 +141,7 @@ function ReviewTemplateFormContent({
 
     if (isMultiItem) {
       // Validate every item with parseStrictNutrientInput
+      // When a macro is unknown, preserve stored/original per-item numbers without zeroing them out!
       const updatedItems: MealTemplateItem[] = [];
       for (let i = 0; i < itemsState.length; i++) {
         const it = itemsState[i];
@@ -156,46 +157,58 @@ function ReviewTemplateFormContent({
           return;
         }
 
-        let parsedP = 0;
-        if (proteinKnown) {
+        let parsedP = orig.protein;
+        if (it.protein !== '' && it.protein !== undefined) {
           const pRes = parseStrictNutrientInput(it.protein, {
-            allowEmpty: false,
+            allowEmpty: !proteinKnown,
             allowZero: true,
             max: 100_000,
+            defaultValue: orig.protein,
           });
           if (!pRes.isValid) {
             setSaveError(`${tr('reconfirmError', 'Invalid nutrient values')}: ${it.name} - ${tr('protein', 'Protein')}`);
             return;
           }
           parsedP = pRes.value;
+        } else if (proteinKnown) {
+          setSaveError(`${tr('reconfirmError', 'Invalid nutrient values')}: ${it.name} - ${tr('protein', 'Protein')}`);
+          return;
         }
 
-        let parsedC = 0;
-        if (carbsKnown) {
+        let parsedC = orig.carbs;
+        if (it.carbs !== '' && it.carbs !== undefined) {
           const cRes = parseStrictNutrientInput(it.carbs, {
-            allowEmpty: false,
+            allowEmpty: !carbsKnown,
             allowZero: true,
             max: 100_000,
+            defaultValue: orig.carbs,
           });
           if (!cRes.isValid) {
             setSaveError(`${tr('reconfirmError', 'Invalid nutrient values')}: ${it.name} - ${tr('carbs', 'Carbs')}`);
             return;
           }
           parsedC = cRes.value;
+        } else if (carbsKnown) {
+          setSaveError(`${tr('reconfirmError', 'Invalid nutrient values')}: ${it.name} - ${tr('carbs', 'Carbs')}`);
+          return;
         }
 
-        let parsedF = 0;
-        if (fatKnown) {
+        let parsedF = orig.fats;
+        if (it.fat !== '' && it.fat !== undefined) {
           const fRes = parseStrictNutrientInput(it.fat, {
-            allowEmpty: false,
+            allowEmpty: !fatKnown,
             allowZero: true,
             max: 100_000,
+            defaultValue: orig.fats,
           });
           if (!fRes.isValid) {
             setSaveError(`${tr('reconfirmError', 'Invalid nutrient values')}: ${it.name} - ${tr('fat', 'Fat')}`);
             return;
           }
           parsedF = fRes.value;
+        } else if (fatKnown) {
+          setSaveError(`${tr('reconfirmError', 'Invalid nutrient values')}: ${it.name} - ${tr('fat', 'Fat')}`);
+          return;
         }
 
         updatedItems.push({
@@ -220,9 +233,9 @@ function ReviewTemplateFormContent({
           fatKnown,
           items: updatedItems,
           totalCalories,
-          totalProtein: proteinKnown ? totalProtein : undefined,
-          totalCarbs: carbsKnown ? totalCarbs : undefined,
-          totalFat: fatKnown ? totalFat : undefined,
+          totalProtein,
+          totalCarbs,
+          totalFat,
         });
         onClose();
       } catch (err: any) {
@@ -242,46 +255,58 @@ function ReviewTemplateFormContent({
         return;
       }
 
-      let parsedProtein: number | undefined;
-      if (proteinKnown) {
+      let parsedProtein = template.totalProtein ?? 0;
+      if (protein !== '' && protein !== undefined) {
         const pRes = parseStrictNutrientInput(protein, {
-          allowEmpty: false,
+          allowEmpty: !proteinKnown,
           allowZero: true,
           max: 100_000,
+          defaultValue: template.totalProtein ?? 0,
         });
         if (!pRes.isValid) {
           setSaveError(tr('reconfirmError', 'Invalid nutrient values'));
           return;
         }
         parsedProtein = pRes.value;
+      } else if (proteinKnown) {
+        setSaveError(tr('reconfirmError', 'Invalid nutrient values'));
+        return;
       }
 
-      let parsedCarbs: number | undefined;
-      if (carbsKnown) {
+      let parsedCarbs = template.totalCarbs ?? 0;
+      if (carbs !== '' && carbs !== undefined) {
         const cRes = parseStrictNutrientInput(carbs, {
-          allowEmpty: false,
+          allowEmpty: !carbsKnown,
           allowZero: true,
           max: 100_000,
+          defaultValue: template.totalCarbs ?? 0,
         });
         if (!cRes.isValid) {
           setSaveError(tr('reconfirmError', 'Invalid nutrient values'));
           return;
         }
         parsedCarbs = cRes.value;
+      } else if (carbsKnown) {
+        setSaveError(tr('reconfirmError', 'Invalid nutrient values'));
+        return;
       }
 
-      let parsedFat: number | undefined;
-      if (fatKnown) {
+      let parsedFat = (template.totalFat ?? template.totalFats) ?? 0;
+      if (fat !== '' && fat !== undefined) {
         const fRes = parseStrictNutrientInput(fat, {
-          allowEmpty: false,
+          allowEmpty: !fatKnown,
           allowZero: true,
           max: 100_000,
+          defaultValue: (template.totalFat ?? template.totalFats) ?? 0,
         });
         if (!fRes.isValid) {
           setSaveError(tr('reconfirmError', 'Invalid nutrient values'));
           return;
         }
         parsedFat = fRes.value;
+      } else if (fatKnown) {
+        setSaveError(tr('reconfirmError', 'Invalid nutrient values'));
+        return;
       }
 
       setIsSaving(true);
@@ -487,94 +512,112 @@ function ReviewTemplateFormContent({
               </View>
 
               {/* Item Protein */}
-              {proteinKnown ? (
-                <View style={styles.inputGroup}>
+              <View style={styles.inputGroup}>
+                <View style={[styles.macroHeaderRow, activeRowStyle()]}>
                   <Text style={[styles.inputLabel, directionalText, { color: colors.textSecondary }]}>
                     {tr('protein', 'Protein')} (g)
                   </Text>
-                  <TextInput
-                    style={[
-                      styles.textInput,
-                      directionalText,
-                      {
-                        color: colors.text,
-                        backgroundColor: colors.surface,
-                        borderColor: colors.border,
-                      },
-                    ]}
-                    value={item.protein}
-                    onChangeText={(val) => {
-                      const next = [...itemsState];
-                      next[idx] = { ...next[idx], protein: val };
-                      setItemsState(next);
-                    }}
-                    keyboardType="numeric"
-                    placeholder="0"
-                    placeholderTextColor={colors.textMuted}
-                    accessibilityLabel={`${item.name} ${tr('protein', 'Protein')} input`}
-                  />
+                  {!proteinKnown ? (
+                    <Text style={[styles.unknownNote, { marginTop: 0 }]}>
+                      ({tr('macroUnknown', 'Unrecorded')})
+                    </Text>
+                  ) : null}
                 </View>
-              ) : null}
+                <TextInput
+                  style={[
+                    styles.textInput,
+                    directionalText,
+                    {
+                      color: proteinKnown ? colors.text : colors.textMuted,
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                      opacity: proteinKnown ? 1 : 0.75,
+                    },
+                  ]}
+                  value={item.protein}
+                  onChangeText={(val) => {
+                    const next = [...itemsState];
+                    next[idx] = { ...next[idx], protein: val };
+                    setItemsState(next);
+                  }}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  placeholderTextColor={colors.textMuted}
+                  accessibilityLabel={`${item.name} ${tr('protein', 'Protein')} input`}
+                />
+              </View>
 
               {/* Item Carbs */}
-              {carbsKnown ? (
-                <View style={styles.inputGroup}>
+              <View style={styles.inputGroup}>
+                <View style={[styles.macroHeaderRow, activeRowStyle()]}>
                   <Text style={[styles.inputLabel, directionalText, { color: colors.textSecondary }]}>
                     {tr('carbs', 'Carbs')} (g)
                   </Text>
-                  <TextInput
-                    style={[
-                      styles.textInput,
-                      directionalText,
-                      {
-                        color: colors.text,
-                        backgroundColor: colors.surface,
-                        borderColor: colors.border,
-                      },
-                    ]}
-                    value={item.carbs}
-                    onChangeText={(val) => {
-                      const next = [...itemsState];
-                      next[idx] = { ...next[idx], carbs: val };
-                      setItemsState(next);
-                    }}
-                    keyboardType="numeric"
-                    placeholder="0"
-                    placeholderTextColor={colors.textMuted}
-                    accessibilityLabel={`${item.name} ${tr('carbs', 'Carbs')} input`}
-                  />
+                  {!carbsKnown ? (
+                    <Text style={[styles.unknownNote, { marginTop: 0 }]}>
+                      ({tr('macroUnknown', 'Unrecorded')})
+                    </Text>
+                  ) : null}
                 </View>
-              ) : null}
+                <TextInput
+                  style={[
+                    styles.textInput,
+                    directionalText,
+                    {
+                      color: carbsKnown ? colors.text : colors.textMuted,
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                      opacity: carbsKnown ? 1 : 0.75,
+                    },
+                  ]}
+                  value={item.carbs}
+                  onChangeText={(val) => {
+                    const next = [...itemsState];
+                    next[idx] = { ...next[idx], carbs: val };
+                    setItemsState(next);
+                  }}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  placeholderTextColor={colors.textMuted}
+                  accessibilityLabel={`${item.name} ${tr('carbs', 'Carbs')} input`}
+                />
+              </View>
 
               {/* Item Fat */}
-              {fatKnown ? (
-                <View style={styles.inputGroup}>
+              <View style={styles.inputGroup}>
+                <View style={[styles.macroHeaderRow, activeRowStyle()]}>
                   <Text style={[styles.inputLabel, directionalText, { color: colors.textSecondary }]}>
                     {tr('fat', 'Fat')} (g)
                   </Text>
-                  <TextInput
-                    style={[
-                      styles.textInput,
-                      directionalText,
-                      {
-                        color: colors.text,
-                        backgroundColor: colors.surface,
-                        borderColor: colors.border,
-                      },
-                    ]}
-                    value={item.fat}
-                    onChangeText={(val) => {
-                      const next = [...itemsState];
-                      next[idx] = { ...next[idx], fat: val };
-                      setItemsState(next);
-                    }}
-                    keyboardType="numeric"
-                    placeholder="0"
-                    placeholderTextColor={colors.textMuted}
-                    accessibilityLabel={`${item.name} ${tr('fat', 'Fat')} input`}
-                  />
+                  {!fatKnown ? (
+                    <Text style={[styles.unknownNote, { marginTop: 0 }]}>
+                      ({tr('macroUnknown', 'Unrecorded')})
+                    </Text>
+                  ) : null}
                 </View>
-              ) : null}
+                <TextInput
+                  style={[
+                    styles.textInput,
+                    directionalText,
+                    {
+                      color: fatKnown ? colors.text : colors.textMuted,
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                      opacity: fatKnown ? 1 : 0.75,
+                    },
+                  ]}
+                  value={item.fat}
+                  onChangeText={(val) => {
+                    const next = [...itemsState];
+                    next[idx] = { ...next[idx], fat: val };
+                    setItemsState(next);
+                  }}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  placeholderTextColor={colors.textMuted}
+                  accessibilityLabel={`${item.name} ${tr('fat', 'Fat')} input`}
+                />
+              </View>
             </View>
           ))}
         </View>
@@ -606,92 +649,98 @@ function ReviewTemplateFormContent({
 
           {/* Protein Input */}
           <View style={[styles.macroCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Text style={[styles.macroName, { color: colors.text, marginBottom: spacing.xs }]}>
-              {tr('protein', 'Protein')} (g)
-            </Text>
-            {proteinKnown ? (
-              <TextInput
-                style={[
-                  styles.textInput,
-                  directionalText,
-                  {
-                    color: colors.text,
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                  },
-                ]}
-                value={protein}
-                onChangeText={setProtein}
-                keyboardType="numeric"
-                placeholder="0"
-                placeholderTextColor={colors.textMuted}
-                accessibilityLabel={`${tr('protein', 'Protein')} input`}
-              />
-            ) : (
-              <Text style={[styles.unknownNote, directionalText, { color: colors.textMuted }]}>
-                {tr('markAsUnknown', 'Mark as unrecorded')}
+            <View style={[styles.macroHeaderRow, activeRowStyle()]}>
+              <Text style={[styles.macroName, { color: colors.text }]}>
+                {tr('protein', 'Protein')} (g)
               </Text>
-            )}
+              {!proteinKnown ? (
+                <Text style={[styles.unknownNote, { marginTop: 0 }]}>
+                  ({tr('macroUnknown', 'Unrecorded')})
+                </Text>
+              ) : null}
+            </View>
+            <TextInput
+              style={[
+                styles.textInput,
+                directionalText,
+                {
+                  color: proteinKnown ? colors.text : colors.textMuted,
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                  opacity: proteinKnown ? 1 : 0.75,
+                },
+              ]}
+              value={protein}
+              onChangeText={setProtein}
+              keyboardType="numeric"
+              placeholder="0"
+              placeholderTextColor={colors.textMuted}
+              accessibilityLabel={`${tr('protein', 'Protein')} input`}
+            />
           </View>
 
           {/* Carbs Input */}
           <View style={[styles.macroCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Text style={[styles.macroName, { color: colors.text, marginBottom: spacing.xs }]}>
-              {tr('carbs', 'Carbs')} (g)
-            </Text>
-            {carbsKnown ? (
-              <TextInput
-                style={[
-                  styles.textInput,
-                  directionalText,
-                  {
-                    color: colors.text,
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                  },
-                ]}
-                value={carbs}
-                onChangeText={setCarbs}
-                keyboardType="numeric"
-                placeholder="0"
-                placeholderTextColor={colors.textMuted}
-                accessibilityLabel={`${tr('carbs', 'Carbs')} input`}
-              />
-            ) : (
-              <Text style={[styles.unknownNote, directionalText, { color: colors.textMuted }]}>
-                {tr('markAsUnknown', 'Mark as unrecorded')}
+            <View style={[styles.macroHeaderRow, activeRowStyle()]}>
+              <Text style={[styles.macroName, { color: colors.text }]}>
+                {tr('carbs', 'Carbs')} (g)
               </Text>
-            )}
+              {!carbsKnown ? (
+                <Text style={[styles.unknownNote, { marginTop: 0 }]}>
+                  ({tr('macroUnknown', 'Unrecorded')})
+                </Text>
+              ) : null}
+            </View>
+            <TextInput
+              style={[
+                styles.textInput,
+                directionalText,
+                {
+                  color: carbsKnown ? colors.text : colors.textMuted,
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                  opacity: carbsKnown ? 1 : 0.75,
+                },
+              ]}
+              value={carbs}
+              onChangeText={setCarbs}
+              keyboardType="numeric"
+              placeholder="0"
+              placeholderTextColor={colors.textMuted}
+              accessibilityLabel={`${tr('carbs', 'Carbs')} input`}
+            />
           </View>
 
           {/* Fat Input */}
           <View style={[styles.macroCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Text style={[styles.macroName, { color: colors.text, marginBottom: spacing.xs }]}>
-              {tr('fat', 'Fat')} (g)
-            </Text>
-            {fatKnown ? (
-              <TextInput
-                style={[
-                  styles.textInput,
-                  directionalText,
-                  {
-                    color: colors.text,
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                  },
-                ]}
-                value={fat}
-                onChangeText={setFat}
-                keyboardType="numeric"
-                placeholder="0"
-                placeholderTextColor={colors.textMuted}
-                accessibilityLabel={`${tr('fat', 'Fat')} input`}
-              />
-            ) : (
-              <Text style={[styles.unknownNote, directionalText, { color: colors.textMuted }]}>
-                {tr('markAsUnknown', 'Mark as unrecorded')}
+            <View style={[styles.macroHeaderRow, activeRowStyle()]}>
+              <Text style={[styles.macroName, { color: colors.text }]}>
+                {tr('fat', 'Fat')} (g)
               </Text>
-            )}
+              {!fatKnown ? (
+                <Text style={[styles.unknownNote, { marginTop: 0 }]}>
+                  ({tr('macroUnknown', 'Unrecorded')})
+                </Text>
+              ) : null}
+            </View>
+            <TextInput
+              style={[
+                styles.textInput,
+                directionalText,
+                {
+                  color: fatKnown ? colors.text : colors.textMuted,
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                  opacity: fatKnown ? 1 : 0.75,
+                },
+              ]}
+              value={fat}
+              onChangeText={setFat}
+              keyboardType="numeric"
+              placeholder="0"
+              placeholderTextColor={colors.textMuted}
+              accessibilityLabel={`${tr('fat', 'Fat')} input`}
+            />
           </View>
         </View>
       )}

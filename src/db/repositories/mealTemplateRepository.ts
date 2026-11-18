@@ -433,10 +433,10 @@ export class SQLiteMealTemplateRepository implements MealTemplateRepository {
             name: it.name || orig.name,
             quantity: it.quantity > 0 ? it.quantity : orig.quantity,
             unit: it.unit || orig.unit,
-            calories: Math.max(0, it.calories ?? 0),
-            protein: Math.max(0, it.protein ?? 0),
-            carbs: Math.max(0, it.carbs ?? 0),
-            fats: Math.max(0, it.fats ?? 0),
+            calories: Math.max(0, it.calories !== undefined ? it.calories : orig.calories),
+            protein: Math.max(0, it.protein !== undefined ? it.protein : orig.protein),
+            carbs: Math.max(0, it.carbs !== undefined ? it.carbs : orig.carbs),
+            fats: Math.max(0, it.fats !== undefined ? it.fats : (it as any).fat !== undefined ? (it as any).fat : orig.fats),
           };
         });
       } else if (hasAggregateEdits) {
@@ -454,10 +454,10 @@ export class SQLiteMealTemplateRepository implements MealTemplateRepository {
             name: it.name || orig.name,
             quantity: it.quantity > 0 ? it.quantity : orig.quantity,
             unit: it.unit || orig.unit,
-            calories: Math.max(0, it.calories ?? 0),
-            protein: Math.max(0, it.protein ?? 0),
-            carbs: Math.max(0, it.carbs ?? 0),
-            fats: Math.max(0, it.fats ?? 0),
+            calories: Math.max(0, it.calories !== undefined ? it.calories : orig.calories),
+            protein: Math.max(0, it.protein !== undefined ? it.protein : orig.protein),
+            carbs: Math.max(0, it.carbs !== undefined ? it.carbs : orig.carbs),
+            fats: Math.max(0, it.fats !== undefined ? it.fats : (it as any).fat !== undefined ? (it as any).fat : orig.fats),
           },
         ];
       } else if (hasAggregateEdits || macros?.totalCalories !== undefined) {

@@ -741,3 +741,551 @@ test('ReviewTemplateModal: renders multi-item template with individual food item
   assert.ok(html.includes('Known'), 'Must render Known toggle');
   assert.ok(html.includes('Unrecorded'), 'Must render Unrecorded toggle');
 });
+
+// ============================================================================
+// 9. Data Preservation & Non-Zero Unknown Macros Verification
+// ============================================================================
+
+test('Data Preservation: existing nonzero protein is preserved when marked unknown without manufactured zero', async () => {
+  const db = await setupDatabase();
+  const repo = new SQLiteMealTemplateRepository(db);
+  const now = new Date().toISOString();
+
+  await db.runAsync(
+    `INSERT INTO meal_templates (
+       id, title, total_calories, total_protein, total_carbs, total_fat,
+       nutrition_completeness, protein_known, carbs_known, fat_known,
+       review_status, created_at, updated_at
+     ) VALUES ('tpl-dp-protein', 'Protein Shake and Oats', 450, 42, 50, 8, 'indeterminate', 0, 0, 0, 'ambiguous', ?, ?);`,
+    now,
+    now
+  );
+
+  await db.runAsync(
+    `INSERT INTO meal_template_items (id, template_id, name, quantity, unit, calories, protein, carbs, fats, sort_order)
+     VALUES
+       ('ti-dp-p1', 'tpl-dp-protein', 'Whey Protein', 1, 'scoop', 150, 30, 3, 2, 0),
+       ('ti-dp-p2', 'tpl-dp-protein', 'Rolled Oats', 80, 'g', 300, 12, 47, 6, 1);`
+  );
+
+  // User confirms carbs and fat are known, but protein is marked UNRECORDED (unknown)
+  // Per-item protein values must be preserved exactly (30 and 12), NOT zeroed out!
+  const updated = await repo.reconfirmTemplate('tpl-dp-protein', 'partial', {
+    proteinKnown: false,
+    carbsKnown: true,
+    fatKnown: true,
+    items: [
+      {
+        id: 'ti-dp-p1',
+        name: 'Whey Protein',
+        quantity: 1,
+        unit: 'scoop',
+        calories: 150,
+        protein: 30, // preserved
+        carbs: 3,
+        fats: 2,
+      },
+      {
+        id: 'ti-dp-p2',
+        name: 'Rolled Oats',
+        quantity: 80,
+        unit: 'g',
+        calories: 300,
+        protein: 12, // preserved
+        carbs: 47,
+        fats: 6,
+      },
+    ],
+  });
+
+  assert.equal(updated.reviewStatus, 'confirmed');
+  assert.equal(updated.proteinKnown, false, 'Protein must be marked unknown');
+  assert.equal(updated.carbsKnown, true, 'Carbs must be marked known');
+  assert.equal(updated.fatKnown, true, 'Fat must be marked known');
+  assert.equal(updated.totalProtein, 42, 'Total protein must retain original non-zero sum, never 0');
+  assert.equal(updated.items[0].protein, 30, 'First item must retain 30g protein');
+  assert.equal(updated.items[1].protein, 12, 'Second item must retain 12g protein');
+
+  // Direct SQLite row verification
+  const tplRow = await db.getFirstAsync<{ total_protein: number; protein_known: number }>(
+    'SELECT total_protein, protein_known FROM meal_templates WHERE id = ?;',
+    'tpl-dp-protein'
+  );
+  assert.ok(tplRow);
+  assert.equal(tplRow.total_protein, 42);
+  assert.equal(tplRow.protein_known, 0);
+
+  const itemRows = await db.getAllAsync<{ name: string; protein: number }>(
+    'SELECT name, protein FROM meal_template_items WHERE template_id = ? ORDER BY sort_order ASC;',
+    'tpl-dp-protein'
+  );
+  assert.equal(itemRows[0].protein, 30);
+  assert.equal(itemRows[1].protein, 12);
+});
+
+test('Data Preservation: existing nonzero carbs is preserved when marked unknown without manufactured zero', async () => {
+  const db = await setupDatabase();
+  const repo = new SQLiteMealTemplateRepository(db);
+  const now = new Date().toISOString();
+
+  await db.runAsync(
+    `INSERT INTO meal_templates (
+       id, title, total_calories, total_protein, total_carbs, total_fat,
+       nutrition_completeness, protein_known, carbs_known, fat_known,
+       review_status, created_at, updated_at
+     ) VALUES ('tpl-dp-carbs', 'Sweet Potato & Beef', 550, 40, 65, 12, 'indeterminate', 0, 0, 0, 'ambiguous', ?, ?);`,
+    now,
+    now
+  );
+
+  await db.runAsync(
+    `INSERT INTO meal_template_items (id, template_id, name, quantity, unit, calories, protein, carbs, fats, sort_order)
+     VALUES
+       ('ti-dp-c1', 'tpl-dp-carbs', 'Baked Sweet Potato', 200, 'g', 180, 4, 41, 0, 0),
+       ('ti-dp-c2', 'tpl-dp-carbs', 'Lean Beef with Glaze', 150, 'g', 370, 36, 24, 12, 1);`
+  );
+
+  // User marks carbs as UNRECORDED, keeping protein and fat known
+  const updated = await repo.reconfirmTemplate('tpl-dp-carbs', 'partial', {
+    proteinKnown: true,
+    carbsKnown: false,
+    fatKnown: true,
+    items: [
+      {
+        id: 'ti-dp-c1',
+        name: 'Baked Sweet Potato',
+        quantity: 200,
+        unit: 'g',
+        calories: 180,
+        protein: 4,
+        carbs: 41, // preserved
+        fats: 0,
+      },
+      {
+        id: 'ti-dp-c2',
+        name: 'Lean Beef with Glaze',
+        quantity: 150,
+        unit: 'g',
+        calories: 370,
+        protein: 36,
+        carbs: 24, // preserved
+        fats: 12,
+      },
+    ],
+  });
+
+  assert.equal(updated.reviewStatus, 'confirmed');
+  assert.equal(updated.carbsKnown, false);
+  assert.equal(updated.totalCarbs, 65, 'Total carbs must retain 65g, never 0');
+  assert.equal(updated.items[0].carbs, 41);
+  assert.equal(updated.items[1].carbs, 24);
+
+  // Verify SQLite row
+  const tplRow = await db.getFirstAsync<{ total_carbs: number; carbs_known: number }>(
+    'SELECT total_carbs, carbs_known FROM meal_templates WHERE id = ?;',
+    'tpl-dp-carbs'
+  );
+  assert.ok(tplRow);
+  assert.equal(tplRow.total_carbs, 65);
+  assert.equal(tplRow.carbs_known, 0);
+});
+
+test('Data Preservation: existing nonzero fat is preserved when marked unknown without manufactured zero', async () => {
+  const db = await setupDatabase();
+  const repo = new SQLiteMealTemplateRepository(db);
+  const now = new Date().toISOString();
+
+  await db.runAsync(
+    `INSERT INTO meal_templates (
+       id, title, total_calories, total_protein, total_carbs, total_fat,
+       nutrition_completeness, protein_known, carbs_known, fat_known,
+       review_status, created_at, updated_at
+     ) VALUES ('tpl-dp-fat', 'Avocado & Salmon Bowl', 600, 35, 20, 38, 'indeterminate', 0, 0, 0, 'ambiguous', ?, ?);`,
+    now,
+    now
+  );
+
+  await db.runAsync(
+    `INSERT INTO meal_template_items (id, template_id, name, quantity, unit, calories, protein, carbs, fats, sort_order)
+     VALUES
+       ('ti-dp-f1', 'tpl-dp-fat', 'Avocado', 100, 'g', 160, 2, 9, 15, 0),
+       ('ti-dp-f2', 'tpl-dp-fat', 'Salmon Fillet', 180, 'g', 440, 33, 11, 23, 1);`
+  );
+
+  // User marks fat as UNRECORDED, keeping protein and carbs known
+  const updated = await repo.reconfirmTemplate('tpl-dp-fat', 'partial', {
+    proteinKnown: true,
+    carbsKnown: true,
+    fatKnown: false,
+    items: [
+      {
+        id: 'ti-dp-f1',
+        name: 'Avocado',
+        quantity: 100,
+        unit: 'g',
+        calories: 160,
+        protein: 2,
+        carbs: 9,
+        fats: 15, // preserved
+      },
+      {
+        id: 'ti-dp-f2',
+        name: 'Salmon Fillet',
+        quantity: 180,
+        unit: 'g',
+        calories: 440,
+        protein: 33,
+        carbs: 11,
+        fats: 23, // preserved
+      },
+    ],
+  });
+
+  assert.equal(updated.reviewStatus, 'confirmed');
+  assert.equal(updated.fatKnown, false);
+  assert.equal(updated.totalFat, 38, 'Total fat must retain 38g, never 0');
+  assert.equal(updated.items[0].fats, 15);
+  assert.equal(updated.items[1].fats, 23);
+
+  // Verify SQLite row
+  const tplRow = await db.getFirstAsync<{ total_fat: number; fat_known: number }>(
+    'SELECT total_fat, fat_known FROM meal_templates WHERE id = ?;',
+    'tpl-dp-fat'
+  );
+  assert.ok(tplRow);
+  assert.equal(tplRow.total_fat, 38);
+  assert.equal(tplRow.fat_known, 0);
+});
+
+test('Data Preservation: mixed known and unknown macros maintain exact values and independent flags', async () => {
+  const db = await setupDatabase();
+  const repo = new SQLiteMealTemplateRepository(db);
+  const now = new Date().toISOString();
+
+  await db.runAsync(
+    `INSERT INTO meal_templates (
+       id, title, total_calories, total_protein, total_carbs, total_fat,
+       nutrition_completeness, protein_known, carbs_known, fat_known,
+       review_status, created_at, updated_at
+     ) VALUES ('tpl-dp-mixed', 'Mixed Macros Plate', 480, 28, 52, 14, 'indeterminate', 0, 0, 0, 'ambiguous', ?, ?);`,
+    now,
+    now
+  );
+
+  await db.runAsync(
+    `INSERT INTO meal_template_items (id, template_id, name, quantity, unit, calories, protein, carbs, fats, sort_order)
+     VALUES ('ti-dp-m1', 'tpl-dp-mixed', 'Plate Item', 1, 'serving', 480, 28, 52, 14, 0);`
+  );
+
+  // Protein known (28g), Carbs unknown (52g), Fat known (14g)
+  const updated = await repo.reconfirmTemplate('tpl-dp-mixed', 'partial', {
+    proteinKnown: true,
+    carbsKnown: false,
+    fatKnown: true,
+    items: [
+      {
+        id: 'ti-dp-m1',
+        name: 'Plate Item',
+        quantity: 1,
+        unit: 'serving',
+        calories: 480,
+        protein: 28,
+        carbs: 52,
+        fats: 14,
+      },
+    ],
+  });
+
+  assert.equal(updated.nutritionCompleteness, 'partial');
+  assert.equal(updated.proteinKnown, true);
+  assert.equal(updated.carbsKnown, false);
+  assert.equal(updated.fatKnown, true);
+  assert.equal(updated.totalProtein, 28);
+  assert.equal(updated.totalCarbs, 52);
+  assert.equal(updated.totalFat, 14);
+});
+
+test('Data Preservation: explicitly entered 0g remains known zero and does not become unknown', async () => {
+  const db = await setupDatabase();
+  const repo = new SQLiteMealTemplateRepository(db);
+  const now = new Date().toISOString();
+
+  await db.runAsync(
+    `INSERT INTO meal_templates (
+       id, title, total_calories, total_protein, total_carbs, total_fat,
+       nutrition_completeness, protein_known, carbs_known, fat_known,
+       review_status, created_at, updated_at
+     ) VALUES ('tpl-dp-zero', 'Pure Olive Oil Shot', 120, 0, 5, 14, 'indeterminate', 0, 0, 0, 'ambiguous', ?, ?);`,
+    now,
+    now
+  );
+
+  await db.runAsync(
+    `INSERT INTO meal_template_items (id, template_id, name, quantity, unit, calories, protein, carbs, fats, sort_order)
+     VALUES ('ti-dp-z1', 'tpl-dp-zero', 'Extra Virgin Olive Oil', 1, 'tbsp', 120, 0, 5, 14, 0);`
+  );
+
+  // User explicitly corrects carbs to 0g and marks all macros KNOWN
+  const updated = await repo.reconfirmTemplate('tpl-dp-zero', 'complete', {
+    proteinKnown: true,
+    carbsKnown: true,
+    fatKnown: true,
+    items: [
+      {
+        id: 'ti-dp-z1',
+        name: 'Extra Virgin Olive Oil',
+        quantity: 1,
+        unit: 'tbsp',
+        calories: 120,
+        protein: 0,
+        carbs: 0, // explicitly zero
+        fats: 14,
+      },
+    ],
+  });
+
+  assert.equal(updated.nutritionCompleteness, 'complete');
+  assert.equal(updated.proteinKnown, true);
+  assert.equal(updated.carbsKnown, true);
+  assert.equal(updated.fatKnown, true);
+  assert.equal(updated.totalProtein, 0);
+  assert.equal(updated.totalCarbs, 0);
+  assert.equal(updated.totalFat, 14);
+  assert.equal(updated.items[0].carbs, 0);
+});
+
+test('Data Preservation: reconfirmation preserves unchanged items without mutating unrelated items', async () => {
+  const db = await setupDatabase();
+  const repo = new SQLiteMealTemplateRepository(db);
+  const now = new Date().toISOString();
+
+  await db.runAsync(
+    `INSERT INTO meal_templates (
+       id, title, total_calories, total_protein, total_carbs, total_fat,
+       nutrition_completeness, protein_known, carbs_known, fat_known,
+       review_status, created_at, updated_at
+     ) VALUES ('tpl-dp-partial-edit', 'Steak and Potato', 650, 45, 50, 18, 'indeterminate', 0, 0, 0, 'ambiguous', ?, ?);`,
+    now,
+    now
+  );
+
+  await db.runAsync(
+    `INSERT INTO meal_template_items (id, template_id, name, quantity, unit, calories, protein, carbs, fats, sort_order)
+     VALUES
+       ('ti-pe-1', 'tpl-dp-partial-edit', 'Ribeye Steak', 200, 'g', 450, 42, 0, 18, 0),
+       ('ti-pe-2', 'tpl-dp-partial-edit', 'Mashed Potato', 150, 'g', 200, 3, 50, 0, 1);`
+  );
+
+  // User only corrects Item 1's calories and protein; Item 2 is passed without changes
+  const updated = await repo.reconfirmTemplate('tpl-dp-partial-edit', 'complete', {
+    proteinKnown: true,
+    carbsKnown: true,
+    fatKnown: true,
+    items: [
+      {
+        id: 'ti-pe-1',
+        name: 'Ribeye Steak',
+        quantity: 200,
+        unit: 'g',
+        calories: 460, // +10 cals
+        protein: 44,  // +2g protein
+        carbs: 0,
+        fats: 18,
+      },
+      {
+        id: 'ti-pe-2',
+        name: 'Mashed Potato',
+        quantity: 150,
+        unit: 'g',
+        calories: 200,
+        protein: 3,
+        carbs: 50,
+        fats: 0,
+      },
+    ],
+  });
+
+  assert.equal(updated.items[0].protein, 44);
+  assert.equal(updated.items[0].calories, 460);
+  // Item 2 completely preserved
+  assert.equal(updated.items[1].name, 'Mashed Potato');
+  assert.equal(updated.items[1].quantity, 150);
+  assert.equal(updated.items[1].unit, 'g');
+  assert.equal(updated.items[1].calories, 200);
+  assert.equal(updated.items[1].protein, 3);
+  assert.equal(updated.items[1].carbs, 50);
+  assert.equal(updated.items[1].fats, 0);
+});
+
+test('Data Preservation: SQLite persistence across restart verifies preserved non-zero values and flags', async () => {
+  const db = await setupDatabase();
+  const repo1 = new SQLiteMealTemplateRepository(db);
+  const now = new Date().toISOString();
+
+  await db.runAsync(
+    `INSERT INTO meal_templates (
+       id, title, total_calories, total_protein, total_carbs, total_fat,
+       nutrition_completeness, protein_known, carbs_known, fat_known,
+       review_status, created_at, updated_at
+     ) VALUES ('tpl-dp-restart', 'Restart Fidelity Test', 380, 24, 45, 10, 'indeterminate', 0, 0, 0, 'ambiguous', ?, ?);`,
+    now,
+    now
+  );
+
+  await db.runAsync(
+    `INSERT INTO meal_template_items (id, template_id, name, quantity, unit, calories, protein, carbs, fats, sort_order)
+     VALUES ('ti-dp-r1', 'tpl-dp-restart', 'High Protein Granola', 100, 'g', 380, 24, 45, 10, 0);`
+  );
+
+  // User marks protein as unknown, but preserves numbers
+  await repo1.reconfirmTemplate('tpl-dp-restart', 'partial', {
+    proteinKnown: false,
+    carbsKnown: true,
+    fatKnown: true,
+    items: [
+      {
+        id: 'ti-dp-r1',
+        name: 'High Protein Granola',
+        quantity: 100,
+        unit: 'g',
+        calories: 380,
+        protein: 24,
+        carbs: 45,
+        fats: 10,
+      },
+    ],
+  });
+
+  // Re-instantiate fresh repository to simulate cold app launch
+  const repo2 = new SQLiteMealTemplateRepository(db);
+  const reloaded = await repo2.getTemplateById('tpl-dp-restart');
+
+  assert.ok(reloaded);
+  assert.equal(reloaded.reviewStatus, 'confirmed');
+  assert.equal(reloaded.proteinKnown, false);
+  assert.equal(reloaded.carbsKnown, true);
+  assert.equal(reloaded.fatKnown, true);
+  assert.equal(reloaded.totalProtein, 24, 'Survives restart with non-zero protein intact');
+  assert.equal(reloaded.totalCarbs, 45);
+  assert.equal(reloaded.totalFat, 10);
+  assert.equal(reloaded.items[0].protein, 24);
+});
+
+test('Data Preservation: transaction failure during reconfirmation leaves existing template and items untouched', async () => {
+  const db = await setupDatabase();
+  const repo = new SQLiteMealTemplateRepository(db);
+  const now = new Date().toISOString();
+
+  await db.runAsync(
+    `INSERT INTO meal_templates (
+       id, title, total_calories, total_protein, total_carbs, total_fat,
+       nutrition_completeness, protein_known, carbs_known, fat_known,
+       review_status, created_at, updated_at
+     ) VALUES ('tpl-dp-fail', 'Failure Safe Meal', 500, 30, 60, 15, 'indeterminate', 0, 0, 0, 'ambiguous', ?, ?);`,
+    now,
+    now
+  );
+
+  await db.runAsync(
+    `INSERT INTO meal_template_items (id, template_id, name, quantity, unit, calories, protein, carbs, fats, sort_order)
+     VALUES ('ti-dp-f1', 'tpl-dp-fail', 'Pre-existing Item', 1, 'bowl', 500, 30, 60, 15, 0);`
+  );
+
+  // Pass an invalid transaction mock that will reject mid-flight on write
+  const failingTxn = Object.create(db);
+  failingTxn.runAsync = async () => {
+    throw new Error('Simulated SQLite disk write failure');
+  };
+
+  await assert.rejects(
+    async () =>
+      repo.reconfirmTemplate(
+        'tpl-dp-fail',
+        'complete',
+        {
+          proteinKnown: true,
+          carbsKnown: true,
+          fatKnown: true,
+          totalCalories: 600,
+        },
+        failingTxn as any
+      ),
+    /Simulated SQLite disk write failure/
+  );
+
+  // Verify template in real DB remains completely unmutated
+  const untouched = await repo.getTemplateById('tpl-dp-fail');
+  assert.ok(untouched);
+  assert.equal(untouched.reviewStatus, 'ambiguous');
+  assert.equal(untouched.totalCalories, 500);
+  assert.equal(untouched.items[0].protein, 30);
+});
+
+test('Data Preservation: template logging retains unknown flags and non-zero nutrients on generated Meal', () => {
+  const template: MealTemplate = normalizeMealTemplate({
+    id: 'tpl-dp-log',
+    title: 'Protein Bar with Unmeasured Carbs',
+    totalCalories: 240,
+    totalProtein: 20,
+    totalCarbs: 25,
+    totalFat: 8,
+    nutritionCompleteness: 'partial',
+    proteinKnown: true,
+    carbsKnown: false, // unmeasured carbs
+    fatKnown: true,
+    reviewStatus: 'confirmed',
+    items: [
+      {
+        id: 'ti-log-1',
+        name: 'Protein Bar',
+        quantity: 1,
+        unit: 'bar',
+        calories: 240,
+        protein: 20,
+        carbs: 25, // non-zero carbs preserved
+        fats: 8,
+      },
+    ],
+  });
+
+  const loggedMeal = createMealFromTemplate(template, '2026-11-19', '14:30');
+
+  // Verify logged meal retains non-zero values and exact flags
+  assert.notEqual(loggedMeal.id, template.id);
+  assert.equal(loggedMeal.title, 'Protein Bar with Unmeasured Carbs');
+  assert.equal(loggedMeal.totalCalories, 240);
+  assert.equal(loggedMeal.totalProtein, 20);
+  assert.equal(loggedMeal.totalCarbs, 25, 'Carbs must be 25g, not zeroed out');
+  assert.equal(loggedMeal.totalFat, 8);
+  assert.equal(loggedMeal.proteinKnown, true);
+  assert.equal(loggedMeal.carbsKnown, false, 'Carbs known flag must remain false');
+  assert.equal(loggedMeal.fatKnown, true);
+  assert.equal(loggedMeal.nutritionCompleteness, 'partial');
+  assert.equal(loggedMeal.items.length, 1);
+  assert.equal(loggedMeal.items[0].carbs, 25, 'Child item carbs must remain 25g');
+
+  // Also verify itemless template logging preserves unknown flags and analytics reflect it
+  const itemlessTemplate: MealTemplate = normalizeMealTemplate({
+    id: 'tpl-dp-log-itemless',
+    title: 'Itemless Shake with Unknown Carbs',
+    totalCalories: 240,
+    totalProtein: 20,
+    totalCarbs: 25,
+    totalFat: 8,
+    nutritionCompleteness: 'partial',
+    proteinKnown: true,
+    carbsKnown: false,
+    fatKnown: true,
+    reviewStatus: 'confirmed',
+  });
+
+  const loggedItemless = createMealFromTemplate(itemlessTemplate, '2026-11-19', '15:00');
+  assert.equal(loggedItemless.totalCalories, 240);
+  assert.equal(loggedItemless.totalCarbs, 25);
+  assert.equal(loggedItemless.carbsKnown, false);
+
+  const summary = getDailyNutritionSummary([loggedItemless], '2026-11-19');
+  assert.equal(summary.calories, 240);
+  assert.equal(summary.protein, 20);
+  assert.equal(summary.carbsKnown, false, 'Summary carbsKnown reflects meal carbsKnown');
+});

@@ -1,12 +1,12 @@
 # Phase 4 Nutrition System — Final Engineering Acceptance & Merge Readiness Report
 
-- **Document Version:** 1.3.0
+- **Document Version:** 1.4.0
 - **Date:** November 2026
 - **Repository:** `Yousif-Ahmed-Aldhafari/Qooti-app`
 - **Active Branch:** `dev/phase-4-nutrition`
 - **Base Main Commit:** `7ba790621517cafde2847bdd69001b151e1a46ab` (strictly untouched)
-- **Final Test Suite:** **764 Passing Tests (0 Failures, 0 Skipped, 0 Todo)**
-- **Reported Line Coverage:** **90.59%** (across all files)
+- **Final Test Suite:** **773 Passing Tests (0 Failures, 0 Skipped, 0 Todo)**
+- **Reported Line Coverage:** **90.84%** (across all files)
 - **Static Analysis:** **0 TypeScript errors (`tsc --noEmit`), 0 ESLint warnings (`eslint . --max-warnings=0`)**
 - **Expo Health:** **20/20 Expo Doctor checks passed**
 - **Latest SQLite Schema Migration:** **Migration 15 (`add_meal_template_review_status_and_reconcile_ambiguity_v15`)**
@@ -15,15 +15,16 @@
 
 ## 1. Executive Summary
 
-Phase 4 delivers an end-to-end, local-first, privacy-respecting nutrition and meal logging system for Qooti. Over 14 milestone tasks (Tasks 4.0 through Task 4.7 Final Reconfirmation Fix), the codebase grew from 388 baseline tests to **764 automated tests** with zero regressions, zero flaky tests, and zero data loss across legacy Phase 1–3 records.
+Phase 4 delivers an end-to-end, local-first, privacy-respecting nutrition and meal logging system for Qooti. Over 15 milestone tasks (Tasks 4.0 through Task 4.7 Last Data-Preservation Fix), the codebase grew from 388 baseline tests to **773 automated tests** with zero regressions, zero flaky tests, and zero data loss across legacy Phase 1–3 records.
 
 The system replaces the legacy monolithic `saveAllMeals` whole-table wipe pattern with fully transactional, atomic SQLite CRUD operations. It introduces a curated 158-item bilingual food catalog with authoritative USDA FoodData Central and SFDA provenance citations, mass-basis portion scaling, day-by-day calendar navigation resilient to midnight and leap-year boundaries, real-meal nutrition aggregation with Atwater 4/4/9 macro distribution, independent persistent meal templates, granular favorite management, and explicit unknown-macronutrient semantics preserving honest uncertainty.
 
-Following an audit of Migration 14's blanket rewrite of positive-calorie 0g-macro templates, forward-only **Migration 15** was introduced to flag historical indeterminate records as `review_status = 'ambiguous'`, transparently reporting unrecoverable metadata as historical ambiguity rather than fabricating recovered values. In the final acceptance closeout and reconfirmation fix, an end-to-end, accessible, bilingual user-facing reconfirmation modal flow (`ReviewTemplateModal` and `MealsScreen` review action) was fully wired to `reconfirmMealTemplate`. It provides:
+Following an audit of Migration 14's blanket rewrite of positive-calorie 0g-macro templates, forward-only **Migration 15** was introduced to flag historical indeterminate records as `review_status = 'ambiguous'`, transparently reporting unrecoverable metadata as historical ambiguity rather than fabricating recovered values. In the final acceptance closeout and reconfirmation hardening, an end-to-end, accessible, bilingual user-facing reconfirmation modal flow (`ReviewTemplateModal` and `MealsScreen` review action) was fully wired to `reconfirmMealTemplate`. It provides:
 1. **Itemless & Single-Item Precision:** Direct atomic persistence of corrected calories and macros in `meal_templates` and child item rows without fabricating synthetic items.
 2. **Multi-Item Snapshot Protection:** Strict prevention of silent discard or arbitrary spreading of aggregate corrections across multiple child items; explicit per-item corrections are supported via `items`, while unsupported aggregate edits without item breakdown are strictly rejected with a clear explanation.
 3. **Strict Domain Validation:** Complete replacement of naive `Number()/isNaN()` with canonical `parseStrictNutrientInput`, rejecting empty fields, non-finite values (`Infinity`, `NaN`), negative values, malformed decimals, scientific notation (`1e50`), and out-of-range inputs while supporting both period and comma decimal formats.
 4. **Form State Preservation:** Immediate inline presentation of validation and SQLite transaction errors, retaining 100% of user-entered form data without loss.
+5. **Non-Zero Nutrient Data Preservation Under Unknown Status:** When macros are marked "Unrecorded", stored per-item and aggregate nutrient measurements are strictly preserved rather than coerced to numeric zero. Known/unknown flags (`proteinKnown`, `carbsKnown`, `fatKnown`) are updated independently of numeric values, preventing false zero manufacture while accurately tracking epistemic certainty. Single-item, itemless, and multi-item flows all adhere to this contract.
 
 All four mandatory engineering quality gates (`typecheck`, `lint`, `test`, `expo-doctor`) have passed with 100% success. The `dev/phase-4-nutrition` branch is completely stable, internally consistent, and **merge-ready for `main`**.
 
@@ -154,10 +155,10 @@ All 15 SQLite schema migrations are forward-only, idempotent, and transactional.
 ### 6.1 Merge Readiness Statement
 Phase 4 Nutrition System is **100% COMPLETE AND MERGE-READY**.
 - Baseline tests on `main`: 388 tests.
-- Final tests on `dev/phase-4-nutrition`: **764 tests (+376 tests added in Phase 4)**.
-- Pass rate: **100% (764/764 passed, 0 failed, 0 skipped)**.
-- Code coverage: **90.59% line coverage**.
-- Schema stability: Migrations 1–15 immutable; reconfirmation flow guarantees single-item, itemless, and multi-item template nutrient integrity.
+- Final tests on `dev/phase-4-nutrition`: **773 tests (+385 tests added in Phase 4)**.
+- Pass rate: **100% (773/773 passed, 0 failed, 0 skipped)**.
+- Code coverage: **90.84% line coverage**.
+- Schema stability: Migrations 1–15 immutable; reconfirmation flow guarantees single-item, itemless, and multi-item template nutrient integrity, preserving non-zero measurements when macros are unrecorded.
 - Data preservation: 100% backward-compatible with legacy Phase 1–3 databases.
 
 ### 6.2 Recommended Next Steps (Awaiting User Confirmation)
