@@ -3,7 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useReducer,
 import { translate } from '../i18n';
 import type { Language, Settings } from '../models/settings';
 import { normalizeMeal, validateMeal, type Meal } from '../models/meal';
-import { normalizeMealTemplate, type MealTemplate } from '../models/mealTemplate';
+import { normalizeMealTemplate, type MealTemplate, type MealTemplateItem } from '../models/mealTemplate';
 import { normalizeProfile, type UserProfile } from '../models/profile';
 import { normalizeProgressEntry, type ProgressEntry } from '../models/progress';
 import { normalizeWorkout, type Workout } from '../models/workout';
@@ -138,6 +138,7 @@ type AppContextValue = AppStateData & {
       totalProtein?: number;
       totalCarbs?: number;
       totalFat?: number;
+      items?: MealTemplateItem[];
     }
   ) => Promise<MealTemplate>;
   addWorkout: (workout: Workout) => Promise<void> | void;

@@ -100,8 +100,9 @@ export class SQLiteMealTemplateRepository implements MealTemplateRepository {
     });
   }
 
-  async getTemplateById(id: string): Promise<MealTemplate | null> {
-    const templateRow = await this.db.getFirstAsync<MealTemplateRow>(
+  async getTemplateById(id: string, txn?: IDatabase): Promise<MealTemplate | null> {
+    const db = txn || this.db;
+    const templateRow = await db.getFirstAsync<MealTemplateRow>(
       'SELECT * FROM meal_templates WHERE id = ?;',
       id
     );
@@ -109,7 +110,7 @@ export class SQLiteMealTemplateRepository implements MealTemplateRepository {
       return null;
     }
 
-    const itemRows = await this.db.getAllAsync<MealTemplateItemRow>(
+    const itemRows = await db.getAllAsync<MealTemplateItemRow>(
       'SELECT * FROM meal_template_items WHERE template_id = ? ORDER BY sort_order ASC;',
       id
     );
@@ -402,41 +403,96 @@ export class SQLiteMealTemplateRepository implements MealTemplateRepository {
       totalProtein?: number;
       totalCarbs?: number;
       totalFat?: number;
+      items?: MealTemplateItem[];
     },
     txn?: IDatabase
   ): Promise<MealTemplate> {
-    const existing = await this.getTemplateById(id);
+    const existing = await this.getTemplateById(id, txn);
     if (!existing) {
       throw new Error(`Template not found: ${id}`);
     }
 
-    let items = existing.items;
-    if (
-      existing.items.length === 1 &&
-      (macros?.totalCalories !== undefined ||
-        macros?.totalProtein !== undefined ||
-        macros?.totalCarbs !== undefined ||
-        macros?.totalFat !== undefined)
-    ) {
-      const it = existing.items[0];
-      items = [
-        {
-          ...it,
-          calories: macros?.totalCalories !== undefined ? macros.totalCalories : it.calories,
-          protein: macros?.totalProtein !== undefined ? macros.totalProtein : it.protein,
-          carbs: macros?.totalCarbs !== undefined ? macros.totalCarbs : it.carbs,
-          fats: macros?.totalFat !== undefined ? macros.totalFat : it.fats,
-        },
-      ];
+    const isMultiItem = existing.items && existing.items.length > 1;
+    let items = existing.items || [];
+
+    const hasAggregateEdits =
+      (macros?.totalCalories !== undefined && macros.totalCalories !== existing.totalCalories) ||
+      (macros?.totalProtein !== undefined && macros.totalProtein !== existing.totalProtein) ||
+      (macros?.totalCarbs !== undefined && macros.totalCarbs !== existing.totalCarbs) ||
+      (macros?.totalFat !== undefined && macros.totalFat !== existing.totalFat);
+
+    if (isMultiItem) {
+      if (macros?.items && macros.items.length > 0) {
+        if (macros.items.length !== existing.items.length) {
+          throw new Error('Item count mismatch: per-item corrections must include all existing items.');
+        }
+        items = macros.items.map((it, idx) => {
+          const orig = existing.items[idx];
+          return {
+            ...orig,
+            name: it.name || orig.name,
+            quantity: it.quantity > 0 ? it.quantity : orig.quantity,
+            unit: it.unit || orig.unit,
+            calories: Math.max(0, it.calories ?? 0),
+            protein: Math.max(0, it.protein ?? 0),
+            carbs: Math.max(0, it.carbs ?? 0),
+            fats: Math.max(0, it.fats ?? 0),
+          };
+        });
+      } else if (hasAggregateEdits) {
+        throw new Error(
+          'Aggregate nutrient corrections are not supported for multi-item templates without item breakdown. Please provide per-item corrections.'
+        );
+      }
+    } else if (existing.items && existing.items.length === 1) {
+      if (macros?.items && macros.items.length === 1) {
+        const it = macros.items[0];
+        const orig = existing.items[0];
+        items = [
+          {
+            ...orig,
+            name: it.name || orig.name,
+            quantity: it.quantity > 0 ? it.quantity : orig.quantity,
+            unit: it.unit || orig.unit,
+            calories: Math.max(0, it.calories ?? 0),
+            protein: Math.max(0, it.protein ?? 0),
+            carbs: Math.max(0, it.carbs ?? 0),
+            fats: Math.max(0, it.fats ?? 0),
+          },
+        ];
+      } else if (hasAggregateEdits || macros?.totalCalories !== undefined) {
+        const orig = existing.items[0];
+        items = [
+          {
+            ...orig,
+            calories: macros?.totalCalories !== undefined ? macros.totalCalories : orig.calories,
+            protein: macros?.totalProtein !== undefined ? macros.totalProtein : orig.protein,
+            carbs: macros?.totalCarbs !== undefined ? macros.totalCarbs : orig.carbs,
+            fats: macros?.totalFat !== undefined ? macros.totalFat : orig.fats,
+          },
+        ];
+      }
+    }
+
+    let computedCalories = macros?.totalCalories !== undefined ? macros.totalCalories : existing.totalCalories;
+    let computedProtein = macros?.totalProtein !== undefined ? macros.totalProtein : existing.totalProtein;
+    let computedCarbs = macros?.totalCarbs !== undefined ? macros.totalCarbs : existing.totalCarbs;
+    let computedFat = macros?.totalFat !== undefined ? macros.totalFat : existing.totalFat;
+
+    if (items.length > 0) {
+      computedCalories = items.reduce((sum, it) => sum + it.calories, 0);
+      computedProtein = Math.round(items.reduce((sum, it) => sum + it.protein, 0) * 10) / 10;
+      computedCarbs = Math.round(items.reduce((sum, it) => sum + it.carbs, 0) * 10) / 10;
+      computedFat = Math.round(items.reduce((sum, it) => sum + it.fats, 0) * 10) / 10;
     }
 
     const updated = normalizeMealTemplate({
       ...existing,
       items,
-      totalCalories: macros?.totalCalories !== undefined ? macros.totalCalories : existing.totalCalories,
-      totalProtein: macros?.totalProtein !== undefined ? macros.totalProtein : existing.totalProtein,
-      totalCarbs: macros?.totalCarbs !== undefined ? macros.totalCarbs : existing.totalCarbs,
-      totalFat: macros?.totalFat !== undefined ? macros.totalFat : existing.totalFat,
+      totalCalories: computedCalories,
+      totalProtein: computedProtein,
+      totalCarbs: computedCarbs,
+      totalFat: computedFat,
       nutritionCompleteness: completeness,
       proteinKnown: macros?.proteinKnown !== undefined ? macros.proteinKnown : (completeness === 'complete'),
       carbsKnown: macros?.carbsKnown !== undefined ? macros.carbsKnown : (completeness === 'complete'),

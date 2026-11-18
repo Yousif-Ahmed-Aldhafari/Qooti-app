@@ -11,7 +11,7 @@ import {
   normalizeMealTemplate,
   type MealTemplate,
 } from '../models/mealTemplate';
-import { getDailyNutritionSummary } from '../utils/nutrition';
+import { getDailyNutritionSummary, parseStrictNutrientInput } from '../utils/nutrition';
 import { MealsScreen } from '../screens/MealsScreen';
 import { ReviewTemplateModal } from '../components/ReviewTemplateModal';
 import { translate } from '../i18n';
@@ -450,4 +450,294 @@ test('Meal Logging: logging meal from reconfirmed template generates independent
   assert.equal(summary.calories, 2);
   assert.equal(summary.protein, 0);
   assert.equal(summary.hasUnknownMacros, false);
+});
+
+// ============================================================================
+// 6. Multi-Item Template Reconfirmation & Silent Discard Prevention
+// ============================================================================
+
+test('Multi-Item Reconfirmation: explicit per-item corrections update child items and template totals atomically', async () => {
+  const db = await setupDatabase();
+  const repo = new SQLiteMealTemplateRepository(db);
+  const now = new Date().toISOString();
+
+  // Create ambiguous multi-item template
+  await db.runAsync(
+    `INSERT INTO meal_templates (
+       id, title, meal_type, notes, is_favorite,
+       total_calories, total_protein, total_carbs, total_fat,
+       nutrition_completeness, protein_known, carbs_known, fat_known,
+       review_status, created_at, updated_at
+     ) VALUES (
+       'tpl-multi-1', 'Post-Workout Fuel', 'snack', 'Needs item macro reconfirmation', 0,
+       365, 0, 0, 0,
+       'indeterminate', 0, 0, 0,
+       'ambiguous', ?, ?
+     );`,
+    now,
+    now
+  );
+
+  await db.runAsync(
+    `INSERT INTO meal_template_items (id, template_id, name, quantity, unit, calories, protein, carbs, fats, sort_order)
+     VALUES
+       ('ti-multi-1', 'tpl-multi-1', 'White Rice', 200, 'g', 200, 0, 0, 0, 0),
+       ('ti-multi-2', 'tpl-multi-1', 'Chicken Breast', 150, 'g', 165, 0, 0, 0, 1);`
+  );
+
+  // User explicitly provides per-item corrected macros
+  const updated = await repo.reconfirmTemplate('tpl-multi-1', 'complete', {
+    proteinKnown: true,
+    carbsKnown: true,
+    fatKnown: true,
+    items: [
+      {
+        id: 'ti-multi-1',
+        templateId: 'tpl-multi-1',
+        name: 'White Rice',
+        quantity: 200,
+        unit: 'g',
+        calories: 200,
+        protein: 4,
+        carbs: 44,
+        fats: 0.5,
+      },
+      {
+        id: 'ti-multi-2',
+        templateId: 'tpl-multi-1',
+        name: 'Chicken Breast',
+        quantity: 150,
+        unit: 'g',
+        calories: 165,
+        protein: 31,
+        carbs: 0,
+        fats: 3.6,
+      },
+    ],
+  });
+
+  assert.equal(updated.reviewStatus, 'confirmed');
+  assert.equal(updated.nutritionCompleteness, 'complete');
+  assert.equal(updated.items.length, 2);
+  assert.equal(updated.items[0].protein, 4);
+  assert.equal(updated.items[0].carbs, 44);
+  assert.equal(updated.items[0].fats, 0.5);
+  assert.equal(updated.items[1].protein, 31);
+  assert.equal(updated.items[1].carbs, 0);
+  assert.equal(updated.items[1].fats, 3.6);
+
+  // Totals computed accurately from child items
+  assert.equal(updated.totalCalories, 365);
+  assert.equal(updated.totalProtein, 35);
+  assert.equal(updated.totalCarbs, 44);
+  assert.equal(updated.totalFat, 4.1);
+
+  // Verify child items and template row in SQLite
+  const rows = await db.getAllAsync<{ name: string; protein: number; carbs: number; fats: number }>(
+    'SELECT name, protein, carbs, fats FROM meal_template_items WHERE template_id = ? ORDER BY sort_order ASC;',
+    'tpl-multi-1'
+  );
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0].protein, 4);
+  assert.equal(rows[1].protein, 31);
+
+  const tplRow = await db.getFirstAsync<{ total_protein: number; review_status: string }>(
+    'SELECT total_protein, review_status FROM meal_templates WHERE id = ?;',
+    'tpl-multi-1'
+  );
+  assert.ok(tplRow);
+  assert.equal(tplRow.total_protein, 35);
+  assert.equal(tplRow.review_status, 'confirmed');
+});
+
+test('Multi-Item Protection: aggregate edits without item breakdown are strictly rejected to prevent silent discards', async () => {
+  const db = await setupDatabase();
+  const repo = new SQLiteMealTemplateRepository(db);
+  const now = new Date().toISOString();
+
+  await db.runAsync(
+    `INSERT INTO meal_templates (
+       id, title, total_calories, total_protein, total_carbs, total_fat,
+       nutrition_completeness, protein_known, carbs_known, fat_known,
+       review_status, created_at, updated_at
+     ) VALUES ('tpl-multi-reject', 'Multi Reject Candidate', 300, 0, 0, 0, 'indeterminate', 0, 0, 0, 'ambiguous', ?, ?);`,
+    now,
+    now
+  );
+
+  await db.runAsync(
+    `INSERT INTO meal_template_items (id, template_id, name, quantity, unit, calories, protein, carbs, fats, sort_order)
+     VALUES
+       ('ti-r-1', 'tpl-multi-reject', 'Item A', 100, 'g', 150, 0, 0, 0, 0),
+       ('ti-r-2', 'tpl-multi-reject', 'Item B', 100, 'g', 150, 0, 0, 0, 1);`
+  );
+
+  // Calling reconfirmTemplate with aggregate calorie/macro edits without items array must reject
+  await assert.rejects(
+    async () =>
+      repo.reconfirmTemplate('tpl-multi-reject', 'complete', {
+        totalCalories: 450, // Aggregate change without item breakdown
+        proteinKnown: true,
+      }),
+    /Aggregate nutrient corrections are not supported for multi-item templates/
+  );
+
+  // Verify template was NOT mutated and remains ambiguous
+  const untouched = await repo.getTemplateById('tpl-multi-reject');
+  assert.ok(untouched);
+  assert.equal(untouched.reviewStatus, 'ambiguous');
+  assert.equal(untouched.totalCalories, 300);
+});
+
+test('Itemless Reconfirmation: corrected totals are saved directly to template without creating synthetic items', async () => {
+  const db = await setupDatabase();
+  const repo = new SQLiteMealTemplateRepository(db);
+  const now = new Date().toISOString();
+
+  await db.runAsync(
+    `INSERT INTO meal_templates (
+       id, title, total_calories, total_protein, total_carbs, total_fat,
+       nutrition_completeness, protein_known, carbs_known, fat_known,
+       review_status, created_at, updated_at
+     ) VALUES ('tpl-itemless-1', 'Quick Smoothie', 250, 0, 0, 0, 'indeterminate', 0, 0, 0, 'ambiguous', ?, ?);`,
+    now,
+    now
+  );
+
+  const updated = await repo.reconfirmTemplate('tpl-itemless-1', 'complete', {
+    totalCalories: 260,
+    totalProtein: 25,
+    totalCarbs: 30,
+    totalFat: 5,
+    proteinKnown: true,
+    carbsKnown: true,
+    fatKnown: true,
+  });
+
+  assert.equal(updated.reviewStatus, 'confirmed');
+  assert.equal(updated.totalCalories, 260);
+  assert.equal(updated.totalProtein, 25);
+  assert.equal(updated.totalCarbs, 30);
+  assert.equal(updated.totalFat, 5);
+  assert.equal(updated.items.length, 0, 'Must remain strictly itemless without synthetic items');
+
+  const itemsInDb = await db.getAllAsync('SELECT * FROM meal_template_items WHERE template_id = ?;', 'tpl-itemless-1');
+  assert.equal(itemsInDb.length, 0, 'Database must have zero child items');
+});
+
+// ============================================================================
+// 7. Strict Input Validation & Out-of-Range Rejections
+// ============================================================================
+
+test('Strict Nutrient Input Validation: parseStrictNutrientInput rejects invalid, non-finite, and malformed values', () => {
+  // Empty
+  assert.equal(parseStrictNutrientInput('').isValid, false);
+  assert.equal(parseStrictNutrientInput('   ').isValid, false);
+  assert.equal(parseStrictNutrientInput(undefined).isValid, false);
+  assert.equal(parseStrictNutrientInput(null).isValid, false);
+
+  // Non-finite
+  assert.equal(parseStrictNutrientInput('Infinity').isValid, false);
+  assert.equal(parseStrictNutrientInput('-Infinity').isValid, false);
+  assert.equal(parseStrictNutrientInput('NaN').isValid, false);
+  assert.equal(parseStrictNutrientInput('nan').isValid, false);
+
+  // Negative
+  assert.equal(parseStrictNutrientInput('-1').isValid, false);
+  assert.equal(parseStrictNutrientInput('-0.5').isValid, false);
+
+  // Malformed decimals and symbols
+  assert.equal(parseStrictNutrientInput('1.2.3').isValid, false);
+  assert.equal(parseStrictNutrientInput('1,2,3').isValid, false);
+  assert.equal(parseStrictNutrientInput('12.').isValid, false);
+  assert.equal(parseStrictNutrientInput('.').isValid, false);
+  assert.equal(parseStrictNutrientInput('++5').isValid, false);
+  assert.equal(parseStrictNutrientInput('100g').isValid, false);
+  assert.equal(parseStrictNutrientInput('abc').isValid, false);
+
+  // Scientific notation
+  assert.equal(parseStrictNutrientInput('1e50').isValid, false);
+  assert.equal(parseStrictNutrientInput('2.5e3').isValid, false);
+
+  // Out of range (max: 100,000)
+  assert.equal(parseStrictNutrientInput('100001', { max: 100_000 }).isValid, false);
+  assert.equal(parseStrictNutrientInput('999999999', { max: 100_000 }).isValid, false);
+
+  // Valid values
+  const valid1 = parseStrictNutrientInput('0');
+  assert.equal(valid1.isValid, true);
+  assert.equal(valid1.value, 0);
+
+  const valid2 = parseStrictNutrientInput('350');
+  assert.equal(valid2.isValid, true);
+  assert.equal(valid2.value, 350);
+
+  const valid3 = parseStrictNutrientInput('25.5');
+  assert.equal(valid3.isValid, true);
+  assert.equal(valid3.value, 25.5);
+
+  const validComma = parseStrictNutrientInput('25,5');
+  assert.equal(validComma.isValid, true);
+  assert.equal(validComma.value, 25.5);
+});
+
+// ============================================================================
+// 8. Multi-Item Modal UI & Error Banner Rendering
+// ============================================================================
+
+test('ReviewTemplateModal: renders multi-item template with individual food item inputs', () => {
+  const t = createMockTranslator('en');
+  const multiTemplate: MealTemplate = normalizeMealTemplate({
+    id: 'tpl-modal-multi',
+    title: 'Rice and Chicken Meal',
+    items: [
+      {
+        id: 'ti-m-1',
+        name: 'Jasmine Rice',
+        quantity: 150,
+        unit: 'g',
+        calories: 195,
+        protein: 0,
+        carbs: 0,
+        fats: 0,
+      },
+      {
+        id: 'ti-m-2',
+        name: 'Grilled Chicken',
+        quantity: 200,
+        unit: 'g',
+        calories: 220,
+        protein: 0,
+        carbs: 0,
+        fats: 0,
+      },
+    ],
+    totalCalories: 415,
+    totalProtein: 0,
+    totalCarbs: 0,
+    totalFat: 0,
+    nutritionCompleteness: 'indeterminate',
+    proteinKnown: false,
+    carbsKnown: false,
+    fatKnown: false,
+    reviewStatus: 'ambiguous',
+  });
+
+  const html = renderToStaticMarkup(
+    React.createElement(ReviewTemplateModal, {
+      visible: true,
+      template: multiTemplate,
+      onClose: () => {},
+      onReconfirm: async () => {},
+      t,
+      language: 'en',
+    })
+  );
+
+  assert.ok(html.includes('Rice and Chicken Meal'), 'Must render template title');
+  assert.ok(html.includes('Jasmine Rice'), 'Must render first item name');
+  assert.ok(html.includes('Grilled Chicken'), 'Must render second item name');
+  assert.ok(html.includes('Food Items') || html.includes('items'), 'Must render items section header');
+  assert.ok(html.includes('Known'), 'Must render Known toggle');
+  assert.ok(html.includes('Unrecorded'), 'Must render Unrecorded toggle');
 });

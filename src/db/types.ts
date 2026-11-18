@@ -84,6 +84,7 @@ export interface MealTemplateRepository {
       totalProtein?: number;
       totalCarbs?: number;
       totalFat?: number;
+      items?: import('../models/mealTemplate').MealTemplateItem[];
     },
     txn?: IDatabase
   ): Promise<MealTemplate>;

@@ -53,6 +53,7 @@ type MealsScreenProps = {
       totalProtein?: number;
       totalCarbs?: number;
       totalFat?: number;
+      items?: import('../models/mealTemplate').MealTemplateItem[];
     }
   ) => Promise<MealTemplate | void>;
   profile?: UserProfile;

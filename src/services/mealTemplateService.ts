@@ -48,6 +48,7 @@ export async function reconfirmMealTemplate(
     totalProtein?: number;
     totalCarbs?: number;
     totalFat?: number;
+    items?: import('../models/mealTemplate').MealTemplateItem[];
   }
 ): Promise<MealTemplate> {
   const repo = await getMealTemplateRepository();
