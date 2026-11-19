@@ -24,10 +24,10 @@
 [ Phase 3: Complete Workout System + Edit/Delete ] ──► (Complete & Merged into Main)
        │
        ▼
-[ Phase 4: Nutrition & Meal Planning + Edit/Delete ] ──► (Active Engineering Epic - In Progress)
+[ Phase 4: Nutrition & Meal Planning + Edit/Delete ] ──► (Complete & Merged into Main)
        │
        ▼
-[ Phase 5: Body Tracking & Analytics ] (Planned)
+[ Phase 5: Body Tracking & Analytics ] ──► (Active Engineering Epic - In Progress)
        │
        ▼
 [ Phase 6: AI Fitness Coach ] (Planned)
@@ -111,12 +111,23 @@
   - **Task 4.7 Final Fix [COMPLETED]:** Template Nutrient Integrity, Multi-Item Protection & Strict Parsing. Direct persistence of corrected calories/macros for itemless and single-item templates; multi-item template snapshot protection requiring explicit per-item corrections (`items`) and rejecting unsupported aggregate edits without item breakdown (preventing silent discards); strict nutrient input parsing with `parseStrictNutrientInput` rejecting empty, non-finite, negative, malformed, and out-of-range values; form state retention on error; and 764 passing automated tests (90.59% coverage).
   - **Task 4.7 Data Preservation Fix [COMPLETED]:** Non-Zero Nutrient Preservation Under Unknown Status. Elimination of numeric zero coercion when macronutrients are marked Unrecorded in `ReviewTemplateModal`; strict preservation of stored per-item nutrient values and aggregate totals across multi-item, single-item, and itemless templates; independent known/unknown flags; and 773 passing automated tests (90.84% coverage). Phase 4 is 100% complete and merge-ready for `main`.
 
-### Phase 5: Body Tracking & Analytics — Planned
-- **Core Mission:** Comprehensive biometric progression tracking and historical visualization.
+### Phase 5: Body Tracking & Analytics — Active Engineering Epic
+- **Core Mission:** Comprehensive biometric progression tracking, moving averages, body circumferences, visual progress photos, and historical visualization.
 - **Target Deliverables:**
-  - Weight trends, moving averages, and body measurement logging (chest, waist, hips, arms).
-  - Interactive multi-week / multi-month progress charts with time-range filtering (7d, 30d, 90d, 1y).
-  - Progress photos comparison and body composition estimation.
+  - Forward-only Migration 16 (`add_body_tracking_and_biometrics_v16`) providing normalized tables for `body_weight_entries`, `body_measurement_entries`, `body_composition_entries`, and `progress_photos`.
+  - Elimination of the destructive `saveAllProgress` whole-table wipe pattern in favor of atomic, row-level SQLite CRUD.
+  - Weight trends, 7-day rolling moving averages (EMA/SMA), time-range filtering (`7d`, `30d`, `90d`, `1y`, `all`), and sparse-data handling without point fabrication.
+  - Body measurement logging (chest, waist, hips, arms, thighs, calves, shoulders, neck) with explicit missing-value semantics.
+  - Progress photos comparison with sandboxed local storage, pose classification, and safe physical unlinking upon deletion.
+  - Complete dual-platform compliance (Material Design 3 / Apple HIG), RTL/LTR symmetry, Latin numeral preservation (`ar-SA-u-nu-latn`), and WCAG 2.1 AA contrast.
+- **Current Status & Milestones:**
+  - **Task 5.0 [COMPLETED]:** Body Tracking & Analytics Architecture Audit. Pre-flight quality gates verified (773 passing tests, 90.82% coverage, 0 TS errors, 0 ESLint warnings, 20/20 Expo Doctor checks). System audit of `progress_entries`, whole-table wipe risks, profile synchronization, canonical domain models, Migration 16 strategy, analytics formulas, implementation plan, and acceptance matrix documented.
+  - **Task 5.1 [PLANNED]:** Migration 16 & Normalized Biometric Storage Architecture (`body_weight_entries`, `body_measurement_entries`, `body_composition_entries`, `progress_photos`, non-destructive legacy backfill, granular repositories).
+  - **Task 5.2 [PLANNED]:** Body Weight Logging, History & Strict Validation (Timestamped weigh-ins, multiple entries per day, unit conversion kg/lb, edit/delete weight entry, profile sync).
+  - **Task 5.3 [PLANNED]:** Body Measurements & Circumference Tracking (Modal and cards for chest, waist, hips, arms, thighs, calves, shoulders, neck, explicit nulls, anatomical WHR/WHtR ratios).
+  - **Task 5.4 [PLANNED]:** Biometric Analytics, Moving Averages & Charting (7d/30d/90d/1y/all filters, 7-day rolling EMA/SMA, rate of change, goal comparison, accessible chart alternatives).
+  - **Task 5.5 [PLANNED]:** Progress Photos & Visual Comparison (Sandboxed storage, camera/library picker, front/side/back tagging, side-by-side comparison slider, privacy controls).
+  - **Task 5.6 [PLANNED]:** Final Acceptance, Full Regression & Merge Readiness (Complete V0..V16 upgrade matrix, user journeys, 100% Arabic/English parity, physical device validation).
 
 ### Phase 6: AI Fitness Coach — Planned
 - **Core Mission:** Intelligent, contextual training and nutrition guidance tailored to user biometrics and daily adherence.
