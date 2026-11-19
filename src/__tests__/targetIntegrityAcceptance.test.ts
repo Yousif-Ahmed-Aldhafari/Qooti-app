@@ -268,7 +268,7 @@ test('Task 2.4 - Acceptance 8: Profile changes never mutate meal records in SQLi
   const meal = normalizeMeal({
     id: 'meal-safe-1',
     title: 'Oatmeal & Almond Butter',
-    date: '2026-11-12T08:30:00.000Z',
+    date: '2026-11-12',
     time: '08:30',
     items: [
       { id: 'item-oats', foodName: 'Oats', quantity: 60, calories: 230, protein: 8, carbs: 40, fats: 4 },

@@ -44,5 +44,14 @@
     "test": "tsx --tsconfig tsconfig.test.json --test src/__tests__/*.test.ts",
     "test:coverage": "tsx --tsconfig tsconfig.test.json --test --experimental-test-coverage src/__tests__/*.test.ts"
   },
+  "expo": {
+    "install": {
+      "exclude": [
+        "expo",
+        "expo-dev-client",
+        "expo-sqlite"
+      ]
+    }
+  },
   "private": true
 }

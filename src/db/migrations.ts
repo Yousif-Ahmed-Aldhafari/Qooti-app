@@ -208,6 +208,337 @@ export const MIGRATIONS: SchemaMigration[] = [
       );
     },
   },
+  {
+    version: 9,
+    name: 'add_custom_foods_and_meal_enhancements_v9',
+    up: async (db: IDatabase) => {
+      // 1. Add meal_type and notes columns to meals table if missing
+      await addMissingColumns(db, 'meals', [
+        { name: 'meal_type', ddl: 'ALTER TABLE meals ADD COLUMN meal_type TEXT;' },
+        { name: 'notes', ddl: 'ALTER TABLE meals ADD COLUMN notes TEXT;' },
+      ]);
+
+      // 2. Add catalog_id and portion_unit columns to meal_items table if missing
+      await addMissingColumns(db, 'meal_items', [
+        { name: 'catalog_id', ddl: 'ALTER TABLE meal_items ADD COLUMN catalog_id TEXT;' },
+        { name: 'portion_unit', ddl: 'ALTER TABLE meal_items ADD COLUMN portion_unit TEXT;' },
+      ]);
+
+      // 3. Create custom_foods table
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS custom_foods (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          name_ar TEXT,
+          calories REAL NOT NULL DEFAULT 0,
+          protein REAL NOT NULL DEFAULT 0,
+          carbs REAL NOT NULL DEFAULT 0,
+          fats REAL NOT NULL DEFAULT 0,
+          serving_size REAL NOT NULL DEFAULT 100,
+          serving_unit TEXT NOT NULL DEFAULT 'g',
+          category TEXT DEFAULT 'custom',
+          notes TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+      `);
+
+      // 4. Create performance indexes
+      await db.execAsync(`
+        CREATE INDEX IF NOT EXISTS idx_custom_foods_name ON custom_foods(name);
+        CREATE INDEX IF NOT EXISTS idx_meal_items_catalog_id ON meal_items(catalog_id);
+      `);
+    },
+  },
+  {
+    version: 10,
+    name: 'add_meal_templates_and_structured_favorites_v10',
+    up: async (db: IDatabase) => {
+      // 1. Add structured favorite and nutrient completeness columns to meals
+      await addMissingColumns(db, 'meals', [
+        { name: 'is_favorite', ddl: 'ALTER TABLE meals ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0;' },
+        { name: 'nutrition_completeness', ddl: "ALTER TABLE meals ADD COLUMN nutrition_completeness TEXT NOT NULL DEFAULT 'complete';" },
+        { name: 'protein_known', ddl: 'ALTER TABLE meals ADD COLUMN protein_known INTEGER NOT NULL DEFAULT 1;' },
+        { name: 'carbs_known', ddl: 'ALTER TABLE meals ADD COLUMN carbs_known INTEGER NOT NULL DEFAULT 1;' },
+        { name: 'fat_known', ddl: 'ALTER TABLE meals ADD COLUMN fat_known INTEGER NOT NULL DEFAULT 1;' },
+      ]);
+
+      // 2. Safe transition for previously encoded [favorite] notes:
+      // Mark is_favorite = 1 where notes contain [favorite] without destroying user notes
+      await db.runAsync(`
+        UPDATE meals
+        SET is_favorite = 1
+        WHERE notes LIKE '%[favorite]%';
+      `);
+
+      // 3. Mark existing itemless meals where all macros are 0 as 'indeterminate'
+      // so legacy meals without recorded macros are not falsely assumed to be confirmed 0g
+      await db.runAsync(`
+        UPDATE meals
+        SET nutrition_completeness = 'indeterminate',
+            protein_known = 0,
+            carbs_known = 0,
+            fat_known = 0
+        WHERE total_calories > 0
+          AND total_protein = 0
+          AND total_carbs = 0
+          AND total_fat = 0
+          AND (SELECT COUNT(*) FROM meal_items WHERE meal_items.meal_id = meals.id) = 0;
+      `);
+
+      // 4. Create independent meal_templates and meal_template_items tables
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS meal_templates (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          meal_type TEXT,
+          notes TEXT,
+          is_favorite INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS meal_template_items (
+          id TEXT PRIMARY KEY,
+          template_id TEXT NOT NULL REFERENCES meal_templates(id) ON DELETE CASCADE,
+          name TEXT NOT NULL,
+          quantity REAL NOT NULL,
+          unit TEXT NOT NULL,
+          calories REAL NOT NULL DEFAULT 0,
+          protein REAL NOT NULL DEFAULT 0,
+          carbs REAL NOT NULL DEFAULT 0,
+          fats REAL NOT NULL DEFAULT 0,
+          catalog_id TEXT,
+          portion_unit TEXT,
+          sort_order INTEGER NOT NULL DEFAULT 0
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_meal_template_items_template_id ON meal_template_items(template_id);
+        CREATE INDEX IF NOT EXISTS idx_meal_templates_favorite ON meal_templates(is_favorite);
+        CREATE INDEX IF NOT EXISTS idx_meals_is_favorite ON meals(is_favorite);
+      `);
+    },
+  },
+  {
+    version: 11,
+    name: 'add_meal_template_nutrient_fidelity_and_favorite_repair_v11',
+    up: async (db: IDatabase) => {
+      // 1. Add nutrient totals and macro completeness columns to meal_templates
+      await addMissingColumns(db, 'meal_templates', [
+        { name: 'total_calories', ddl: 'ALTER TABLE meal_templates ADD COLUMN total_calories REAL NOT NULL DEFAULT 0;' },
+        { name: 'total_protein', ddl: 'ALTER TABLE meal_templates ADD COLUMN total_protein REAL NOT NULL DEFAULT 0;' },
+        { name: 'total_carbs', ddl: 'ALTER TABLE meal_templates ADD COLUMN total_carbs REAL NOT NULL DEFAULT 0;' },
+        { name: 'total_fat', ddl: 'ALTER TABLE meal_templates ADD COLUMN total_fat REAL NOT NULL DEFAULT 0;' },
+        { name: 'nutrition_completeness', ddl: "ALTER TABLE meal_templates ADD COLUMN nutrition_completeness TEXT NOT NULL DEFAULT 'complete';" },
+        { name: 'protein_known', ddl: 'ALTER TABLE meal_templates ADD COLUMN protein_known INTEGER NOT NULL DEFAULT 1;' },
+        { name: 'carbs_known', ddl: 'ALTER TABLE meal_templates ADD COLUMN carbs_known INTEGER NOT NULL DEFAULT 1;' },
+        { name: 'fat_known', ddl: 'ALTER TABLE meal_templates ADD COLUMN fat_known INTEGER NOT NULL DEFAULT 1;' },
+      ]);
+
+      // 2. Backfill existing meal_templates nutrient totals from their child items
+      await db.runAsync(`
+        UPDATE meal_templates
+        SET total_calories = (
+              SELECT COALESCE(SUM(calories), 0)
+              FROM meal_template_items
+              WHERE meal_template_items.template_id = meal_templates.id
+            ),
+            total_protein = (
+              SELECT COALESCE(ROUND(SUM(protein), 1), 0)
+              FROM meal_template_items
+              WHERE meal_template_items.template_id = meal_templates.id
+            ),
+            total_carbs = (
+              SELECT COALESCE(ROUND(SUM(carbs), 1), 0)
+              FROM meal_template_items
+              WHERE meal_template_items.template_id = meal_templates.id
+            ),
+            total_fat = (
+              SELECT COALESCE(ROUND(SUM(fats), 1), 0)
+              FROM meal_template_items
+              WHERE meal_template_items.template_id = meal_templates.id
+            )
+        WHERE (SELECT COUNT(*) FROM meal_template_items WHERE meal_template_items.template_id = meal_templates.id) > 0;
+      `);
+
+      // 3. Repair falsely favorited meals from Migration 10 substring matching
+      // Distinguish historical marker prefix ([favorite] at start of notes) from legitimate user prose
+      await db.runAsync(`
+        UPDATE meals
+        SET is_favorite = 0
+        WHERE is_favorite = 1
+          AND notes IS NOT NULL
+          AND notes LIKE '%[favorite]%'
+          AND TRIM(notes) NOT LIKE '[favorite]%'
+          AND TRIM(notes) NOT LIKE '[favorite]';
+      `);
+    },
+  },
+  {
+    version: 12,
+    name: 'add_provenance_and_repair_legacy_templates_v12',
+    up: async (db: IDatabase) => {
+      // 1. Add favorite_source column to meals
+      await addMissingColumns(db, 'meals', [
+        {
+          name: 'favorite_source',
+          ddl: "ALTER TABLE meals ADD COLUMN favorite_source TEXT NOT NULL DEFAULT 'none';",
+        },
+      ]);
+
+      // 2. Backfill favorite_source provenance on existing meals:
+      // a) Historical marker prefix [favorite] at start of notes
+      await db.runAsync(`
+        UPDATE meals
+        SET favorite_source = 'legacy_marker'
+        WHERE notes IS NOT NULL
+          AND (TRIM(notes) LIKE '[favorite]%' OR TRIM(notes) LIKE '[favorite]');
+      `);
+
+      // b) Notes containing [favorite] within legitimate user prose (ambiguous)
+      await db.runAsync(`
+        UPDATE meals
+        SET favorite_source = 'ambiguous'
+        WHERE notes IS NOT NULL
+          AND notes LIKE '%[favorite]%'
+          AND TRIM(notes) NOT LIKE '[favorite]%'
+          AND TRIM(notes) NOT LIKE '[favorite]';
+      `);
+
+      // c) Explicitly favorited meals without legacy [favorite] marker strings
+      await db.runAsync(`
+        UPDATE meals
+        SET favorite_source = 'explicit'
+        WHERE is_favorite = 1
+          AND (notes IS NULL OR notes NOT LIKE '%[favorite]%');
+      `);
+
+      // 3. Repair V10 legacy templates:
+      // Prior to Task 4.5B, calorie-only templates had a synthetic child item and were
+      // backfilled in Migration 11 without distinguishing whether 0g macros were measured/confirmed
+      // or unmeasured. Mark uncertain templates with total_calories > 0 and 0g macros as indeterminate.
+      await db.runAsync(`
+        UPDATE meal_templates
+        SET nutrition_completeness = 'indeterminate',
+            protein_known = 0,
+            carbs_known = 0,
+            fat_known = 0
+        WHERE total_calories > 0
+          AND total_protein = 0
+          AND total_carbs = 0
+          AND total_fat = 0;
+      `);
+
+      // 4. Index favorite_source
+      await db.runAsync(`
+        CREATE INDEX IF NOT EXISTS idx_meals_favorite_source ON meals(favorite_source);
+      `);
+    },
+  },
+  {
+    version: 13,
+    name: 'harden_template_nutrient_fidelity_and_favorite_provenance_v13',
+    up: async (db: IDatabase) => {
+      // 1. Restore confirmed zero macros for templates with genuine child food items:
+      // Migration 12 unconditionally marked all templates with total_calories > 0 and 0g macros
+      // as indeterminate. Where genuine child items exist (catalogId present, portion unit,
+      // non-generic unit, non-template name, or multiple items), restore confirmed complete macros.
+      await db.runAsync(`
+        UPDATE meal_templates
+        SET nutrition_completeness = 'complete',
+            protein_known = 1,
+            carbs_known = 1,
+            fat_known = 1
+        WHERE total_calories > 0
+          AND total_protein = 0
+          AND total_carbs = 0
+          AND total_fat = 0
+          AND id IN (
+            SELECT DISTINCT t.id
+            FROM meal_templates t
+            JOIN meal_template_items ti ON ti.template_id = t.id
+            WHERE ti.catalog_id IS NOT NULL
+               OR ti.portion_unit IS NOT NULL
+               OR (ti.unit IS NOT NULL AND LOWER(TRIM(ti.unit)) NOT IN ('serving', ''))
+               OR LOWER(TRIM(ti.name)) != LOWER(TRIM(t.title))
+               OR (SELECT COUNT(*) FROM meal_template_items WHERE template_id = t.id) > 1
+          );
+      `);
+
+      // 2. Ensure favorite_source is non-null across all meals
+      await db.runAsync(`
+        UPDATE meals
+        SET favorite_source = 'none'
+        WHERE favorite_source IS NULL;
+      `);
+
+      // 3. Ensure favorite_source index exists
+      await db.runAsync(`
+        CREATE INDEX IF NOT EXISTS idx_meals_favorite_source ON meals(favorite_source);
+      `);
+    },
+  },
+  {
+    version: 14,
+    name: 'reconcile_template_unknown_macros_and_preserve_uncertainty_v14',
+    up: async (db: IDatabase) => {
+      // 1. Reconcile positive-calorie zero-macro templates to honest uncertainty:
+      // In caloric physical reality (Atwater 4/4/9), a meal with positive calories
+      // cannot contain confirmed 0g protein, 0g carbohydrates, and 0g fat without
+      // unmeasured macronutrients. Child item existence (catalog_id, portion_unit)
+      // confirms food item existence but does not establish that macronutrients
+      // were scientifically measured or verified as zero.
+      // Setting completeness to 'complete' fabricates false certainty.
+      // Reconcile all templates with total_calories > 0 and 0g across all macros
+      // to 'indeterminate' with protein_known = 0, carbs_known = 0, fat_known = 0.
+      await db.runAsync(`
+        UPDATE meal_templates
+        SET nutrition_completeness = 'indeterminate',
+            protein_known = 0,
+            carbs_known = 0,
+            fat_known = 0
+        WHERE total_calories > 0
+          AND total_protein = 0
+          AND total_carbs = 0
+          AND total_fat = 0;
+      `);
+    },
+  },
+  {
+    version: 15,
+    name: 'add_meal_template_review_status_and_reconcile_ambiguity_v15',
+    up: async (db: IDatabase) => {
+      // 1. Add review_status column to meal_templates to track explicit user confirmation
+      // vs unresolved historical migration ambiguity without inventing recovered metadata.
+      await addMissingColumns(db, 'meal_templates', [
+        {
+          name: 'review_status',
+          ddl: "ALTER TABLE meal_templates ADD COLUMN review_status TEXT NOT NULL DEFAULT 'confirmed';",
+        },
+      ]);
+
+      // 2. Identify templates where positive calories exist alongside 0g across all macros
+      // and nutrition_completeness is indeterminate. Because Migration 14 overwrote historical
+      // metadata on existing databases, their true previous completeness cannot be reconstructed
+      // with certainty from database columns alone without user input. Flag them as 'ambiguous'
+      // (requiring explicit user review/reconfirmation) rather than fabricating false certainty
+      // or inventing an automated promotion.
+      await db.runAsync(`
+        UPDATE meal_templates
+        SET review_status = 'ambiguous'
+        WHERE total_calories > 0
+          AND total_protein = 0
+          AND total_carbs = 0
+          AND total_fat = 0
+          AND nutrition_completeness = 'indeterminate';
+      `);
+
+      // 3. Ensure index exists for review_status queries
+      await db.runAsync(`
+        CREATE INDEX IF NOT EXISTS idx_meal_templates_review_status ON meal_templates(review_status);
+      `);
+    },
+  },
 ];
 
 /**

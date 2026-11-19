@@ -10,6 +10,7 @@ import { sampleSleepEntries, sampleWaterEntries } from '../data/sampleData';
 import { ActiveWorkoutScreen } from '../screens/ActiveWorkoutScreen';
 import { AddMealScreen } from '../screens/AddMealScreen';
 import { AddWorkoutScreen } from '../screens/AddWorkoutScreen';
+import { EditMealScreen } from '../screens/EditMealScreen';
 import { EditWorkoutScreen } from '../screens/EditWorkoutScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { MealDetailsScreen } from '../screens/MealDetailsScreen';
@@ -34,6 +35,12 @@ import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import type { Language, Meal, ScreenKey, TabKey, Workout } from '../types';
+import { createRepeatedMealDraft, formatLocalDate } from '../utils/nutrition';
+import {
+  createTemplateFromMeal,
+  createMealFromTemplate,
+  type MealTemplate,
+} from '../models/mealTemplate';
 import { applyRTL, flexStart, isRTL, rowStyle, textAlign, writingDirection } from '../utils/rtl';
 import { createQuickAddWorkoutDraft } from '../utils/workoutAnalytics';
 
@@ -62,6 +69,7 @@ export function AppNavigator() {
     persistenceError,
     clearPersistenceError,
     meals,
+    mealTemplates,
     workouts,
     profile,
     progressEntries,
@@ -71,6 +79,12 @@ export function AppNavigator() {
     updateProfile,
     completeOnboarding: finishOnboardingInContext,
     addMeal,
+    updateMeal,
+    deleteMeal,
+    toggleMealFavorite,
+    addMealTemplate,
+    deleteMealTemplate,
+    reconfirmMealTemplate,
     addWorkout,
     updateWorkout,
     deleteWorkout,
@@ -99,6 +113,8 @@ export function AppNavigator() {
   const [activeTab, setActiveTab] = useState<TabKey>('home');
   const [activeScreen, setActiveScreen] = useState<ScreenKey>('home');
   const [selectedMealId, setSelectedMealId] = useState<string | null>(null);
+  const [addMealInitialDate, setAddMealInitialDate] = useState<string | undefined>(undefined);
+  const [selectedDiaryDate, setSelectedDiaryDate] = useState<string>(() => formatLocalDate(new Date()));
   const [selectedWorkoutId, setSelectedWorkoutId] = useState<string | null>(null);
   const [quickAddTemplate, setQuickAddTemplate] = useState<Workout | null>(null);
 
@@ -128,7 +144,7 @@ export function AppNavigator() {
 
   // Derive effective screen: safely fall back to parent list if selected entity is missing
   const effectiveScreen: ScreenKey = useMemo(() => {
-    if (activeScreen === 'mealDetails' && !selectedMeal) {
+    if ((activeScreen === 'mealDetails' || activeScreen === 'editMeal') && !selectedMeal) {
       return 'meals';
     }
     if ((activeScreen === 'workoutDetails' || activeScreen === 'editWorkout') && !selectedWorkout) {
@@ -143,7 +159,12 @@ export function AppNavigator() {
   // Android hardware back handler: prevents accidental app exits on sub-screens
   useEffect(() => {
     const onHardwareBack = () => {
-      // 1. If currently on edit workout, back returns to workout details
+      // 1. If currently on edit meal, back returns to meal details
+      if (effectiveScreen === 'editMeal') {
+        setActiveScreen('mealDetails');
+        return true;
+      }
+      // 1a. If currently on edit workout, back returns to workout details
       if (effectiveScreen === 'editWorkout') {
         setActiveScreen('workoutDetails');
         return true;
@@ -251,11 +272,78 @@ export function AppNavigator() {
     setActiveScreen('mealDetails');
   }
 
-  function saveMeal(meal: Meal) {
-    addMeal(meal);
+  async function saveMeal(meal: Meal) {
+    await addMeal(meal);
     setSelectedMealId(meal.id);
+    if (meal.date && meal.date.trim()) {
+      setSelectedDiaryDate(meal.date.trim().slice(0, 10));
+    }
     setActiveTab('meals');
     setActiveScreen('mealDetails');
+  }
+
+  function openEditMeal(meal: Meal) {
+    setSelectedMealId(meal.id);
+    setActiveScreen('editMeal');
+  }
+
+  async function handleUpdateMeal(meal: Meal) {
+    await updateMeal(meal);
+    setSelectedMealId(meal.id);
+    if (meal.date && meal.date.trim()) {
+      setSelectedDiaryDate(meal.date.trim().slice(0, 10));
+    }
+    setActiveTab('meals');
+    setActiveScreen('mealDetails');
+  }
+
+  async function handleDeleteMeal(meal: Meal) {
+    await deleteMeal(meal.id);
+    setSelectedMealId(null);
+    setActiveTab('meals');
+    setActiveScreen('meals');
+  }
+
+  async function handleRepeatMeal(sourceMeal: Meal) {
+    const repeated = createRepeatedMealDraft(sourceMeal, selectedDiaryDate);
+    await addMeal(repeated);
+    setSelectedMealId(repeated.id);
+  }
+
+  async function handleToggleFavoriteMeal(mealToToggle: Meal) {
+    const nextFav = !mealToToggle.isFavorite;
+    await toggleMealFavorite(mealToToggle.id, nextFav);
+  }
+
+  async function handleSaveAsTemplate(sourceMeal: Meal) {
+    const template = createTemplateFromMeal(sourceMeal);
+    await addMealTemplate(template);
+  }
+
+  async function handleLogFromTemplate(template: MealTemplate) {
+    const newMeal = createMealFromTemplate(template, selectedDiaryDate);
+    await addMeal(newMeal);
+    setSelectedMealId(newMeal.id);
+    setActiveTab('meals');
+    setActiveScreen('mealDetails');
+  }
+
+  async function handleDeleteTemplate(template: MealTemplate) {
+    Alert.alert(
+      t('meals.deleteTemplate') || 'Delete template',
+      t('meals.deleteTemplateConfirm') ||
+        'Are you sure you want to delete this template? Historical meals will not be affected.',
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            await deleteMealTemplate(template.id);
+          },
+        },
+      ]
+    );
   }
 
   function openWorkoutDetails(workout: Workout) {
@@ -332,6 +420,15 @@ export function AppNavigator() {
       setActiveScreen('workoutDetails');
       return;
     }
+    if (effectiveScreen === 'editMeal') {
+      setActiveScreen('mealDetails');
+      return;
+    }
+    if (effectiveScreen === 'mealDetails') {
+      setSelectedMealId(null);
+      setActiveScreen('meals');
+      return;
+    }
     if (effectiveScreen === 'addWorkout' && quickAddTemplate) {
       setQuickAddTemplate(null);
       if (selectedWorkoutId) {
@@ -378,18 +475,110 @@ export function AppNavigator() {
             key={language}
             t={t}
             meals={meals}
+            mealTemplates={mealTemplates}
             profile={profile}
-            onAddMeal={() => setActiveScreen('addMeal')}
+            language={language}
+            selectedDate={selectedDiaryDate}
+            onSelectDate={setSelectedDiaryDate}
+            onAddMeal={(date?: string) => {
+              setAddMealInitialDate(date || selectedDiaryDate);
+              setActiveScreen('addMeal');
+            }}
+            onQuickAddMeal={addMeal}
+            onLogFromTemplate={handleLogFromTemplate}
+            onDeleteTemplate={handleDeleteTemplate}
+            onReconfirmTemplate={reconfirmMealTemplate}
             onMealPress={openMealDetails}
           />
         );
       case 'addMeal':
-        return <AddMealScreen key={language} t={t} onSave={saveMeal} />;
+        return (
+          <AddMealScreen
+            key={language}
+            t={t}
+            initialDate={addMealInitialDate || selectedDiaryDate}
+            language={language}
+            onSave={async (meal) => {
+              await saveMeal(meal);
+              setAddMealInitialDate(undefined);
+            }}
+            onCancel={() => {
+              setAddMealInitialDate(undefined);
+              setActiveScreen('meals');
+            }}
+          />
+        );
       case 'mealDetails':
         if (!selectedMeal) {
-          return <MealsScreen key={language} t={t} meals={meals} onAddMeal={() => setActiveScreen('addMeal')} onMealPress={openMealDetails} />;
+          return (
+            <MealsScreen
+              key={language}
+              t={t}
+              meals={meals}
+              mealTemplates={mealTemplates}
+              profile={profile}
+              language={language}
+              selectedDate={selectedDiaryDate}
+              onSelectDate={setSelectedDiaryDate}
+              onAddMeal={(date?: string) => {
+                setAddMealInitialDate(date || selectedDiaryDate);
+                setActiveScreen('addMeal');
+              }}
+              onQuickAddMeal={addMeal}
+              onLogFromTemplate={handleLogFromTemplate}
+              onDeleteTemplate={handleDeleteTemplate}
+              onReconfirmTemplate={reconfirmMealTemplate}
+              onMealPress={openMealDetails}
+            />
+          );
         }
-        return <MealDetailsScreen key={language} t={t} meal={selectedMeal} profile={profile} />;
+        return (
+          <MealDetailsScreen
+            key={`${language}-${selectedMeal.id}-${Boolean(selectedMeal.isFavorite)}`}
+            t={t}
+            meal={selectedMeal}
+            profile={profile}
+            onEdit={openEditMeal}
+            onDelete={handleDeleteMeal}
+            onRepeat={handleRepeatMeal}
+            onToggleFavorite={handleToggleFavoriteMeal}
+            onSaveAsTemplate={handleSaveAsTemplate}
+          />
+        );
+      case 'editMeal':
+        if (!selectedMeal) {
+          return (
+            <MealsScreen
+              key={language}
+              t={t}
+              meals={meals}
+              mealTemplates={mealTemplates}
+              profile={profile}
+              language={language}
+              selectedDate={selectedDiaryDate}
+              onSelectDate={setSelectedDiaryDate}
+              onAddMeal={(date?: string) => {
+                setAddMealInitialDate(date || selectedDiaryDate);
+                setActiveScreen('addMeal');
+              }}
+              onQuickAddMeal={addMeal}
+              onLogFromTemplate={handleLogFromTemplate}
+              onDeleteTemplate={handleDeleteTemplate}
+              onReconfirmTemplate={reconfirmMealTemplate}
+              onMealPress={openMealDetails}
+            />
+          );
+        }
+        return (
+          <EditMealScreen
+            key={language}
+            t={t}
+            meal={selectedMeal}
+            language={language}
+            onSave={handleUpdateMeal}
+            onCancel={() => setActiveScreen('mealDetails')}
+          />
+        );
       case 'workouts':
         return (
           <WorkoutsScreen
@@ -520,7 +709,7 @@ export function AppNavigator() {
           />
         );
       case 'progress':
-        return <ProgressScreen key={language} t={t} profile={profile} progress={progressEntries} />;
+        return <ProgressScreen key={language} t={t} profile={profile} progress={progressEntries} meals={meals} language={language} />;
       case 'profile':
         return (
           <ProfileScreen

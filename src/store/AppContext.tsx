@@ -2,12 +2,28 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useReducer,
 
 import { translate } from '../i18n';
 import type { Language, Settings } from '../models/settings';
-import { normalizeMeal, type Meal } from '../models/meal';
+import { normalizeMeal, validateMeal, type Meal } from '../models/meal';
+import { normalizeMealTemplate, type MealTemplate, type MealTemplateItem } from '../models/mealTemplate';
 import { normalizeProfile, type UserProfile } from '../models/profile';
 import { normalizeProgressEntry, type ProgressEntry } from '../models/progress';
 import { normalizeWorkout, type Workout } from '../models/workout';
 import { getSeedMeals, getSeedProfile, getSeedProgressEntries, getSeedWorkouts } from '../data/seedData';
-import { loadMeals, saveMeals } from '../services/mealService';
+import {
+  loadMeals,
+  saveMeals,
+  insertMeal as insertMealService,
+  updateMeal as updateMealService,
+  deleteMeal as deleteMealService,
+  toggleMealFavorite as toggleMealFavoriteService,
+} from '../services/mealService';
+import {
+  loadMealTemplates,
+  insertMealTemplate as insertMealTemplateService,
+  updateMealTemplate as updateMealTemplateService,
+  deleteMealTemplate as deleteMealTemplateService,
+  toggleMealTemplateFavorite as toggleMealTemplateFavoriteService,
+  reconfirmMealTemplate as reconfirmMealTemplateService,
+} from '../services/mealTemplateService';
 import { loadProfile, saveProfile } from '../services/profileService';
 import { loadProgressEntries, saveProgressEntries } from '../services/progressService';
 import { resolveAuthoritativeLanguage } from '../services/localizationService';
@@ -54,6 +70,7 @@ export type AppStateData = {
   persistenceError: string | null;
   migrationConflict: MigrationConflictInfo | null;
   meals: Meal[];
+  mealTemplates: MealTemplate[];
   workouts: Workout[];
   profile: UserProfile;
   progressEntries: ProgressEntry[];
@@ -66,6 +83,7 @@ export type AppAction =
   | {
       type: 'hydrate';
       meals: Meal[];
+      mealTemplates?: MealTemplate[];
       workouts: Workout[];
       profile: UserProfile;
       progressEntries: ProgressEntry[];
@@ -80,6 +98,12 @@ export type AppAction =
   | { type: 'addMeal'; meal: Meal }
   | { type: 'updateMeal'; meal: Meal }
   | { type: 'deleteMeal'; mealId: string }
+  | { type: 'toggleMealFavorite'; mealId: string; isFavorite: boolean }
+  | { type: 'setMealTemplates'; mealTemplates: MealTemplate[] }
+  | { type: 'addMealTemplate'; template: MealTemplate }
+  | { type: 'updateMealTemplate'; template: MealTemplate }
+  | { type: 'deleteMealTemplate'; templateId: string }
+  | { type: 'toggleMealTemplateFavorite'; templateId: string; isFavorite: boolean }
   | { type: 'addWorkout'; workout: Workout }
   | { type: 'updateWorkout'; workout: Workout }
   | { type: 'deleteWorkout'; workoutId: string }
@@ -95,9 +119,28 @@ type AppContextValue = AppStateData & {
   register: (profile: Partial<UserProfile>) => void;
   logout: () => void;
   updateProfile: (profile: Partial<UserProfile>) => void;
-  addMeal: (meal: Meal) => void;
-  updateMeal: (meal: Meal) => void;
-  deleteMeal: (mealId: string) => void;
+  addMeal: (meal: Meal) => Promise<void>;
+  updateMeal: (meal: Meal) => Promise<void>;
+  deleteMeal: (mealId: string) => Promise<void>;
+  toggleMealFavorite: (mealId: string, isFavorite: boolean) => Promise<void>;
+  addMealTemplate: (template: MealTemplate) => Promise<void>;
+  updateMealTemplate: (template: MealTemplate) => Promise<void>;
+  deleteMealTemplate: (templateId: string) => Promise<void>;
+  toggleMealTemplateFavorite: (templateId: string, isFavorite: boolean) => Promise<void>;
+  reconfirmMealTemplate: (
+    templateId: string,
+    completeness: import('../models/meal').NutritionCompleteness,
+    macros?: {
+      proteinKnown?: boolean;
+      carbsKnown?: boolean;
+      fatKnown?: boolean;
+      totalCalories?: number;
+      totalProtein?: number;
+      totalCarbs?: number;
+      totalFat?: number;
+      items?: MealTemplateItem[];
+    }
+  ) => Promise<MealTemplate>;
   addWorkout: (workout: Workout) => Promise<void> | void;
   updateWorkout: (workout: Workout) => Promise<void> | void;
   deleteWorkout: (workoutId: string) => Promise<void> | void;
@@ -151,6 +194,7 @@ const initialState: AppStateData = {
   persistenceError: null,
   migrationConflict: null,
   meals: [],
+  mealTemplates: [],
   workouts: [],
   profile: getSeedProfile(),
   progressEntries: [],
@@ -168,6 +212,7 @@ export function appReducer(state: AppStateData, action: AppAction): AppStateData
         ...state,
         isReady: true,
         meals: action.meals.map(normalizeMeal),
+        mealTemplates: (action.mealTemplates || []).map(normalizeMealTemplate),
         workouts: action.workouts.map(normalizeWorkout),
         profile: normalizeProfile(action.profile),
         progressEntries: action.progressEntries.map(normalizeProgressEntry),
@@ -221,6 +266,51 @@ export function appReducer(state: AppStateData, action: AppAction): AppStateData
       return {
         ...state,
         meals: state.meals.filter((meal) => meal.id !== action.mealId),
+      };
+
+    case 'toggleMealFavorite':
+      return {
+        ...state,
+        meals: state.meals.map((meal) =>
+          meal.id === action.mealId ? { ...meal, isFavorite: action.isFavorite } : meal
+        ),
+      };
+
+    case 'setMealTemplates':
+      return {
+        ...state,
+        mealTemplates: action.mealTemplates.map(normalizeMealTemplate),
+      };
+
+    case 'addMealTemplate': {
+      const normalized = normalizeMealTemplate(action.template);
+      const exists = state.mealTemplates.some((t) => t.id === normalized.id);
+      const nextTemplates = exists
+        ? state.mealTemplates.map((t) => (t.id === normalized.id ? normalized : t))
+        : [normalized, ...state.mealTemplates];
+      return { ...state, mealTemplates: nextTemplates };
+    }
+
+    case 'updateMealTemplate': {
+      const normalized = normalizeMealTemplate(action.template);
+      return {
+        ...state,
+        mealTemplates: state.mealTemplates.map((t) => (t.id === normalized.id ? normalized : t)),
+      };
+    }
+
+    case 'deleteMealTemplate':
+      return {
+        ...state,
+        mealTemplates: state.mealTemplates.filter((t) => t.id !== action.templateId),
+      };
+
+    case 'toggleMealTemplateFavorite':
+      return {
+        ...state,
+        mealTemplates: state.mealTemplates.map((t) =>
+          t.id === action.templateId ? { ...t, isFavorite: action.isFavorite } : t
+        ),
       };
 
     case 'addWorkout': {
@@ -321,6 +411,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         const [
           savedMeals,
+          savedTemplates,
           savedWorkouts,
           savedProfile,
           savedProgressEntries,
@@ -331,6 +422,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           loadMeals().catch((e) => {
             console.warn('[AppContext] Failed to load meals:', e);
             return null;
+          }),
+          loadMealTemplates().catch((e) => {
+            console.warn('[AppContext] Failed to load meal templates:', e);
+            return [];
           }),
           loadWorkouts().catch((e) => {
             console.warn('[AppContext] Failed to load workouts:', e);
@@ -390,6 +485,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         dispatch({
           type: 'hydrate',
           meals: initialMeals,
+          mealTemplates: savedTemplates || [],
           workouts: initialWorkouts,
           profile: initialProfile,
           progressEntries: initialProgress,
@@ -423,6 +519,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         dispatch({
           type: 'hydrate',
           meals: [],
+          mealTemplates: [],
           workouts: [],
           profile: {
             id: 'user_profile',
@@ -515,26 +612,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     applyLanguageDirection(state.settings.selectedLanguage);
   }, [applyLanguageDirection, state.isReady, state.settings.selectedLanguage]);
 
-  // Persist mutations after initial hydration completes
-  useEffect(() => {
-    if (!state.isReady) {
-      return;
-    }
-    if (!isHydratedRef.current) {
-      return;
-    }
-    saveMeals(state.meals)
-      .then(() => {
-        dispatch({ type: 'setPersistenceError', error: null });
-      })
-      .catch((err) => {
-        console.error('[AppContext] Failed to persist meals:', err);
-        dispatch({
-          type: 'setPersistenceError',
-          error: err instanceof Error ? err.message : 'Failed to persist meals',
-        });
-      });
-  }, [state.isReady, state.meals]);
 
   useEffect(() => {
     if (!state.isReady) {
@@ -631,9 +708,139 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       },
       logout: () => dispatch({ type: 'updateSettings', settings: { isAuthenticated: false } }),
       updateProfile: (profile) => dispatch({ type: 'updateProfile', profile }),
-      addMeal: (meal) => dispatch({ type: 'addMeal', meal }),
-      updateMeal: (meal) => dispatch({ type: 'updateMeal', meal }),
-      deleteMeal: (mealId) => dispatch({ type: 'deleteMeal', mealId }),
+      addMeal: async (meal) => {
+        try {
+          const normalized = normalizeMeal(meal);
+          validateMeal(normalized);
+          await insertMealService(normalized);
+          dispatch({ type: 'addMeal', meal: normalized });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to insert meal:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to persist meal',
+          });
+          throw err;
+        }
+      },
+      updateMeal: async (meal) => {
+        try {
+          const normalized = normalizeMeal(meal);
+          validateMeal(normalized);
+          await updateMealService(normalized);
+          dispatch({ type: 'updateMeal', meal: normalized });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to update meal:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to persist meal',
+          });
+          throw err;
+        }
+      },
+      deleteMeal: async (mealId) => {
+        try {
+          await deleteMealService(mealId);
+          dispatch({ type: 'deleteMeal', mealId });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to delete meal:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to persist meal deletion',
+          });
+          throw err;
+        }
+      },
+      toggleMealFavorite: async (mealId, isFavorite) => {
+        try {
+          await toggleMealFavoriteService(mealId, isFavorite);
+          dispatch({ type: 'toggleMealFavorite', mealId, isFavorite });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to toggle meal favorite:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to persist meal favorite',
+          });
+          throw err;
+        }
+      },
+      addMealTemplate: async (template) => {
+        try {
+          const normalized = normalizeMealTemplate(template);
+          await insertMealTemplateService(normalized);
+          dispatch({ type: 'addMealTemplate', template: normalized });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to insert meal template:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to persist meal template',
+          });
+          throw err;
+        }
+      },
+      updateMealTemplate: async (template) => {
+        try {
+          const normalized = normalizeMealTemplate(template);
+          await updateMealTemplateService(normalized);
+          dispatch({ type: 'updateMealTemplate', template: normalized });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to update meal template:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to persist meal template',
+          });
+          throw err;
+        }
+      },
+      deleteMealTemplate: async (templateId) => {
+        try {
+          await deleteMealTemplateService(templateId);
+          dispatch({ type: 'deleteMealTemplate', templateId });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to delete meal template:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to persist meal template deletion',
+          });
+          throw err;
+        }
+      },
+      toggleMealTemplateFavorite: async (templateId, isFavorite) => {
+        try {
+          await toggleMealTemplateFavoriteService(templateId, isFavorite);
+          dispatch({ type: 'toggleMealTemplateFavorite', templateId, isFavorite });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to toggle meal template favorite:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to persist meal template favorite',
+          });
+          throw err;
+        }
+      },
+      reconfirmMealTemplate: async (templateId, completeness, macros) => {
+        try {
+          const updated = await reconfirmMealTemplateService(templateId, completeness, macros);
+          dispatch({ type: 'updateMealTemplate', template: updated });
+          dispatch({ type: 'setPersistenceError', error: null });
+          return updated;
+        } catch (err) {
+          console.error('[AppContext] Failed to reconfirm meal template:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to reconfirm meal template',
+          });
+          throw err;
+        }
+      },
       addWorkout: async (workout) => {
         try {
           const normalized = normalizeWorkout(workout);

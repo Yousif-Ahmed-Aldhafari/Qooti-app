@@ -1,9 +1,11 @@
-import { Meal } from '../models/meal';
+import { Meal, NutritionCompleteness } from '../models/meal';
+import { MealTemplate } from '../models/mealTemplate';
 import { Workout } from '../models/workout';
 import { UserProfile } from '../models/profile';
 import { ProgressEntry } from '../models/progress';
 import { Settings } from '../models/settings';
 import { WorkoutSession, WorkoutSet } from '../models/workoutSession';
+import { CustomFood } from '../models/food';
 
 /**
  * Standard interface for SQLite Database instance, compatible with expo-sqlite.
@@ -60,7 +62,32 @@ export interface MealRepository {
   insertMeal(meal: Meal, txn?: IDatabase): Promise<void>;
   updateMeal(meal: Meal, txn?: IDatabase): Promise<void>;
   deleteMeal(id: string, txn?: IDatabase): Promise<void>;
+  toggleMealFavorite(id: string, isFavorite: boolean, txn?: IDatabase): Promise<void>;
   saveAllMeals(meals: Meal[], txn?: IDatabase): Promise<void>;
+}
+
+export interface MealTemplateRepository {
+  getAllTemplates(txn?: IDatabase): Promise<MealTemplate[]>;
+  getTemplateById(id: string, txn?: IDatabase): Promise<MealTemplate | null>;
+  createTemplate(template: MealTemplate, txn?: IDatabase): Promise<MealTemplate>;
+  updateTemplate(template: MealTemplate, txn?: IDatabase): Promise<MealTemplate>;
+  deleteTemplate(id: string, txn?: IDatabase): Promise<void>;
+  toggleTemplateFavorite(id: string, isFavorite: boolean, txn?: IDatabase): Promise<void>;
+  reconfirmTemplate(
+    id: string,
+    completeness: NutritionCompleteness,
+    macros?: {
+      proteinKnown?: boolean;
+      carbsKnown?: boolean;
+      fatKnown?: boolean;
+      totalCalories?: number;
+      totalProtein?: number;
+      totalCarbs?: number;
+      totalFat?: number;
+      items?: import('../models/mealTemplate').MealTemplateItem[];
+    },
+    txn?: IDatabase
+  ): Promise<MealTemplate>;
 }
 
 export interface WorkoutRepository {
@@ -131,4 +158,13 @@ export interface WorkoutSessionRepository {
     notes?: string,
     txn?: IDatabase
   ): Promise<WorkoutSession>;
+}
+
+export interface CustomFoodRepository {
+  getAllCustomFoods(txn?: IDatabase): Promise<CustomFood[]>;
+  getCustomFoodById(id: string, txn?: IDatabase): Promise<CustomFood | null>;
+  insertCustomFood(food: CustomFood, txn?: IDatabase): Promise<void>;
+  updateCustomFood(food: CustomFood, txn?: IDatabase): Promise<void>;
+  deleteCustomFood(id: string, txn?: IDatabase): Promise<void>;
+  searchCustomFoods(query: string, txn?: IDatabase): Promise<CustomFood[]>;
 }
