@@ -20,12 +20,11 @@ import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import type { Meal, ProgressEntry, UserProfile } from '../types';
 import {
-  calculateMeasurementDelta,
-  calculateWaistToHeightRatio,
-  calculateWaistToHipRatio,
+  deriveWaistToHeightRatio,
+  deriveWaistToHipRatio,
   formatMeasurement,
-  getLatestMeasurementEntry,
-  getPreviousMeasurementEntry,
+  getLatestSiteMeasurements,
+  getSiteMeasurementDelta,
 } from '../utils/measurements';
 import { buildWeeklyNutritionChartDays, calculateWeeklyNutritionTrend } from '../utils/nutrition';
 import { resolveEffectiveNutritionTargets } from '../utils/nutritionTargets';
@@ -98,7 +97,7 @@ export function ProgressScreen({
   const [editingMeasurement, setEditingMeasurement] = useState<BodyMeasurementEntry | null>(null);
 
   const effectiveTargets = useMemo(() => resolveEffectiveNutritionTargets(profile), [profile]);
-  const workoutDays = progress.reduce((sum, entry) => sum + entry.workouts, 0);
+  const workoutDays = (progress || []).reduce((sum, entry) => sum + entry.workouts, 0);
 
   // Live local date handles midnight rollover and foreground AppState resume
   const liveToday = useLiveLocalDate(referenceDate, clock);
@@ -173,40 +172,39 @@ export function ProgressScreen({
     return targetComparison.deltaFormatted || t('progress.targetWeight');
   }, [targetComparison, t]);
 
-  const latestMeasurement = useMemo(
-    () => getLatestMeasurementEntry(activeBodyMeasurements),
+  const siteMeasurements = useMemo(
+    () => getLatestSiteMeasurements(activeBodyMeasurements),
     [activeBodyMeasurements]
   );
 
-  const previousMeasurement = useMemo(() => {
-    if (!latestMeasurement) return null;
-    return getPreviousMeasurementEntry(activeBodyMeasurements, latestMeasurement.id);
-  }, [activeBodyMeasurements, latestMeasurement]);
+  const waistData = useMemo(
+    () => getSiteMeasurementDelta(activeBodyMeasurements, 'waistCm', activeUnit),
+    [activeBodyMeasurements, activeUnit]
+  );
 
-  const waistDelta = useMemo(() => {
-    if (!latestMeasurement || !previousMeasurement) return null;
-    return calculateMeasurementDelta(latestMeasurement.waistCm, previousMeasurement.waistCm, activeUnit);
-  }, [latestMeasurement, previousMeasurement, activeUnit]);
+  const hipsData = useMemo(
+    () => getSiteMeasurementDelta(activeBodyMeasurements, 'hipsCm', activeUnit),
+    [activeBodyMeasurements, activeUnit]
+  );
 
-  const hipsDelta = useMemo(() => {
-    if (!latestMeasurement || !previousMeasurement) return null;
-    return calculateMeasurementDelta(latestMeasurement.hipsCm, previousMeasurement.hipsCm, activeUnit);
-  }, [latestMeasurement, previousMeasurement, activeUnit]);
+  const chestData = useMemo(
+    () => getSiteMeasurementDelta(activeBodyMeasurements, 'chestCm', activeUnit),
+    [activeBodyMeasurements, activeUnit]
+  );
 
-  const chestDelta = useMemo(() => {
-    if (!latestMeasurement || !previousMeasurement) return null;
-    return calculateMeasurementDelta(latestMeasurement.chestCm, previousMeasurement.chestCm, activeUnit);
-  }, [latestMeasurement, previousMeasurement, activeUnit]);
+  const waistToHipRatio = useMemo(
+    () => deriveWaistToHipRatio(activeBodyMeasurements),
+    [activeBodyMeasurements]
+  );
 
-  const waistToHipRatio = useMemo(() => {
-    if (!latestMeasurement) return null;
-    return calculateWaistToHipRatio(latestMeasurement.waistCm, latestMeasurement.hipsCm);
-  }, [latestMeasurement]);
+  const waistToHeightRatio = useMemo(
+    () => deriveWaistToHeightRatio(activeBodyMeasurements, profile.heightCm),
+    [activeBodyMeasurements, profile.heightCm]
+  );
 
-  const waistToHeightRatio = useMemo(() => {
-    if (!latestMeasurement || !profile.heightCm) return null;
-    return calculateWaistToHeightRatio(latestMeasurement.waistCm, profile.heightCm);
-  }, [latestMeasurement, profile.heightCm]);
+  const hasAnyRecordedMeasurement = useMemo(() => {
+    return Object.values(siteMeasurements).some((record) => record != null);
+  }, [siteMeasurements]);
 
   const directionalText = {
     textAlign: activeTextAlign(),
@@ -417,8 +415,8 @@ export function ProgressScreen({
         referenceDate={activeReferenceDate}
       />
 
-      {/* Latest Measurements Summary (if at least one measurement entry exists) */}
-      {latestMeasurement ? (
+      {/* Latest Measurements Summary (if at least one site measurement exists) */}
+      {hasAnyRecordedMeasurement ? (
         <View style={styles.measurementsSummarySection}>
           <Text
             style={[
@@ -431,46 +429,58 @@ export function ProgressScreen({
           </Text>
 
           <View style={[styles.progressRow, activeRowStyle()]}>
-            {latestMeasurement.waistCm != null ? (
+            {siteMeasurements.waistCm ? (
               <ProgressCard
                 title={t('progress.waist')}
-                value={`${formatMeasurement(latestMeasurement.waistCm, activeUnit, 1)} ${activeUnit === 'imperial' ? t('progress.unitIn') : t('progress.unitCm')}`}
+                value={`${formatMeasurement(siteMeasurements.waistCm.valueCm, activeUnit, 1)} ${activeUnit === 'imperial' ? t('progress.unitIn') : t('progress.unitCm')}`}
                 helper={
-                  waistDelta && waistDelta.hasDelta
-                    ? waistDelta.isUnchanged
-                      ? t('progress.noChange')
-                      : `${waistDelta.deltaFormatted}`
-                    : `${latestMeasurement.date} ${latestMeasurement.time}`
+                  waistData.hasDelta
+                    ? waistData.isUnchanged
+                      ? waistData.currentRecord?.isStale
+                        ? `${t('progress.noChange')} • ${waistData.currentRecord.date}`
+                        : t('progress.noChange')
+                      : waistData.currentRecord?.isStale
+                        ? `${waistData.deltaFormatted} • ${waistData.currentRecord.date}`
+                        : `${waistData.deltaFormatted}`
+                    : `${siteMeasurements.waistCm.date} ${siteMeasurements.waistCm.time}`
                 }
                 accent={colors.purple}
               />
             ) : null}
 
-            {latestMeasurement.hipsCm != null ? (
+            {siteMeasurements.hipsCm ? (
               <ProgressCard
                 title={t('progress.hips')}
-                value={`${formatMeasurement(latestMeasurement.hipsCm, activeUnit, 1)} ${activeUnit === 'imperial' ? t('progress.unitIn') : t('progress.unitCm')}`}
+                value={`${formatMeasurement(siteMeasurements.hipsCm.valueCm, activeUnit, 1)} ${activeUnit === 'imperial' ? t('progress.unitIn') : t('progress.unitCm')}`}
                 helper={
-                  hipsDelta && hipsDelta.hasDelta
-                    ? hipsDelta.isUnchanged
-                      ? t('progress.noChange')
-                      : `${hipsDelta.deltaFormatted}`
-                    : `${latestMeasurement.date} ${latestMeasurement.time}`
+                  hipsData.hasDelta
+                    ? hipsData.isUnchanged
+                      ? hipsData.currentRecord?.isStale
+                        ? `${t('progress.noChange')} • ${hipsData.currentRecord.date}`
+                        : t('progress.noChange')
+                      : hipsData.currentRecord?.isStale
+                        ? `${hipsData.deltaFormatted} • ${hipsData.currentRecord.date}`
+                        : `${hipsData.deltaFormatted}`
+                    : `${siteMeasurements.hipsCm.date} ${siteMeasurements.hipsCm.time}`
                 }
                 accent={colors.accent}
               />
             ) : null}
 
-            {latestMeasurement.chestCm != null ? (
+            {siteMeasurements.chestCm ? (
               <ProgressCard
                 title={t('progress.chest')}
-                value={`${formatMeasurement(latestMeasurement.chestCm, activeUnit, 1)} ${activeUnit === 'imperial' ? t('progress.unitIn') : t('progress.unitCm')}`}
+                value={`${formatMeasurement(siteMeasurements.chestCm.valueCm, activeUnit, 1)} ${activeUnit === 'imperial' ? t('progress.unitIn') : t('progress.unitCm')}`}
                 helper={
-                  chestDelta && chestDelta.hasDelta
-                    ? chestDelta.isUnchanged
-                      ? t('progress.noChange')
-                      : `${chestDelta.deltaFormatted}`
-                    : `${latestMeasurement.date} ${latestMeasurement.time}`
+                  chestData.hasDelta
+                    ? chestData.isUnchanged
+                      ? chestData.currentRecord?.isStale
+                        ? `${t('progress.noChange')} • ${chestData.currentRecord.date}`
+                        : t('progress.noChange')
+                      : chestData.currentRecord?.isStale
+                        ? `${chestData.deltaFormatted} • ${chestData.currentRecord.date}`
+                        : `${chestData.deltaFormatted}`
+                    : `${siteMeasurements.chestCm.date} ${siteMeasurements.chestCm.time}`
                 }
                 accent={colors.lavender}
               />
@@ -478,22 +488,30 @@ export function ProgressScreen({
           </View>
 
           {/* Body Ratios Row */}
-          {waistToHipRatio?.isValid || waistToHeightRatio?.isValid ? (
+          {waistToHipRatio.isValid || waistToHeightRatio.isValid ? (
             <View style={[styles.progressRow, activeRowStyle(), { marginTop: spacing.sm }]}>
-              {waistToHipRatio?.isValid ? (
+              {waistToHipRatio.isValid ? (
                 <ProgressCard
                   title={t('progress.waistToHipRatio')}
                   value={waistToHipRatio.ratioFormatted || '--'}
-                  helper={t('progress.ratios')}
+                  helper={
+                    waistToHipRatio.disclosedDateText
+                      ? `${t('progress.ratios')} • ${waistToHipRatio.disclosedDateText}`
+                      : t('progress.ratios')
+                  }
                   accent={colors.accent}
                 />
               ) : null}
 
-              {waistToHeightRatio?.isValid ? (
+              {waistToHeightRatio.isValid ? (
                 <ProgressCard
                   title={t('progress.waistToHeightRatio')}
                   value={waistToHeightRatio.ratioFormatted || '--'}
-                  helper={t('progress.ratios')}
+                  helper={
+                    waistToHeightRatio.disclosedDateText
+                      ? `${t('progress.ratios')} • ${waistToHeightRatio.disclosedDateText}`
+                      : t('progress.ratios')
+                  }
                   accent={colors.lavender}
                 />
               ) : null}

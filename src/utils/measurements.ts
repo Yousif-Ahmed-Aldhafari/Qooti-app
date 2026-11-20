@@ -1,6 +1,6 @@
 /**
  * Body Measurements, Circumference History & Ratios Utility
- * Phase 5 - Task 5.3
+ * Phase 5 - Task 5.3 & Task 5.3A
  */
 
 import type { BodyMeasurementEntry } from '../models/biometrics';
@@ -59,22 +59,47 @@ export function inchToCm(inch: number): number {
 }
 
 /**
+ * Normalizes Eastern Arabic (٠-٩) and Persian (۰-۹) numerals to ASCII digits (0-9),
+ * and Arabic decimal comma (،), Arabic decimal separator (٫, \u066B), and standard comma (,) to period (.).
+ */
+export function normalizeNumeralsAndSeparators(str: string): string {
+  return str
+    .replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+    .replace(/[\u06F0-\u06F9]/g, (d) => String(d.charCodeAt(0) - 0x06F0))
+    .replace(/[\u066B،,]/g, '.');
+}
+
+/**
  * Parses a user input string into a floating-point number.
- * Supports comma and period decimal separators, whitespace trimming.
- * Returns null for empty, whitespace, negative, NaN, or non-finite inputs.
+ * Accepts conventional decimals with period (.), comma (,), Arabic decimal separator (٫, \u066B),
+ * Arabic comma (،), and Arabic-Indic numerals (٠-٩, ۰-۹).
+ * Strictly rejects scientific notation (1e2, 1E-2), hex (0x10), octal/binary (0b10),
+ * signs (+, -), negative numbers, NaN, Infinity, multiple decimal separators, and non-numeric symbols.
+ * Returns null for invalid or empty inputs.
  */
 export function parseMeasurementInput(rawText: string | null | undefined): number | null {
   if (rawText == null) return null;
   const trimmed = rawText.trim();
   if (trimmed === '') return null;
 
-  // Replace comma with period
-  const normalized = trimmed.replace(',', '.');
-  const parsed = Number(normalized);
+  // Strict rejection: disallow signs (+, -), scientific exponents (e, E), hex/octal/binary prefixes
+  if (/[+\-eExXbBoO]/.test(trimmed)) {
+    return null;
+  }
 
+  const normalized = normalizeNumeralsAndSeparators(trimmed);
+
+  // Must match standard non-negative decimal: digits optionally with a single period and digits
+  // or starting with a period followed by digits (.5)
+  if (!/^(\d+(\.\d+)?|\.\d+)$/.test(normalized)) {
+    return null;
+  }
+
+  const parsed = Number(normalized);
   if (!Number.isFinite(parsed) || isNaN(parsed) || parsed < 0) {
     return null;
   }
+
   return parsed;
 }
 
@@ -179,6 +204,8 @@ export interface MeasurementDeltaResult {
 
 /**
  * Computes difference between current and previous measurements.
+ * Unchanged (|delta| <= 0.05 cm) is formatted unambiguously as 0.0 cm/in,
+ * completely preventing -0.0 artifacts.
  */
 export function calculateMeasurementDelta(
   currentCm: number | null | undefined,
@@ -205,8 +232,15 @@ export function calculateMeasurementDelta(
   const isDecrease = deltaCm < -0.05;
   const isUnchanged = !isIncrease && !isDecrease;
 
-  const sign = isIncrease ? '+' : '';
-  const deltaFormatted = `${sign}${deltaValue.toFixed(1)} ${unitLabel}`;
+  let deltaFormatted: string;
+  if (isUnchanged) {
+    deltaFormatted = `0.0 ${unitLabel}`;
+  } else {
+    const rawFixed = deltaValue.toFixed(1);
+    const fixed = rawFixed === '-0.0' || rawFixed === '-0' ? '0.0' : rawFixed;
+    const sign = isIncrease ? '+' : '';
+    deltaFormatted = `${sign}${fixed} ${unitLabel}`;
+  }
 
   return {
     hasDelta: true,
@@ -325,4 +359,249 @@ export function validateMeasurementDate(dateStr: string): boolean {
 
 export function validateMeasurementTime(timeStr: string): boolean {
   return isValid24hTime(timeStr.trim());
+}
+
+/**
+ * Computes the absolute calendar day difference between two ISO date strings (YYYY-MM-DD).
+ * Uses UTC to ensure timezone neutrality.
+ */
+export function getDaysBetweenDates(dateA: string, dateB: string): number {
+  const [y1, m1, d1] = dateA.split('-').map(Number);
+  const [y2, m2, d2] = dateB.split('-').map(Number);
+  const utc1 = Date.UTC(y1, m1 - 1, d1);
+  const utc2 = Date.UTC(y2, m2 - 1, d2);
+  const msPerDay = 1000 * 60 * 60 * 24;
+  return Math.round(Math.abs(utc1 - utc2) / msPerDay);
+}
+
+export interface SiteMeasurementRecord {
+  fieldKey: MeasurementFieldKey;
+  valueCm: number;
+  entry: BodyMeasurementEntry;
+  date: string;
+  time: string;
+  isStale: boolean; // true if this observation is older than the newest overall measurement entry
+}
+
+/**
+ * Selects the chronologically latest valid measurement for each anatomical site independently.
+ * Partial records will not erase previously known measurements for other sites.
+ */
+export function getLatestSiteMeasurements(
+  entries: BodyMeasurementEntry[]
+): Record<MeasurementFieldKey, SiteMeasurementRecord | null> {
+  const result: Record<MeasurementFieldKey, SiteMeasurementRecord | null> = {
+    chestCm: null,
+    waistCm: null,
+    hipsCm: null,
+    leftArmCm: null,
+    rightArmCm: null,
+    leftThighCm: null,
+    rightThighCm: null,
+    leftCalfCm: null,
+    rightCalfCm: null,
+    shouldersCm: null,
+    neckCm: null,
+  };
+
+  if (!entries || entries.length === 0) {
+    return result;
+  }
+
+  const sorted = [...entries].sort(compareBodyMeasurementsDescending);
+  const newestOverall = sorted[0];
+
+  for (const field of MEASUREMENT_FIELDS) {
+    const key = field.key;
+    for (const entry of sorted) {
+      const val = entry[key];
+      if (val != null && Number.isFinite(val) && val > 0) {
+        result[key] = {
+          fieldKey: key,
+          valueCm: val,
+          entry,
+          date: entry.date,
+          time: entry.time,
+          isStale: entry.id !== newestOverall.id,
+        };
+        break;
+      }
+    }
+  }
+
+  return result;
+}
+
+export interface SiteMeasurementDeltaResult extends MeasurementDeltaResult {
+  currentRecord?: SiteMeasurementRecord;
+  previousRecord?: SiteMeasurementRecord;
+}
+
+/**
+ * Calculates deltas using the two most recent valid observations for the same anatomical site,
+ * rather than two adjacent records that may contain different sites.
+ */
+export function getSiteMeasurementDelta(
+  entries: BodyMeasurementEntry[],
+  fieldKey: MeasurementFieldKey,
+  unit: 'cm' | 'in' | MeasurementUnits
+): SiteMeasurementDeltaResult {
+  if (!entries || entries.length === 0) {
+    return { hasDelta: false };
+  }
+
+  const sorted = [...entries].sort(compareBodyMeasurementsDescending);
+  const newestOverall = sorted[0];
+
+  const validForSite = sorted.filter((e) => {
+    const val = e[fieldKey];
+    return val != null && Number.isFinite(val) && val > 0;
+  });
+
+  if (validForSite.length === 0) {
+    return { hasDelta: false };
+  }
+
+  const currentEntry = validForSite[0];
+  const currentRecord: SiteMeasurementRecord = {
+    fieldKey,
+    valueCm: currentEntry[fieldKey]!,
+    entry: currentEntry,
+    date: currentEntry.date,
+    time: currentEntry.time,
+    isStale: currentEntry.id !== newestOverall.id,
+  };
+
+  if (validForSite.length === 1) {
+    return {
+      hasDelta: false,
+      currentRecord,
+    };
+  }
+
+  const prevEntry = validForSite[1];
+  const previousRecord: SiteMeasurementRecord = {
+    fieldKey,
+    valueCm: prevEntry[fieldKey]!,
+    entry: prevEntry,
+    date: prevEntry.date,
+    time: prevEntry.time,
+    isStale: true,
+  };
+
+  const delta = calculateMeasurementDelta(currentRecord.valueCm, previousRecord.valueCm, unit);
+
+  return {
+    ...delta,
+    currentRecord,
+    previousRecord,
+  };
+}
+
+export interface DerivedWaistToHipRatioResult extends WaistToHipRatioResult {
+  isSameDate?: boolean;
+  waistDate?: string;
+  hipsDate?: string;
+  daysApart?: number;
+  disclosedDateText?: string;
+}
+
+/**
+ * Derives Waist-to-Hip ratio across measurement history.
+ * Policy:
+ * 1. Resolves newest valid waist and newest valid hips.
+ * 2. If both are recorded in the same entry, pairs them with zero gap.
+ * 3. If recorded in different entries, pairs them only if calendar gap <= 30 days.
+ * 4. Gaps > 30 days return isValid: false to prevent misleading clinical interpretations.
+ * 5. Discloses individual dates when observations originate from different dates.
+ */
+export function deriveWaistToHipRatio(
+  entries: BodyMeasurementEntry[]
+): DerivedWaistToHipRatioResult {
+  if (!entries || entries.length === 0) {
+    return { isValid: false };
+  }
+
+  const sorted = [...entries].sort(compareBodyMeasurementsDescending);
+
+  const waistEntry = sorted.find(
+    (e) => e.waistCm != null && Number.isFinite(e.waistCm) && e.waistCm > 0
+  );
+  const hipsEntry = sorted.find(
+    (e) => e.hipsCm != null && Number.isFinite(e.hipsCm) && e.hipsCm > 0
+  );
+
+  if (!waistEntry || !hipsEntry || waistEntry.waistCm == null || hipsEntry.hipsCm == null) {
+    return { isValid: false };
+  }
+
+  if (waistEntry.id === hipsEntry.id) {
+    const base = calculateWaistToHipRatio(waistEntry.waistCm, hipsEntry.hipsCm);
+    if (!base.isValid) return { isValid: false };
+    return {
+      ...base,
+      isSameDate: true,
+      waistDate: waistEntry.date,
+      hipsDate: hipsEntry.date,
+      daysApart: 0,
+      disclosedDateText: waistEntry.date,
+    };
+  }
+
+  const daysApart = getDaysBetweenDates(waistEntry.date, hipsEntry.date);
+  if (daysApart > 30) {
+    return { isValid: false };
+  }
+
+  const base = calculateWaistToHipRatio(waistEntry.waistCm, hipsEntry.hipsCm);
+  if (!base.isValid) return { isValid: false };
+
+  const isSameDate = waistEntry.date === hipsEntry.date;
+  const disclosedDateText = isSameDate
+    ? waistEntry.date
+    : `Waist: ${waistEntry.date} • Hips: ${hipsEntry.date}`;
+
+  return {
+    ...base,
+    isSameDate,
+    waistDate: waistEntry.date,
+    hipsDate: hipsEntry.date,
+    daysApart,
+    disclosedDateText,
+  };
+}
+
+export interface DerivedWaistToHeightRatioResult extends WaistToHeightRatioResult {
+  waistDate?: string;
+  disclosedDateText?: string;
+}
+
+/**
+ * Derives Waist-to-Height ratio: latest valid waist / profile height.
+ * Missing-value and zero-division protected. Discloses waist observation date.
+ */
+export function deriveWaistToHeightRatio(
+  entries: BodyMeasurementEntry[],
+  heightCm: number | null | undefined
+): DerivedWaistToHeightRatioResult {
+  if (!entries || entries.length === 0 || heightCm == null || heightCm <= 0) {
+    return { isValid: false };
+  }
+
+  const sorted = [...entries].sort(compareBodyMeasurementsDescending);
+  const waistEntry = sorted.find(
+    (e) => e.waistCm != null && Number.isFinite(e.waistCm) && e.waistCm > 0
+  );
+  if (!waistEntry || waistEntry.waistCm == null) {
+    return { isValid: false };
+  }
+
+  const base = calculateWaistToHeightRatio(waistEntry.waistCm, heightCm);
+  if (!base.isValid) return { isValid: false };
+
+  return {
+    ...base,
+    waistDate: waistEntry.date,
+    disclosedDateText: waistEntry.date,
+  };
 }

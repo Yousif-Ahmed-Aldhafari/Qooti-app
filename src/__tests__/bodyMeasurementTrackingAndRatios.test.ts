@@ -38,6 +38,12 @@ import {
   validateMeasurementTime,
   MEASUREMENT_FIELDS,
   CM_PER_INCH,
+  getLatestSiteMeasurements,
+  getSiteMeasurementDelta,
+  deriveWaistToHipRatio,
+  deriveWaistToHeightRatio,
+  getDaysBetweenDates,
+  normalizeNumeralsAndSeparators,
 } from '../utils/measurements';
 import {
   BodyMeasurementEntry,
@@ -898,3 +904,397 @@ test('Task 5.3 - Test 26: Body tracking measurement service standalone functions
   assert.equal(afterDelete.length, 1);
   assert.equal(afterDelete[0].id, 'bm-srv-2');
 });
+
+// ============================================================================
+// TEST 27 (Task 5.3A): Strict Decimal Parser with Localization & Rejection
+// ============================================================================
+test('Task 5.3A - Test 27: Strict Decimal Parser accepts conventional decimals and strictly rejects invalid formats', () => {
+  // Direct test of numeral and separator normalization
+  assert.equal(normalizeNumeralsAndSeparators('٨٤٫٥'), '84.5');
+  assert.equal(normalizeNumeralsAndSeparators('۸۴،۵'), '84.5');
+  assert.equal(normalizeNumeralsAndSeparators('84,5'), '84.5');
+
+  // Standard period
+  assert.equal(parseMeasurementInput('84.5'), 84.5);
+  assert.equal(parseMeasurementInput('100'), 100);
+  assert.equal(parseMeasurementInput('0.5'), 0.5);
+
+  // Standard comma
+  assert.equal(parseMeasurementInput('84,5'), 84.5);
+
+  // Arabic decimal separator \u066B (٫)
+  assert.equal(parseMeasurementInput('84٫5'), 84.5);
+
+  // Arabic comma \u060C (،)
+  assert.equal(parseMeasurementInput('84،5'), 84.5);
+
+  // Eastern Arabic numerals (٠-٩)
+  assert.equal(parseMeasurementInput('٨٤٫٥'), 84.5);
+  assert.equal(parseMeasurementInput('١٠٠'), 100);
+
+  // Persian numerals (۰-۹)
+  assert.equal(parseMeasurementInput('۸۴٫۵'), 84.5);
+
+  // Whitespace trimming
+  assert.equal(parseMeasurementInput('   84.5   '), 84.5);
+  assert.equal(parseMeasurementInput('   ٨٤٫٥   '), 84.5);
+
+  // Rejection of scientific notation
+  assert.equal(parseMeasurementInput('1e2'), null, 'Reject lowercase e scientific notation');
+  assert.equal(parseMeasurementInput('1E2'), null, 'Reject uppercase E scientific notation');
+  assert.equal(parseMeasurementInput('1e-2'), null, 'Reject negative exponent scientific notation');
+  assert.equal(parseMeasurementInput('8.5e1'), null, 'Reject float scientific notation');
+
+  // Rejection of hex, octal, binary prefixes
+  assert.equal(parseMeasurementInput('0x10'), null, 'Reject hex');
+  assert.equal(parseMeasurementInput('0b10'), null, 'Reject binary');
+  assert.equal(parseMeasurementInput('0o10'), null, 'Reject octal');
+
+  // Rejection of signs
+  assert.equal(parseMeasurementInput('+84.5'), null, 'Reject leading plus sign');
+  assert.equal(parseMeasurementInput('-84.5'), null, 'Reject leading minus sign');
+
+  // Rejection of multiple decimal separators
+  assert.equal(parseMeasurementInput('84.5.5'), null, 'Reject multiple periods');
+  assert.equal(parseMeasurementInput('84,5,5'), null, 'Reject multiple commas');
+  assert.equal(parseMeasurementInput('84٫5٫5'), null, 'Reject multiple Arabic separators');
+
+  // Rejection of letters and symbols
+  assert.equal(parseMeasurementInput('84.5cm'), null, 'Reject suffix units');
+  assert.equal(parseMeasurementInput('cm84.5'), null, 'Reject prefix units');
+  assert.equal(parseMeasurementInput('~84.5'), null, 'Reject approximation sign');
+  assert.equal(parseMeasurementInput('abc'), null, 'Reject alphabetic strings');
+
+  // Empty, null, undefined
+  assert.equal(parseMeasurementInput(''), null);
+  assert.equal(parseMeasurementInput('   '), null);
+  assert.equal(parseMeasurementInput(null), null);
+  assert.equal(parseMeasurementInput(undefined), null);
+});
+
+// ============================================================================
+// TEST 28 (Task 5.3A): Delta formatting & Negative Zero (-0.0) Prevention
+// ============================================================================
+test('Task 5.3A - Test 28: Delta formatting normalizes unchanged values and strictly prevents -0.0', () => {
+  // Exact zero
+  const zeroMetric = calculateMeasurementDelta(80.0, 80.0, 'cm');
+  assert.equal(zeroMetric.hasDelta, true);
+  assert.equal(zeroMetric.isUnchanged, true);
+  assert.equal(zeroMetric.deltaFormatted, '0.0 cm');
+  assert.ok(!zeroMetric.deltaFormatted?.includes('-0.0'));
+
+  const zeroImperial = calculateMeasurementDelta(80.0, 80.0, 'imperial');
+  assert.equal(zeroImperial.hasDelta, true);
+  assert.equal(zeroImperial.isUnchanged, true);
+  assert.equal(zeroImperial.deltaFormatted, '0.0 in');
+  assert.ok(!zeroImperial.deltaFormatted?.includes('-0.0'));
+
+  // Very small decrease within tolerance (|delta| <= 0.05 cm)
+  const minorDecrease = calculateMeasurementDelta(79.98, 80.0, 'cm');
+  assert.equal(minorDecrease.isUnchanged, true);
+  assert.equal(minorDecrease.deltaFormatted, '0.0 cm');
+  assert.ok(!minorDecrease.deltaFormatted?.includes('-0.0'));
+
+  // Very small increase within tolerance
+  const minorIncrease = calculateMeasurementDelta(80.02, 80.0, 'cm');
+  assert.equal(minorIncrease.isUnchanged, true);
+  assert.equal(minorIncrease.deltaFormatted, '0.0 cm');
+
+  // Meaningful increase (> 0.05 cm)
+  const increase = calculateMeasurementDelta(82.0, 80.0, 'cm');
+  assert.equal(increase.isIncrease, true);
+  assert.equal(increase.deltaFormatted, '+2.0 cm');
+
+  // Meaningful decrease (< -0.05 cm)
+  const decrease = calculateMeasurementDelta(78.5, 80.0, 'cm');
+  assert.equal(decrease.isDecrease, true);
+  assert.equal(decrease.deltaFormatted, '-1.5 cm');
+
+  // Meaningful decrease in inches
+  const decreaseIn = calculateMeasurementDelta(77.46, 80.0, 'in'); // 80 - 77.46 = 2.54 cm = 1.0 inch
+  assert.equal(decreaseIn.isDecrease, true);
+  assert.equal(decreaseIn.deltaFormatted, '-1.0 in');
+});
+
+// ============================================================================
+// TEST 29 (Task 5.3A): Independent latest measurement per anatomical site
+// ============================================================================
+test('Task 5.3A - Test 29: Newer partial entries do not erase previously known site measurements', () => {
+  const entries: BodyMeasurementEntry[] = [
+    {
+      id: 'bm-newer-arms',
+      date: '2026-02-15',
+      time: '09:00',
+      leftArmCm: 35.0,
+      rightArmCm: 35.5,
+      createdAt: '2026-02-15T09:00:00.000Z',
+      updatedAt: '2026-02-15T09:00:00.000Z',
+    },
+    {
+      id: 'bm-mid-waist',
+      date: '2026-02-10',
+      time: '08:00',
+      waistCm: 84.0,
+      createdAt: '2026-02-10T08:00:00.000Z',
+      updatedAt: '2026-02-10T08:00:00.000Z',
+    },
+    {
+      id: 'bm-older-chest-hips',
+      date: '2026-02-05',
+      time: '07:30',
+      chestCm: 102.0,
+      hipsCm: 100.0,
+      createdAt: '2026-02-05T07:30:00.000Z',
+      updatedAt: '2026-02-05T07:30:00.000Z',
+    },
+  ];
+
+  const siteMap = getLatestSiteMeasurements(entries);
+
+  // Arms from newest entry (not stale)
+  assert.ok(siteMap.leftArmCm);
+  assert.equal(siteMap.leftArmCm?.valueCm, 35.0);
+  assert.equal(siteMap.leftArmCm?.date, '2026-02-15');
+  assert.equal(siteMap.leftArmCm?.isStale, false);
+
+  // Waist preserved from mid entry (stale because newer entry exists)
+  assert.ok(siteMap.waistCm, 'Waist must not be erased by newer arms-only entry');
+  assert.equal(siteMap.waistCm?.valueCm, 84.0);
+  assert.equal(siteMap.waistCm?.date, '2026-02-10');
+  assert.equal(siteMap.waistCm?.isStale, true);
+
+  // Chest & hips preserved from oldest entry
+  assert.ok(siteMap.chestCm, 'Chest must not be erased');
+  assert.equal(siteMap.chestCm?.valueCm, 102.0);
+  assert.equal(siteMap.chestCm?.date, '2026-02-05');
+  assert.equal(siteMap.chestCm?.isStale, true);
+
+  assert.ok(siteMap.hipsCm, 'Hips must not be erased');
+  assert.equal(siteMap.hipsCm?.valueCm, 100.0);
+  assert.equal(siteMap.hipsCm?.date, '2026-02-05');
+  assert.equal(siteMap.hipsCm?.isStale, true);
+
+  // Unmeasured site remains null
+  assert.equal(siteMap.neckCm, null, 'Unmeasured site remains null');
+});
+
+// ============================================================================
+// TEST 30 (Task 5.3A): Per-site delta calculation between matching site observations
+// ============================================================================
+test('Task 5.3A - Test 30: Per-site deltas compare two most recent observations for that specific site', () => {
+  const entries: BodyMeasurementEntry[] = [
+    {
+      id: 'bm-1',
+      date: '2026-02-20',
+      time: '08:00',
+      leftArmCm: 36.0, // waist is null
+      createdAt: '2026-02-20T08:00:00.000Z',
+      updatedAt: '2026-02-20T08:00:00.000Z',
+    },
+    {
+      id: 'bm-2',
+      date: '2026-02-15',
+      time: '08:00',
+      waistCm: 82.0, // Newer waist
+      createdAt: '2026-02-15T08:00:00.000Z',
+      updatedAt: '2026-02-15T08:00:00.000Z',
+    },
+    {
+      id: 'bm-3',
+      date: '2026-02-10',
+      time: '08:00',
+      chestCm: 100.0, // waist is null
+      createdAt: '2026-02-10T08:00:00.000Z',
+      updatedAt: '2026-02-10T08:00:00.000Z',
+    },
+    {
+      id: 'bm-4',
+      date: '2026-02-01',
+      time: '08:00',
+      waistCm: 85.0, // Older waist
+      createdAt: '2026-02-01T08:00:00.000Z',
+      updatedAt: '2026-02-01T08:00:00.000Z',
+    },
+  ];
+
+  const waistDelta = getSiteMeasurementDelta(entries, 'waistCm', 'cm');
+  assert.equal(waistDelta.hasDelta, true);
+  assert.equal(waistDelta.deltaCm, -3.0);
+  assert.equal(waistDelta.deltaFormatted, '-3.0 cm');
+  assert.equal(waistDelta.currentRecord?.valueCm, 82.0);
+  assert.equal(waistDelta.currentRecord?.date, '2026-02-15');
+  assert.equal(waistDelta.currentRecord?.isStale, true, 'Waist is stale relative to bm-1');
+  assert.equal(waistDelta.previousRecord?.valueCm, 85.0);
+  assert.equal(waistDelta.previousRecord?.date, '2026-02-01');
+
+  // Arm delta (only 1 observation exists)
+  const armDelta = getSiteMeasurementDelta(entries, 'leftArmCm', 'cm');
+  assert.equal(armDelta.hasDelta, false, 'No previous observation for arm');
+  assert.equal(armDelta.currentRecord?.valueCm, 36.0);
+  assert.equal(armDelta.currentRecord?.isStale, false);
+});
+
+// ============================================================================
+// TEST 31 (Task 5.3A): Ratio pairing policy with 30-day max gap & date disclosure
+// ============================================================================
+test('Task 5.3A - Test 31: Waist-to-Hip ratio pairing policy, 30-day max gap, and date disclosures', () => {
+  // Case A: Co-measured in same entry
+  const coMeasuredEntries: BodyMeasurementEntry[] = [
+    {
+      id: 'bm-co-1',
+      date: '2026-02-15',
+      time: '08:00',
+      waistCm: 80.0,
+      hipsCm: 100.0,
+      createdAt: '2026-02-15T08:00:00.000Z',
+      updatedAt: '2026-02-15T08:00:00.000Z',
+    },
+  ];
+  const ratioCo = deriveWaistToHipRatio(coMeasuredEntries);
+  assert.equal(ratioCo.isValid, true);
+  assert.equal(ratioCo.ratioFormatted, '0.80');
+  assert.equal(ratioCo.isSameDate, true);
+  assert.equal(ratioCo.daysApart, 0);
+  assert.equal(ratioCo.disclosedDateText, '2026-02-15');
+
+  // Case B: Cross-entry within 30 days
+  const crossEntryValid: BodyMeasurementEntry[] = [
+    {
+      id: 'bm-cross-waist',
+      date: '2026-02-15',
+      time: '08:00',
+      waistCm: 80.0,
+      createdAt: '2026-02-15T08:00:00.000Z',
+      updatedAt: '2026-02-15T08:00:00.000Z',
+    },
+    {
+      id: 'bm-cross-hips',
+      date: '2026-02-10',
+      time: '08:00',
+      hipsCm: 100.0,
+      createdAt: '2026-02-10T08:00:00.000Z',
+      updatedAt: '2026-02-10T08:00:00.000Z',
+    },
+  ];
+  const ratioCross = deriveWaistToHipRatio(crossEntryValid);
+  assert.equal(ratioCross.isValid, true);
+  assert.equal(ratioCross.ratioFormatted, '0.80');
+  assert.equal(ratioCross.isSameDate, false);
+  assert.equal(ratioCross.daysApart, 5);
+  assert.equal(ratioCross.disclosedDateText, 'Waist: 2026-02-15 • Hips: 2026-02-10');
+
+  // Case C: Cross-entry exceeding 30 days gap -> marked unavailable
+  const crossEntryStale: BodyMeasurementEntry[] = [
+    {
+      id: 'bm-stale-waist',
+      date: '2026-02-15',
+      time: '08:00',
+      waistCm: 80.0,
+      createdAt: '2026-02-15T08:00:00.000Z',
+      updatedAt: '2026-02-15T08:00:00.000Z',
+    },
+    {
+      id: 'bm-stale-hips',
+      date: '2026-01-01', // 45 days apart
+      time: '08:00',
+      hipsCm: 100.0,
+      createdAt: '2026-01-01T08:00:00.000Z',
+      updatedAt: '2026-01-01T08:00:00.000Z',
+    },
+  ];
+  const ratioStale = deriveWaistToHipRatio(crossEntryStale);
+  assert.equal(ratioStale.isValid, false, 'Ratio must be marked unavailable if gap > 30 days');
+
+  // Case D: Missing hips completely
+  const missingHips: BodyMeasurementEntry[] = [
+    {
+      id: 'bm-no-hips',
+      date: '2026-02-15',
+      time: '08:00',
+      waistCm: 80.0,
+      createdAt: '2026-02-15T08:00:00.000Z',
+      updatedAt: '2026-02-15T08:00:00.000Z',
+    },
+  ];
+  const ratioMissing = deriveWaistToHipRatio(missingHips);
+  assert.equal(ratioMissing.isValid, false);
+});
+
+// ============================================================================
+// TEST 32 (Task 5.3A): Waist-to-Height ratio & days calculation
+// ============================================================================
+test('Task 5.3A - Test 32: Waist-to-Height ratio and date math utility', () => {
+  const entries: BodyMeasurementEntry[] = [
+    {
+      id: 'bm-wh-1',
+      date: '2026-02-14',
+      time: '08:00',
+      waistCm: 81.0,
+      createdAt: '2026-02-14T08:00:00.000Z',
+      updatedAt: '2026-02-14T08:00:00.000Z',
+    },
+  ];
+
+  const whRatio = deriveWaistToHeightRatio(entries, 180);
+  assert.equal(whRatio.isValid, true);
+  assert.equal(whRatio.ratioFormatted, '0.45');
+  assert.equal(whRatio.waistDate, '2026-02-14');
+  assert.equal(whRatio.disclosedDateText, '2026-02-14');
+
+  // Null height -> invalid
+  assert.equal(deriveWaistToHeightRatio(entries, null).isValid, false);
+  assert.equal(deriveWaistToHeightRatio(entries, 0).isValid, false);
+
+  // UTC timezone-neutral date difference
+  assert.equal(getDaysBetweenDates('2026-02-15', '2026-02-10'), 5);
+  assert.equal(getDaysBetweenDates('2026-02-10', '2026-02-15'), 5);
+  assert.equal(getDaysBetweenDates('2026-02-15', '2026-02-15'), 0);
+  assert.equal(getDaysBetweenDates('2026-03-01', '2026-02-28'), 1); // February boundary
+});
+
+// ============================================================================
+// TEST 33 (Task 5.3A): ProgressScreen rendering preserves latest site measurements
+// ============================================================================
+test('Task 5.3A - Test 33: ProgressScreen renders latest measurements per site and discloses dates', () => {
+  const entries: BodyMeasurementEntry[] = [
+    {
+      id: 'bm-new-arms',
+      date: '2026-02-15',
+      time: '08:00',
+      leftArmCm: 35.0,
+      createdAt: '2026-02-15T08:00:00.000Z',
+      updatedAt: '2026-02-15T08:00:00.000Z',
+    },
+    {
+      id: 'bm-old-waist-hips',
+      date: '2026-02-10',
+      time: '08:00',
+      waistCm: 84.0,
+      hipsCm: 100.0,
+      createdAt: '2026-02-10T08:00:00.000Z',
+      updatedAt: '2026-02-10T08:00:00.000Z',
+    },
+  ];
+
+  const tEn = (key: any) => translate('en', key);
+  const html = renderToStaticMarkup(
+    React.createElement(ProgressScreen, {
+      t: tEn,
+      profile: mockProfile,
+      progress: [],
+      bodyWeights: [],
+      bodyMeasurements: entries,
+      referenceDate: '2026-02-15',
+      language: 'en',
+    })
+  );
+
+  // Waist from earlier entry must still be rendered
+  assert.ok(html.includes('84.0 cm'), 'Waist from earlier entry must be displayed in UI');
+  assert.ok(html.includes('100.0 cm'), 'Hips from earlier entry must be displayed in UI');
+  // Date disclosure
+  assert.ok(html.includes('2026-02-10'), 'Observation date of earlier measurement must be displayed');
+  // Ratios
+  assert.ok(html.includes('0.84'), 'Waist-to-hip ratio 84/100 = 0.84 must be displayed');
+});
+
