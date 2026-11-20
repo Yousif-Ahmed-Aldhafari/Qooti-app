@@ -104,6 +104,10 @@ export function AppNavigator() {
     discardInterruptedSession,
     migrationConflict,
     resolveMigrationConflict,
+    bodyWeights,
+    recordBodyWeight,
+    updateBodyWeight,
+    deleteBodyWeight,
     t,
   } = useApp();
 
@@ -709,7 +713,21 @@ export function AppNavigator() {
           />
         );
       case 'progress':
-        return <ProgressScreen key={language} t={t} profile={profile} progress={progressEntries} meals={meals} language={language} />;
+        return (
+          <ProgressScreen
+            key={language}
+            t={t}
+            profile={profile}
+            progress={progressEntries}
+            meals={meals}
+            language={language}
+            bodyWeights={bodyWeights}
+            onRecordWeight={recordBodyWeight}
+            onUpdateWeight={updateBodyWeight}
+            onDeleteWeight={deleteBodyWeight}
+            measurementUnits={settings.measurementUnits}
+          />
+        );
       case 'profile':
         return (
           <ProfileScreen

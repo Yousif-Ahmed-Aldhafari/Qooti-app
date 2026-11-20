@@ -8,9 +8,12 @@ import {
   PhotoPose,
 } from '../models/biometrics';
 import { SQLiteBodyWeightRepository } from '../db/repositories/bodyWeightRepository';
+import { SQLiteProfileRepository } from '../db/repositories/profileRepository';
 import { SQLiteBodyMeasurementRepository } from '../db/repositories/bodyMeasurementRepository';
 import { SQLiteBodyCompositionRepository } from '../db/repositories/bodyCompositionRepository';
 import { SQLiteProgressPhotoRepository } from '../db/repositories/progressPhotoRepository';
+import { UserProfile } from '../models/profile';
+import { getLatestGenuineWeight } from '../utils/weight';
 import {
   reconcileLegacyProgressWeights,
   LegacyProgressReconciliationResult,
@@ -106,6 +109,129 @@ export async function deleteWeight(
       const repo = new SQLiteBodyWeightRepository(client);
       await repo.deleteWeight(id, client);
     });
+  }
+}
+
+/**
+ * Inserts a body weight entry and atomically synchronizes the user's current profile weight
+ * if and only if the new entry represents the chronologically latest genuine weigh-in.
+ */
+export async function recordWeightWithProfileSync(
+  entry: BodyWeightEntry,
+  txn?: IDatabase
+): Promise<{ updatedProfile: UserProfile | null; entry: BodyWeightEntry }> {
+  const execute = async (client: IDatabase) => {
+    const weightRepo = new SQLiteBodyWeightRepository(client);
+    const profileRepo = new SQLiteProfileRepository(client);
+
+    await weightRepo.insertWeight(entry, client);
+
+    const allWeights = await weightRepo.getAllWeights(client);
+    const latest = getLatestGenuineWeight(allWeights);
+
+    let updatedProfile: UserProfile | null = null;
+    if (latest && latest.id === entry.id) {
+      const currentProfile = await profileRepo.getProfile();
+      if (currentProfile && currentProfile.weightKg !== latest.weightKg) {
+        const newProfile: UserProfile = {
+          ...currentProfile,
+          weightKg: latest.weightKg,
+        };
+        await profileRepo.saveProfile(newProfile, client);
+        updatedProfile = newProfile;
+      }
+    }
+
+    return { updatedProfile, entry };
+  };
+
+  if (txn) {
+    return await execute(txn);
+  } else {
+    const db = await getDatabase();
+    return await db.withExclusiveTransactionAsync(execute);
+  }
+}
+
+/**
+ * Updates an existing body weight entry and atomically synchronizes the user's current profile weight
+ * if the modified entry affects the chronologically latest genuine weigh-in.
+ */
+export async function updateWeightWithProfileSync(
+  entry: BodyWeightEntry,
+  txn?: IDatabase
+): Promise<{ updatedProfile: UserProfile | null; entry: BodyWeightEntry }> {
+  const execute = async (client: IDatabase) => {
+    const weightRepo = new SQLiteBodyWeightRepository(client);
+    const profileRepo = new SQLiteProfileRepository(client);
+
+    await weightRepo.updateWeight(entry, client);
+
+    const allWeights = await weightRepo.getAllWeights(client);
+    const latest = getLatestGenuineWeight(allWeights);
+
+    let updatedProfile: UserProfile | null = null;
+    if (latest) {
+      const currentProfile = await profileRepo.getProfile();
+      if (currentProfile && currentProfile.weightKg !== latest.weightKg) {
+        const newProfile: UserProfile = {
+          ...currentProfile,
+          weightKg: latest.weightKg,
+        };
+        await profileRepo.saveProfile(newProfile, client);
+        updatedProfile = newProfile;
+      }
+    }
+
+    return { updatedProfile, entry };
+  };
+
+  if (txn) {
+    return await execute(txn);
+  } else {
+    const db = await getDatabase();
+    return await db.withExclusiveTransactionAsync(execute);
+  }
+}
+
+/**
+ * Deletes a body weight entry and atomically updates the user's profile weight to the new
+ * chronologically latest genuine weigh-in. If history becomes empty, preserves the current profile weight.
+ */
+export async function deleteWeightWithProfileSync(
+  id: string,
+  txn?: IDatabase
+): Promise<{ updatedProfile: UserProfile | null }> {
+  const execute = async (client: IDatabase) => {
+    const weightRepo = new SQLiteBodyWeightRepository(client);
+    const profileRepo = new SQLiteProfileRepository(client);
+
+    await weightRepo.deleteWeight(id, client);
+
+    const allWeights = await weightRepo.getAllWeights(client);
+    const newLatest = getLatestGenuineWeight(allWeights);
+
+    let updatedProfile: UserProfile | null = null;
+    if (newLatest) {
+      const currentProfile = await profileRepo.getProfile();
+      if (currentProfile && currentProfile.weightKg !== newLatest.weightKg) {
+        const newProfile: UserProfile = {
+          ...currentProfile,
+          weightKg: newLatest.weightKg,
+        };
+        await profileRepo.saveProfile(newProfile, client);
+        updatedProfile = newProfile;
+      }
+    }
+
+    return { updatedProfile };
+  };
+
+  if (txn) {
+    return await execute(txn);
+  } else {
+    const db = await getDatabase();
+    return await db.withExclusiveTransactionAsync(execute);
   }
 }
 
