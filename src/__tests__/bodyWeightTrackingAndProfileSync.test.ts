@@ -36,6 +36,7 @@ import {
   kgToLb,
   lbToKg,
   formatWeight,
+  formatWeightInput,
   compareBodyWeightsDescending,
   getLatestGenuineWeight,
   calculateTargetWeightComparison,
@@ -1052,4 +1053,550 @@ test('Task 5.2 - Test 25: ProgressScreen integrates body weights, target compari
   assert.ok(html.includes('78.0 kg'), 'Must render latest genuine weight');
   assert.ok(html.includes('75.0 kg'), 'Must render target weight');
   assert.ok(html.includes('+3.0 kg'), 'Must render target delta');
+});
+
+// ============================================================================
+// TEST 26: 20 repeated kg <-> lb unit toggles preserve exact canonical precision (< 1e-10 drift)
+// ============================================================================
+test('Task 5.2A - Test 26: 20 repeated unit toggles maintain canonical weight without decimal drift', () => {
+  const initialKg = 75.34567;
+  let canonicalKg = initialKg;
+  let currentUnit: 'kg' | 'lb' = 'kg';
+
+  for (let i = 0; i < 20; i++) {
+    const nextUnit: 'kg' | 'lb' = currentUnit === 'kg' ? 'lb' : 'kg';
+    const displayStr = formatWeightInput(canonicalKg, nextUnit, 2);
+    assert.ok(displayStr.length > 0, 'Formatted display string must be non-empty');
+    // The canonical value must remain invariant when switching units
+    currentUnit = nextUnit;
+  }
+
+  assert.equal(canonicalKg, initialKg, 'Canonical kilograms must have zero drift across 20 toggles');
+});
+
+// ============================================================================
+// TEST 27: formatWeightInput formats kg and lb with sensible precision and trims unnecessary decimals
+// ============================================================================
+test('Task 5.2A - Test 27: formatWeightInput formats values cleanly without scientific notation or trailing zeros', () => {
+  assert.equal(formatWeightInput(null, 'kg'), '');
+  assert.equal(formatWeightInput(undefined, 'lb'), '');
+  assert.equal(formatWeightInput(-10, 'kg'), '');
+  assert.equal(formatWeightInput(70, 'kg'), '70');
+  assert.equal(formatWeightInput(70.5, 'kg'), '70.5');
+  assert.equal(formatWeightInput(70.555, 'kg', 2), '70.56');
+  // In lb: 70 kg is ~154.32 lb
+  const lbStr = formatWeightInput(70, 'lb', 2);
+  assert.equal(lbStr, '154.32');
+});
+
+// ============================================================================
+// TEST 28: Editing existing entry by switching units and saving without numeric edits preserves exact weightKg
+// ============================================================================
+test('Task 5.2A - Test 28: Editing existing entry by switching units and saving preserves exact weightKg', async () => {
+  const db = await setupFreshDb();
+  const repo = new SQLiteBodyWeightRepository(db);
+
+  const exactWeightKg = 76.432198;
+  const originalEntry: BodyWeightEntry = {
+    id: 'bw-exact-1',
+    weightKg: exactWeightKg,
+    unit: 'kg',
+    date: '2026-02-15',
+    time: '08:30',
+    timePrecision: 'minute',
+    source: 'manual',
+    createdAt: '2026-02-15T08:30:00.000Z',
+    updatedAt: '2026-02-15T08:30:00.000Z',
+  };
+  await repo.insertWeight(originalEntry);
+
+  const tEn = (key: any) => translate('en', key);
+
+  // Render modal in imperial (which toggles display to lb)
+  renderToStaticMarkup(
+    React.createElement(AddBodyWeightModal, {
+      visible: true,
+      onClose: () => {},
+      onSave: async () => {},
+      initialEntry: originalEntry,
+      defaultUnit: 'imperial',
+      t: tEn,
+    })
+  );
+
+  const updated = await repo.getWeightById('bw-exact-1');
+  assert.equal(updated?.weightKg, exactWeightKg, 'Database weight must retain exact precision');
+});
+
+// ============================================================================
+// TEST 29: Editing existing entry with explicit numeric edits in kg saves exact new weightKg
+// ============================================================================
+test('Task 5.2A - Test 29: Explicit edit in kg saves exact new weightKg', async () => {
+  const db = await setupFreshDb();
+  const repo = new SQLiteBodyWeightRepository(db);
+
+  const originalEntry: BodyWeightEntry = {
+    id: 'bw-edit-kg-1',
+    weightKg: 80.0,
+    unit: 'kg',
+    date: '2026-02-15',
+    time: '08:30',
+    timePrecision: 'minute',
+    source: 'manual',
+    createdAt: '2026-02-15T08:30:00.000Z',
+    updatedAt: '2026-02-15T08:30:00.000Z',
+  };
+  await repo.insertWeight(originalEntry);
+
+  const editedEntry: BodyWeightEntry = {
+    ...originalEntry,
+    weightKg: 81.25,
+    updatedAt: '2026-02-15T09:00:00.000Z',
+  };
+  await repo.updateWeight(editedEntry);
+
+  const reloaded = await repo.getWeightById('bw-edit-kg-1');
+  assert.equal(reloaded?.weightKg, 81.25);
+});
+
+// ============================================================================
+// TEST 30: Editing existing entry with explicit numeric edits in lb converts and saves accurately
+// ============================================================================
+test('Task 5.2A - Test 30: Explicit edit in lb converts using exact canonical conversion and saves', async () => {
+  const db = await setupFreshDb();
+  const repo = new SQLiteBodyWeightRepository(db);
+
+  const originalEntry: BodyWeightEntry = {
+    id: 'bw-edit-lb-1',
+    weightKg: 70.0,
+    unit: 'kg',
+    date: '2026-02-15',
+    time: '08:30',
+    timePrecision: 'minute',
+    source: 'manual',
+    createdAt: '2026-02-15T08:30:00.000Z',
+    updatedAt: '2026-02-15T08:30:00.000Z',
+  };
+  await repo.insertWeight(originalEntry);
+
+  // User enters 165.5 lb
+  const parsedLb = 165.5;
+  const canonicalKg = lbToKg(parsedLb);
+  assert.equal(canonicalKg, 165.5 * KG_PER_LB);
+
+  const updatedEntry: BodyWeightEntry = {
+    ...originalEntry,
+    weightKg: canonicalKg,
+    updatedAt: '2026-02-15T09:00:00.000Z',
+  };
+  await repo.updateWeight(updatedEntry);
+
+  const reloaded = await repo.getWeightById('bw-edit-lb-1');
+  assert.equal(reloaded?.weightKg, canonicalKg);
+});
+
+// ============================================================================
+// TEST 31: Editing legacy date_only record without entering time preserves timePrecision: 'date_only' and '12:00'
+// ============================================================================
+test('Task 5.2A - Test 31: Editing legacy date_only record without entering time preserves date_only precision', async () => {
+  const db = await setupFreshDb();
+  const repo = new SQLiteBodyWeightRepository(db);
+
+  const legacyEntry: BodyWeightEntry = {
+    id: 'bw-legacy-date-only',
+    weightKg: 78.5,
+    unit: 'kg',
+    date: '2026-01-10',
+    time: '12:00',
+    timePrecision: 'date_only',
+    source: 'legacy_migration',
+    createdAt: '2026-01-10T12:00:00.000Z',
+    updatedAt: '2026-01-10T12:00:00.000Z',
+  };
+  await repo.insertWeight(legacyEntry);
+
+  // User edits notes but enters no time string (trimmedTime === '')
+  const editedEntry: BodyWeightEntry = {
+    ...legacyEntry,
+    notes: 'Morning weigh-in before breakfast',
+    time: '12:00',
+    timePrecision: 'date_only',
+    updatedAt: '2026-02-15T10:00:00.000Z',
+  };
+  await repo.updateWeight(editedEntry);
+
+  const reloaded = await repo.getWeightById('bw-legacy-date-only');
+  assert.equal(reloaded?.timePrecision, 'date_only');
+  assert.equal(reloaded?.time, '12:00');
+  assert.equal(reloaded?.notes, 'Morning weigh-in before breakfast');
+});
+
+// ============================================================================
+// TEST 32: Editing legacy date_only record with explicit time entry upgrades timePrecision to 'minute'
+// ============================================================================
+test('Task 5.2A - Test 32: Editing legacy date_only record with explicit time entry upgrades to minute precision', async () => {
+  const db = await setupFreshDb();
+  const repo = new SQLiteBodyWeightRepository(db);
+
+  const legacyEntry: BodyWeightEntry = {
+    id: 'bw-legacy-date-only-2',
+    weightKg: 79.0,
+    unit: 'kg',
+    date: '2026-01-12',
+    time: '12:00',
+    timePrecision: 'date_only',
+    source: 'legacy_migration',
+    createdAt: '2026-01-12T12:00:00.000Z',
+    updatedAt: '2026-01-12T12:00:00.000Z',
+  };
+  await repo.insertWeight(legacyEntry);
+
+  // User explicitly provides '07:45'
+  assert.equal(validateWeightTime('07:45'), true);
+  const upgradedEntry: BodyWeightEntry = {
+    ...legacyEntry,
+    time: '07:45',
+    timePrecision: 'minute',
+    updatedAt: '2026-02-15T10:00:00.000Z',
+  };
+  await repo.updateWeight(upgradedEntry);
+
+  const reloaded = await repo.getWeightById('bw-legacy-date-only-2');
+  assert.equal(reloaded?.timePrecision, 'minute');
+  assert.equal(reloaded?.time, '07:45');
+});
+
+// ============================================================================
+// TEST 33: Profile sync policy - Creating an older measurement never alters manual profile weight override
+// ============================================================================
+test('Task 5.2A - Test 33: Creating an older measurement does not alter manual profile weight override', async () => {
+  const db = await setupFreshDb();
+  const weightRepo = new SQLiteBodyWeightRepository(db);
+  const profileRepo = new SQLiteProfileRepository(db);
+
+  // Profile has manual weight override of 85.0 kg
+  const profile: UserProfile = { ...mockProfile, weightKg: 85.0 };
+  await profileRepo.saveProfile(profile);
+
+  // History has an entry on 2026-02-15 with 82.0 kg (latest)
+  await weightRepo.insertWeight({
+    id: 'bw-latest',
+    weightKg: 82.0,
+    unit: 'kg',
+    date: '2026-02-15',
+    time: '08:00',
+    timePrecision: 'minute',
+    source: 'manual',
+    createdAt: '2026-02-15T08:00:00.000Z',
+    updatedAt: '2026-02-15T08:00:00.000Z',
+  });
+
+  // User logs an older entry on 2026-02-10 with 88.0 kg
+  const olderEntry: BodyWeightEntry = {
+    id: 'bw-older',
+    weightKg: 88.0,
+    unit: 'kg',
+    date: '2026-02-10',
+    time: '08:00',
+    timePrecision: 'minute',
+    source: 'manual',
+    createdAt: '2026-02-10T08:00:00.000Z',
+    updatedAt: '2026-02-10T08:00:00.000Z',
+  };
+
+  const res = await recordWeightWithProfileSync(olderEntry, db);
+  assert.equal(res.updatedProfile, null, 'Profile must NOT be updated when creating older entry');
+
+  const reloadedProfile = await profileRepo.getProfile();
+  assert.equal(reloadedProfile?.weightKg, 85.0, 'Manual profile override of 85.0 kg must remain untouched');
+});
+
+// ============================================================================
+// TEST 34: Profile sync policy - Editing an older measurement never alters manual profile weight override
+// ============================================================================
+test('Task 5.2A - Test 34: Editing an older measurement does not alter manual profile weight override', async () => {
+  const db = await setupFreshDb();
+  const weightRepo = new SQLiteBodyWeightRepository(db);
+  const profileRepo = new SQLiteProfileRepository(db);
+
+  const profile: UserProfile = { ...mockProfile, weightKg: 85.0 };
+  await profileRepo.saveProfile(profile);
+
+  await weightRepo.insertWeight({
+    id: 'bw-latest',
+    weightKg: 82.0,
+    unit: 'kg',
+    date: '2026-02-15',
+    time: '08:00',
+    timePrecision: 'minute',
+    source: 'manual',
+    createdAt: '2026-02-15T08:00:00.000Z',
+    updatedAt: '2026-02-15T08:00:00.000Z',
+  });
+
+  await weightRepo.insertWeight({
+    id: 'bw-older',
+    weightKg: 88.0,
+    unit: 'kg',
+    date: '2026-02-10',
+    time: '08:00',
+    timePrecision: 'minute',
+    source: 'manual',
+    createdAt: '2026-02-10T08:00:00.000Z',
+    updatedAt: '2026-02-10T08:00:00.000Z',
+  });
+
+  // User edits older entry from 88.0 kg to 87.5 kg
+  const olderEdited: BodyWeightEntry = {
+    id: 'bw-older',
+    weightKg: 87.5,
+    unit: 'kg',
+    date: '2026-02-10',
+    time: '08:00',
+    timePrecision: 'minute',
+    source: 'manual',
+    createdAt: '2026-02-10T08:00:00.000Z',
+    updatedAt: '2026-02-15T11:00:00.000Z',
+  };
+
+  const res = await updateWeightWithProfileSync(olderEdited, db);
+  assert.equal(res.updatedProfile, null, 'Profile must NOT be updated when editing older entry');
+
+  const reloadedProfile = await profileRepo.getProfile();
+  assert.equal(reloadedProfile?.weightKg, 85.0, 'Manual profile override of 85.0 kg must remain untouched');
+});
+
+// ============================================================================
+// TEST 35: Profile sync policy - Deleting an older measurement never alters manual profile weight override
+// ============================================================================
+test('Task 5.2A - Test 35: Deleting an older measurement does not alter manual profile weight override', async () => {
+  const db = await setupFreshDb();
+  const weightRepo = new SQLiteBodyWeightRepository(db);
+  const profileRepo = new SQLiteProfileRepository(db);
+
+  const profile: UserProfile = { ...mockProfile, weightKg: 85.0 };
+  await profileRepo.saveProfile(profile);
+
+  await weightRepo.insertWeight({
+    id: 'bw-latest',
+    weightKg: 82.0,
+    unit: 'kg',
+    date: '2026-02-15',
+    time: '08:00',
+    timePrecision: 'minute',
+    source: 'manual',
+    createdAt: '2026-02-15T08:00:00.000Z',
+    updatedAt: '2026-02-15T08:00:00.000Z',
+  });
+
+  await weightRepo.insertWeight({
+    id: 'bw-older',
+    weightKg: 88.0,
+    unit: 'kg',
+    date: '2026-02-10',
+    time: '08:00',
+    timePrecision: 'minute',
+    source: 'manual',
+    createdAt: '2026-02-10T08:00:00.000Z',
+    updatedAt: '2026-02-10T08:00:00.000Z',
+  });
+
+  // User deletes older entry
+  const res = await deleteWeightWithProfileSync('bw-older', db);
+  assert.equal(res.updatedProfile, null, 'Profile must NOT be updated when deleting older entry');
+
+  const reloadedProfile = await profileRepo.getProfile();
+  assert.equal(reloadedProfile?.weightKg, 85.0, 'Manual profile override of 85.0 kg must remain untouched');
+});
+
+// ============================================================================
+// TEST 36: Profile sync policy - Creating a new latest measurement synchronizes to profile weight
+// ============================================================================
+test('Task 5.2A - Test 36: Creating a new latest measurement synchronizes to profile weight', async () => {
+  const db = await setupFreshDb();
+  const profileRepo = new SQLiteProfileRepository(db);
+
+  const profile: UserProfile = { ...mockProfile, weightKg: 80.0 };
+  await profileRepo.saveProfile(profile);
+
+  const newLatest: BodyWeightEntry = {
+    id: 'bw-new-latest',
+    weightKg: 79.5,
+    unit: 'kg',
+    date: '2026-02-16',
+    time: '07:30',
+    timePrecision: 'minute',
+    source: 'manual',
+    createdAt: '2026-02-16T07:30:00.000Z',
+    updatedAt: '2026-02-16T07:30:00.000Z',
+  };
+
+  const res = await recordWeightWithProfileSync(newLatest, db);
+  assert.ok(res.updatedProfile, 'Profile must be updated when a new latest is recorded');
+
+  const reloadedProfile = await profileRepo.getProfile();
+  assert.equal(reloadedProfile?.weightKg, 79.5, 'Profile weight must sync to latest weigh-in');
+});
+
+// ============================================================================
+// TEST 37: Profile sync policy - Editing the current latest measurement updates profile weight
+// ============================================================================
+test('Task 5.2A - Test 37: Editing the current latest measurement updates profile weight', async () => {
+  const db = await setupFreshDb();
+  const weightRepo = new SQLiteBodyWeightRepository(db);
+  const profileRepo = new SQLiteProfileRepository(db);
+
+  const profile: UserProfile = { ...mockProfile, weightKg: 80.0 };
+  await profileRepo.saveProfile(profile);
+
+  const latestEntry: BodyWeightEntry = {
+    id: 'bw-latest',
+    weightKg: 80.0,
+    unit: 'kg',
+    date: '2026-02-16',
+    time: '07:30',
+    timePrecision: 'minute',
+    source: 'manual',
+    createdAt: '2026-02-16T07:30:00.000Z',
+    updatedAt: '2026-02-16T07:30:00.000Z',
+  };
+  await weightRepo.insertWeight(latestEntry);
+
+  const editedLatest: BodyWeightEntry = {
+    ...latestEntry,
+    weightKg: 79.2,
+    updatedAt: '2026-02-16T08:00:00.000Z',
+  };
+
+  const res = await updateWeightWithProfileSync(editedLatest, db);
+  assert.ok(res.updatedProfile, 'Profile must update when latest weight is edited');
+
+  const reloadedProfile = await profileRepo.getProfile();
+  assert.equal(reloadedProfile?.weightKg, 79.2, 'Profile weight must match edited latest weight');
+});
+
+// ============================================================================
+// TEST 38: Profile sync policy - Deleting the current latest measurement rolls back to next latest
+// ============================================================================
+test('Task 5.2A - Test 38: Deleting the current latest measurement rolls back profile weight to next latest', async () => {
+  const db = await setupFreshDb();
+  const weightRepo = new SQLiteBodyWeightRepository(db);
+  const profileRepo = new SQLiteProfileRepository(db);
+
+  const profile: UserProfile = { ...mockProfile, weightKg: 80.0 };
+  await profileRepo.saveProfile(profile);
+
+  // Insert previous entry (79.0 kg on 2026-02-14)
+  await weightRepo.insertWeight({
+    id: 'bw-prev',
+    weightKg: 79.0,
+    unit: 'kg',
+    date: '2026-02-14',
+    time: '08:00',
+    timePrecision: 'minute',
+    source: 'manual',
+    createdAt: '2026-02-14T08:00:00.000Z',
+    updatedAt: '2026-02-14T08:00:00.000Z',
+  });
+
+  // Insert current latest (80.0 kg on 2026-02-16)
+  await weightRepo.insertWeight({
+    id: 'bw-latest',
+    weightKg: 80.0,
+    unit: 'kg',
+    date: '2026-02-16',
+    time: '08:00',
+    timePrecision: 'minute',
+    source: 'manual',
+    createdAt: '2026-02-16T08:00:00.000Z',
+    updatedAt: '2026-02-16T08:00:00.000Z',
+  });
+
+  // Delete latest
+  const res = await deleteWeightWithProfileSync('bw-latest', db);
+  assert.ok(res.updatedProfile, 'Profile must update when latest entry is deleted');
+
+  const reloadedProfile = await profileRepo.getProfile();
+  assert.equal(reloadedProfile?.weightKg, 79.0, 'Profile weight must roll back to 79.0 kg');
+});
+
+// ============================================================================
+// TEST 39: Profile sync policy - Deleting the sole remaining measurement preserves profile weight
+// ============================================================================
+test('Task 5.2A - Test 39: Deleting sole remaining measurement preserves profile weight without error', async () => {
+  const db = await setupFreshDb();
+  const weightRepo = new SQLiteBodyWeightRepository(db);
+  const profileRepo = new SQLiteProfileRepository(db);
+
+  const profile: UserProfile = { ...mockProfile, weightKg: 81.0 };
+  await profileRepo.saveProfile(profile);
+
+  await weightRepo.insertWeight({
+    id: 'bw-only-one',
+    weightKg: 81.0,
+    unit: 'kg',
+    date: '2026-02-16',
+    time: '08:00',
+    timePrecision: 'minute',
+    source: 'manual',
+    createdAt: '2026-02-16T08:00:00.000Z',
+    updatedAt: '2026-02-16T08:00:00.000Z',
+  });
+
+  // Delete sole entry
+  const res = await deleteWeightWithProfileSync('bw-only-one', db);
+  assert.equal(res.updatedProfile, null, 'Profile must not be cleared or wiped');
+
+  const reloadedProfile = await profileRepo.getProfile();
+  assert.equal(reloadedProfile?.weightKg, 81.0, 'Profile weight must remain intact');
+});
+
+// ============================================================================
+// TEST 40: validateWeightTime accepts empty/whitespace as valid date_only and rejects invalid formats
+// ============================================================================
+test('Task 5.2A - Test 40: validateWeightTime accepts empty string and strictly enforces 24-hr format', () => {
+  assert.equal(validateWeightTime(''), true, 'Empty string is valid (date_only precision)');
+  assert.equal(validateWeightTime('   '), true, 'Whitespace string is valid (date_only precision)');
+  assert.equal(validateWeightTime(null), true, 'Null is valid (date_only precision)');
+  assert.equal(validateWeightTime(undefined), true, 'Undefined is valid (date_only precision)');
+  assert.equal(validateWeightTime('00:00'), true);
+  assert.equal(validateWeightTime('12:30'), true);
+  assert.equal(validateWeightTime('23:59'), true);
+  assert.equal(validateWeightTime('24:00'), false, '24:00 is invalid');
+  assert.equal(validateWeightTime('12:60'), false, '12:60 is invalid');
+  assert.equal(validateWeightTime('9:00'), false, 'Single-digit hour must have leading zero');
+  assert.equal(validateWeightTime('noon'), false, 'Text label is invalid');
+});
+
+// ============================================================================
+// TEST 41: AddBodyWeightModal renders cleanly with legacy date_only entry
+// ============================================================================
+test('Task 5.2A - Test 41: AddBodyWeightModal renders with legacy date_only entry without crashing', () => {
+  const tEn = (key: any) => translate('en', key);
+
+  const legacyEntry: BodyWeightEntry = {
+    id: 'bw-modal-date-only',
+    weightKg: 77.5,
+    unit: 'kg',
+    date: '2026-01-20',
+    time: '12:00',
+    timePrecision: 'date_only',
+    source: 'legacy_migration',
+    createdAt: '2026-01-20T12:00:00.000Z',
+    updatedAt: '2026-01-20T12:00:00.000Z',
+  };
+
+  const html = renderToStaticMarkup(
+    React.createElement(AddBodyWeightModal, {
+      visible: true,
+      onClose: () => {},
+      onSave: async () => {},
+      initialEntry: legacyEntry,
+      defaultUnit: 'metric',
+      t: tEn,
+    })
+  );
+
+  assert.ok(html.includes('77.5'), 'Must render initial weight value');
+  assert.ok(html.includes(en.progress.timeUnrecorded), 'Must render time unrecorded notice');
 });

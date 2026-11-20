@@ -241,6 +241,26 @@ export function calculateTargetWeightComparison(
 }
 
 /**
+ * Formats a canonical weight in kilograms into a string suitable for an editable input box.
+ * Displays up to maxDecimals precision without trailing zeros or scientific notation.
+ */
+export function formatWeightInput(
+  weightKg: number | null | undefined,
+  unit: 'kg' | 'lb' | MeasurementUnits,
+  maxDecimals = 2
+): string {
+  if (weightKg == null || !Number.isFinite(weightKg) || weightKg <= 0) {
+    return '';
+  }
+  const isLb = unit === 'lb' || unit === 'imperial';
+  const val = isLb ? kgToLb(weightKg) : weightKg;
+
+  const factor = Math.pow(10, maxDecimals);
+  const rounded = Math.round(val * factor) / factor;
+  return rounded.toString();
+}
+
+/**
  * Validates a date string for body weight logging (must be YYYY-MM-DD Gregorian).
  */
 export function validateWeightDate(dateStr: string): boolean {
@@ -248,8 +268,11 @@ export function validateWeightDate(dateStr: string): boolean {
 }
 
 /**
- * Validates a time string for body weight logging (must be HH:mm 24-hr).
+ * Validates a time string for body weight logging.
+ * Empty or whitespace-only is valid (representing date_only precision).
+ * Non-empty strings must be HH:mm 24-hr.
  */
-export function validateWeightTime(timeStr: string): boolean {
-  return isValid24hTime(timeStr);
+export function validateWeightTime(timeStr: string | null | undefined): boolean {
+  if (!timeStr || timeStr.trim() === '') return true;
+  return isValid24hTime(timeStr.trim());
 }

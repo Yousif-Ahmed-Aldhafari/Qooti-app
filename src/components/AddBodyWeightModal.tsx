@@ -24,8 +24,7 @@ import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import { activeRowStyle, activeTextAlign, activeWritingDirection } from '../utils/rtl';
 import {
-  formatWeight,
-  kgToLb,
+  formatWeightInput,
   lbToKg,
   parseWeightInput,
   validateWeightDate,
@@ -78,9 +77,13 @@ function AddBodyWeightFormContent({
 
   const initialUnitState: 'kg' | 'lb' = defaultUnit === 'imperial' ? 'lb' : 'kg';
   const [selectedUnit, setSelectedUnit] = useState<'kg' | 'lb'>(initialUnitState);
+  const [canonicalWeightKg, setCanonicalWeightKg] = useState<number | null>(
+    () => (initialEntry ? initialEntry.weightKg : null)
+  );
+  const [isWeightEdited, setIsWeightEdited] = useState(false);
   const [weightText, setWeightText] = useState(() => {
     if (initialEntry) {
-      return formatWeight(initialEntry.weightKg, initialUnitState, 1);
+      return formatWeightInput(initialEntry.weightKg, initialUnitState, 2);
     }
     return '';
   });
@@ -92,7 +95,7 @@ function AddBodyWeightFormContent({
   });
   const [timeText, setTimeText] = useState(() => {
     if (initialEntry) {
-      return initialEntry.timePrecision === 'date_only' ? getLocalCurrentTime() : initialEntry.time;
+      return initialEntry.timePrecision === 'date_only' ? '' : initialEntry.time;
     }
     return getLocalCurrentTime();
   });
@@ -107,22 +110,13 @@ function AddBodyWeightFormContent({
   const handleUnitToggle = useCallback(
     (newUnit: 'kg' | 'lb') => {
       if (newUnit === selectedUnit) return;
-      const parsed = parseWeightInput(weightText);
-      if (parsed != null) {
-        if (newUnit === 'lb') {
-          // kg to lb
-          const convertedLb = kgToLb(parsed);
-          setWeightText(convertedLb.toFixed(1));
-        } else {
-          // lb to kg
-          const convertedKg = lbToKg(parsed);
-          setWeightText(convertedKg.toFixed(1));
-        }
+      if (canonicalWeightKg != null) {
+        setWeightText(formatWeightInput(canonicalWeightKg, newUnit, 2));
       }
       setSelectedUnit(newUnit);
       setErrorMessage(null);
     },
-    [selectedUnit, weightText]
+    [selectedUnit, canonicalWeightKg]
   );
 
   const handleSave = async () => {
@@ -141,6 +135,18 @@ function AddBodyWeightFormContent({
       return;
     }
 
+    // Determine canonical weight to save:
+    // If the user didn't edit the weight numeric value (e.g. only toggled units, or only edited date/time/notes),
+    // preserve initialEntry.weightKg exactly to avoid any floating point drift.
+    let weightKgToSave: number;
+    if (!isWeightEdited && initialEntry) {
+      weightKgToSave = initialEntry.weightKg;
+    } else if (canonicalWeightKg != null && Math.abs(canonicalWeightKg - validation.weightKg) < 0.05) {
+      weightKgToSave = canonicalWeightKg;
+    } else {
+      weightKgToSave = validation.weightKg;
+    }
+
     // 2. Validate calendar date
     const trimmedDate = dateText.trim();
     if (!validateWeightDate(trimmedDate)) {
@@ -156,17 +162,27 @@ function AddBodyWeightFormContent({
     }
 
     // Determine time precision:
-    // If the user entered an actual valid time and saved, it has minute precision.
-    const timePrecision: TimePrecision = 'minute';
+    let finalTime: string;
+    let timePrecision: TimePrecision;
+
+    if (!trimmedTime) {
+      // User left time empty or legacy date_only record with no time entered
+      finalTime = '12:00';
+      timePrecision = 'date_only';
+    } else {
+      finalTime = trimmedTime;
+      timePrecision = 'minute';
+    }
+
     const source: WeightSource = initialEntry ? initialEntry.source : 'manual';
     const nowIso = new Date().toISOString();
 
     const entryToSave: BodyWeightEntry = {
       id: initialEntry ? initialEntry.id : generateBodyWeightId(),
       date: trimmedDate,
-      time: trimmedTime,
+      time: finalTime,
       timePrecision,
-      weightKg: validation.weightKg,
+      weightKg: weightKgToSave,
       notes: notesText.trim() ? notesText.trim() : null,
       source,
       createdAt: initialEntry ? initialEntry.createdAt : nowIso,
@@ -346,7 +362,15 @@ function AddBodyWeightFormContent({
                     value={weightText}
                     onChangeText={(val) => {
                       setWeightText(val);
+                      setIsWeightEdited(true);
                       if (errorMessage) setErrorMessage(null);
+                      const parsed = parseWeightInput(val);
+                      if (parsed != null && Number.isFinite(parsed) && parsed > 0) {
+                        const asKg = selectedUnit === 'lb' ? lbToKg(parsed) : parsed;
+                        setCanonicalWeightKg(asKg);
+                      } else {
+                        setCanonicalWeightKg(null);
+                      }
                     }}
                     placeholder={selectedUnit === 'kg' ? '70.5' : '155.0'}
                     placeholderTextColor={colors.textMuted}

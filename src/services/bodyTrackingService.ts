@@ -155,7 +155,8 @@ export async function recordWeightWithProfileSync(
 
 /**
  * Updates an existing body weight entry and atomically synchronizes the user's current profile weight
- * if the modified entry affects the chronologically latest genuine weigh-in.
+ * if and only if the modified entry was the chronologically latest genuine weigh-in or was promoted
+ * to become the latest genuine weigh-in. Unrelated older entry edits never alter the profile weight.
  */
 export async function updateWeightWithProfileSync(
   entry: BodyWeightEntry,
@@ -165,21 +166,32 @@ export async function updateWeightWithProfileSync(
     const weightRepo = new SQLiteBodyWeightRepository(client);
     const profileRepo = new SQLiteProfileRepository(client);
 
+    const allWeightsBefore = await weightRepo.getAllWeights(client);
+    const prevLatest = getLatestGenuineWeight(allWeightsBefore);
+
     await weightRepo.updateWeight(entry, client);
 
-    const allWeights = await weightRepo.getAllWeights(client);
-    const latest = getLatestGenuineWeight(allWeights);
+    const allWeightsAfter = await weightRepo.getAllWeights(client);
+    const newLatest = getLatestGenuineWeight(allWeightsAfter);
 
     let updatedProfile: UserProfile | null = null;
-    if (latest) {
-      const currentProfile = await profileRepo.getProfile();
-      if (currentProfile && currentProfile.weightKg !== latest.weightKg) {
-        const newProfile: UserProfile = {
-          ...currentProfile,
-          weightKg: latest.weightKg,
-        };
-        await profileRepo.saveProfile(newProfile, client);
-        updatedProfile = newProfile;
+
+    // A profile sync should only occur if the modified entry was the latest,
+    // or if the modification promoted this entry to become the latest!
+    const wasLatest = prevLatest != null && prevLatest.id === entry.id;
+    const isNowLatest = newLatest != null && newLatest.id === entry.id;
+
+    if (wasLatest || isNowLatest) {
+      if (newLatest) {
+        const currentProfile = await profileRepo.getProfile();
+        if (currentProfile && currentProfile.weightKg !== newLatest.weightKg) {
+          const newProfile: UserProfile = {
+            ...currentProfile,
+            weightKg: newLatest.weightKg,
+          };
+          await profileRepo.saveProfile(newProfile, client);
+          updatedProfile = newProfile;
+        }
       }
     }
 
@@ -196,7 +208,9 @@ export async function updateWeightWithProfileSync(
 
 /**
  * Deletes a body weight entry and atomically updates the user's profile weight to the new
- * chronologically latest genuine weigh-in. If history becomes empty, preserves the current profile weight.
+ * chronologically latest genuine weigh-in IF AND ONLY IF the deleted entry was the latest genuine weigh-in.
+ * Deleting an older measurement leaves profile weight untouched.
+ * If history becomes empty, preserves the current profile weight without modification.
  */
 export async function deleteWeightWithProfileSync(
   id: string,
@@ -206,21 +220,36 @@ export async function deleteWeightWithProfileSync(
     const weightRepo = new SQLiteBodyWeightRepository(client);
     const profileRepo = new SQLiteProfileRepository(client);
 
+    const allWeightsBefore = await weightRepo.getAllWeights(client);
+    const prevLatest = getLatestGenuineWeight(allWeightsBefore);
+
     await weightRepo.deleteWeight(id, client);
 
-    const allWeights = await weightRepo.getAllWeights(client);
-    const newLatest = getLatestGenuineWeight(allWeights);
+    const allWeightsAfter = await weightRepo.getAllWeights(client);
+    const newLatest = getLatestGenuineWeight(allWeightsAfter);
 
     let updatedProfile: UserProfile | null = null;
-    if (newLatest) {
-      const currentProfile = await profileRepo.getProfile();
-      if (currentProfile && currentProfile.weightKg !== newLatest.weightKg) {
-        const newProfile: UserProfile = {
-          ...currentProfile,
-          weightKg: newLatest.weightKg,
-        };
-        await profileRepo.saveProfile(newProfile, client);
-        updatedProfile = newProfile;
+
+    // A profile sync should only occur if the deleted entry was the latest genuine weigh-in!
+    const wasLatest = prevLatest != null && prevLatest.id === id;
+
+    if (wasLatest) {
+      if (newLatest) {
+        // Fall back to the next newest genuine weigh-in
+        const currentProfile = await profileRepo.getProfile();
+        if (currentProfile && currentProfile.weightKg !== newLatest.weightKg) {
+          const newProfile: UserProfile = {
+            ...currentProfile,
+            weightKg: newLatest.weightKg,
+          };
+          await profileRepo.saveProfile(newProfile, client);
+          updatedProfile = newProfile;
+        }
+      } else {
+        // History is now empty!
+        // "Preserve profile values when history is empty."
+        // "Deleting the final measurement: preserve profile values when history is empty."
+        // Do NOT change profile.weightKg; leave it preserved as-is.
       }
     }
 
