@@ -516,7 +516,8 @@ export interface DerivedWaistToHipRatioResult extends WaistToHipRatioResult {
  * 5. Discloses individual dates when observations originate from different dates.
  */
 export function deriveWaistToHipRatio(
-  entries: BodyMeasurementEntry[]
+  entries: BodyMeasurementEntry[],
+  formatDisclosedText?: (waistDate: string, hipsDate: string) => string
 ): DerivedWaistToHipRatioResult {
   if (!entries || entries.length === 0) {
     return { isValid: false };
@@ -559,7 +560,9 @@ export function deriveWaistToHipRatio(
   const isSameDate = waistEntry.date === hipsEntry.date;
   const disclosedDateText = isSameDate
     ? waistEntry.date
-    : `Waist: ${waistEntry.date} • Hips: ${hipsEntry.date}`;
+    : formatDisclosedText
+      ? formatDisclosedText(waistEntry.date, hipsEntry.date)
+      : `Waist: ${waistEntry.date} • Hips: ${hipsEntry.date}`;
 
   return {
     ...base,

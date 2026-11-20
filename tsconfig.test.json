@@ -9,7 +9,8 @@
       "expo-sqlite": ["src/__tests__/mocks/expo-sqlite.ts"],
       "expo-localization": ["src/__tests__/mocks/expo-localization.ts"],
       "@expo/vector-icons": ["src/__tests__/mocks/vector-icons.ts"],
-      "expo-blur": ["src/__tests__/mocks/expo-blur.ts"]
+      "expo-blur": ["src/__tests__/mocks/expo-blur.ts"],
+      "react-native-svg": ["src/__tests__/mocks/react-native-svg.ts"]
     }
   },
   "include": [

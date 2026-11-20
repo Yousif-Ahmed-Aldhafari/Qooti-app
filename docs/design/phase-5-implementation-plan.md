@@ -101,15 +101,16 @@
 
 ---
 
-### Task 5.4: Biometric Analytics, Moving Averages & Charting
+### Task 5.4: Biometric Analytics, Moving Averages & Charting (COMPLETED)
 - **Goal:** Implement smoothed weight trend charts and multi-period analytics.
 - **Key Deliverables:**
   - Time-Range Filter Chips: `7d`, `30d`, `90d`, `1y`, `all`.
-  - 7-Day Rolling Moving Average (EMA/SMA): Smoothes out fluid retention noise.
+  - 7-Day Rolling Moving Average (EMA/SMA): Smoothes out fluid retention noise without point fabrication.
   - Sparse Data Handling: Handles missing days gracefully without fabricating data points.
   - Velocity & Goal Card: Shows weekly rate of change ($\Delta\text{kg/week}$), remaining delta to goal, and progress percentage.
+  - Interactive Charts: `WeightTrendChart` and `BodyMeasurementTrendChart` with touch inspection.
   - Accessible Chart Alternative: TalkBack and VoiceOver detailed descriptive summaries.
-- **Verification Suite:** Moving average mathematical correctness, division-by-zero guards, date window filtering tests.
+- **Verification Suite:** 27 unit and component integration tests, 899 total passing tests, 90.90% line coverage, 20/20 Expo Doctor checks.
 
 ---
 

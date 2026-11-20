@@ -25,7 +25,19 @@ import {
   formatMeasurement,
   getLatestSiteMeasurements,
   getSiteMeasurementDelta,
+  MeasurementFieldKey,
 } from '../utils/measurements';
+import {
+  AnalyticsTimeRange,
+  MovingAverageType,
+  filterWeightsByTimeRange,
+  aggregateDailyWeights,
+  computeWeightTrendSeries,
+  calculateWeightAnalyticsSummary,
+  calculateSiteMeasurementAnalyticsSummary,
+} from '../utils/biometricAnalytics';
+import { WeightTrendChart } from '../components/WeightTrendChart';
+import { BodyMeasurementTrendChart } from '../components/BodyMeasurementTrendChart';
 import { buildWeeklyNutritionChartDays, calculateWeeklyNutritionTrend } from '../utils/nutrition';
 import { resolveEffectiveNutritionTargets } from '../utils/nutritionTargets';
 import { activeRowStyle, activeTextAlign, activeWritingDirection } from '../utils/rtl';
@@ -56,6 +68,20 @@ type ProgressScreenProps = {
 
 const EMPTY_BODY_WEIGHTS: BodyWeightEntry[] = [];
 const EMPTY_BODY_MEASUREMENTS: BodyMeasurementEntry[] = [];
+
+const TIME_RANGES: { key: AnalyticsTimeRange; labelKey: string }[] = [
+  { key: '7d', labelKey: 'progress.range7d' },
+  { key: '30d', labelKey: 'progress.range30d' },
+  { key: '90d', labelKey: 'progress.range90d' },
+  { key: '1y', labelKey: 'progress.range1y' },
+  { key: 'all', labelKey: 'progress.rangeAll' },
+];
+
+const MOVING_AVERAGE_OPTIONS: { key: MovingAverageType; labelKey: string }[] = [
+  { key: 'none', labelKey: 'progress.maNone' },
+  { key: 'sma', labelKey: 'progress.sma7' },
+  { key: 'ema', labelKey: 'progress.ema7' },
+];
 
 export function ProgressScreen({
   t,
@@ -95,6 +121,13 @@ export function ProgressScreen({
 
   const [isMeasurementModalVisible, setIsMeasurementModalVisible] = useState(false);
   const [editingMeasurement, setEditingMeasurement] = useState<BodyMeasurementEntry | null>(null);
+
+  const [weightTimeRange, setWeightTimeRange] = useState<AnalyticsTimeRange>('30d');
+  const [movingAverage, setMovingAverage] = useState<MovingAverageType>('none');
+  const [selectedMeasurementSite, setSelectedMeasurementSite] =
+    useState<MeasurementFieldKey>('waistCm');
+  const [measurementTimeRange, setMeasurementTimeRange] =
+    useState<AnalyticsTimeRange>('30d');
 
   const effectiveTargets = useMemo(() => resolveEffectiveNutritionTargets(profile), [profile]);
   const workoutDays = (progress || []).reduce((sum, entry) => sum + entry.workouts, 0);
@@ -192,9 +225,57 @@ export function ProgressScreen({
     [activeBodyMeasurements, activeUnit]
   );
 
+  const filteredWeightEntries = useMemo(
+    () => filterWeightsByTimeRange(activeBodyWeights, weightTimeRange, activeReferenceDate),
+    [activeBodyWeights, weightTimeRange, activeReferenceDate]
+  );
+
+  const dailyWeightPoints = useMemo(
+    () => aggregateDailyWeights(filteredWeightEntries, 'final', activeReferenceDate),
+    [filteredWeightEntries, activeReferenceDate]
+  );
+
+  const weightTrendSeries = useMemo(
+    () => computeWeightTrendSeries(dailyWeightPoints),
+    [dailyWeightPoints]
+  );
+
+  const weightAnalyticsSummary = useMemo(
+    () =>
+      calculateWeightAnalyticsSummary(
+        activeBodyWeights,
+        weightTimeRange,
+        activeReferenceDate,
+        activeUnit,
+        profile.targetWeightKg
+      ),
+    [activeBodyWeights, weightTimeRange, activeReferenceDate, activeUnit, profile.targetWeightKg]
+  );
+
+  const siteMeasurementAnalyticsSummary = useMemo(
+    () =>
+      calculateSiteMeasurementAnalyticsSummary(
+        activeBodyMeasurements,
+        selectedMeasurementSite,
+        measurementTimeRange,
+        activeReferenceDate,
+        activeUnit
+      ),
+    [
+      activeBodyMeasurements,
+      selectedMeasurementSite,
+      measurementTimeRange,
+      activeReferenceDate,
+      activeUnit,
+    ]
+  );
+
   const waistToHipRatio = useMemo(
-    () => deriveWaistToHipRatio(activeBodyMeasurements),
-    [activeBodyMeasurements]
+    () =>
+      deriveWaistToHipRatio(activeBodyMeasurements, (waistDate, hipsDate) =>
+        t('progress.waistAndHipsDisclosure', { waistDate, hipsDate })
+      ),
+    [activeBodyMeasurements, t]
   );
 
   const waistToHeightRatio = useMemo(
@@ -334,6 +415,197 @@ export function ProgressScreen({
           accent={colors.purple}
         />
       </View>
+
+      {/* Interactive Weight Trend & Biometric Analytics Section */}
+      <AppCard>
+        <View style={[styles.analyticsHeaderRow, activeRowStyle()]}>
+          <Text style={[styles.sectionTitle, directionalText, { color: colors.text }]}>
+            {t('progress.weightAnalytics')}
+          </Text>
+          <View style={[styles.rangeSelectorRow, activeRowStyle()]}>
+            {TIME_RANGES.map((r) => {
+              const isSelected = weightTimeRange === r.key;
+              return (
+                <Pressable
+                  key={`weight-range-${r.key}`}
+                  style={[
+                    styles.rangeChip,
+                    {
+                      backgroundColor: isSelected ? colors.accent : colors.surface,
+                      borderColor: isSelected ? colors.accent : colors.border,
+                    },
+                  ]}
+                  onPress={() => setWeightTimeRange(r.key)}
+                  accessible={true}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isSelected }}
+                  accessibilityLabel={t(r.labelKey)}
+                >
+                  <Text
+                    style={[
+                      styles.rangeChipText,
+                      {
+                        color: isSelected ? '#FFFFFF' : colors.textSecondary,
+                        fontWeight: isSelected ? '700' : '500',
+                      },
+                    ]}
+                  >
+                    {t(r.labelKey)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* Weight Analytics Metrics Summary Row */}
+        {!weightAnalyticsSummary.isEmpty && weightAnalyticsSummary.hasEnoughDataForTrend ? (
+          <View style={[styles.analyticsMetricsRow, activeRowStyle()]}>
+            <View style={[styles.analyticsMetricPill, { backgroundColor: colors.surface }]}>
+              <Text style={[styles.metricLabel, directionalText, { color: colors.textMuted }]}>
+                {t('progress.netChange')}
+              </Text>
+              <Text style={[styles.metricValue, directionalText, { color: colors.text }]}>
+                {weightAnalyticsSummary.netChangeFormatted}
+              </Text>
+            </View>
+
+            {weightAnalyticsSummary.weeklyRateFormatted ? (
+              <View style={[styles.analyticsMetricPill, { backgroundColor: colors.surface }]}>
+                <Text style={[styles.metricLabel, directionalText, { color: colors.textMuted }]}>
+                  {t('progress.weeklyRate')}
+                </Text>
+                <Text style={[styles.metricValue, directionalText, { color: colors.purple }]}>
+                  {weightAnalyticsSummary.weeklyRateFormatted}
+                </Text>
+              </View>
+            ) : null}
+
+            {weightAnalyticsSummary.isGoalReached != null ? (
+              <View style={[styles.analyticsMetricPill, { backgroundColor: colors.surface }]}>
+                <Text style={[styles.metricLabel, directionalText, { color: colors.textMuted }]}>
+                  {t('progress.targetWeight')}
+                </Text>
+                <Text
+                  style={[
+                    styles.metricValue,
+                    directionalText,
+                    { color: weightAnalyticsSummary.isGoalReached ? colors.accent : colors.lavender },
+                  ]}
+                >
+                  {weightAnalyticsSummary.isGoalReached
+                    ? t('progress.goalReached')
+                    : targetComparison.deltaFormatted || '--'}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+
+        {/* Moving Average Overlay Toggles */}
+        {!weightAnalyticsSummary.isEmpty ? (
+          <View style={[styles.maToggleRow, activeRowStyle()]}>
+            <Text style={[styles.maToggleLabel, directionalText, { color: colors.textSecondary }]}>
+              {t('progress.movingAverage')}:
+            </Text>
+            <View style={[styles.maOptionsGroup, activeRowStyle()]}>
+              {MOVING_AVERAGE_OPTIONS.map((opt) => {
+                const isSelected = movingAverage === opt.key;
+                return (
+                  <Pressable
+                    key={`ma-opt-${opt.key}`}
+                    style={[
+                      styles.maChip,
+                      {
+                        backgroundColor: isSelected ? colors.purple : colors.surface,
+                        borderColor: isSelected ? colors.purple : colors.border,
+                      },
+                    ]}
+                    onPress={() => setMovingAverage(opt.key)}
+                    accessible={true}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isSelected }}
+                    accessibilityLabel={t(opt.labelKey)}
+                  >
+                    <Text
+                      style={[
+                        styles.maChipText,
+                        {
+                          color: isSelected ? '#FFFFFF' : colors.textSecondary,
+                          fontWeight: isSelected ? '700' : '500',
+                        },
+                      ]}
+                    >
+                      {t(opt.labelKey)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        ) : null}
+
+        {/* Interactive Weight Chart */}
+        <WeightTrendChart
+          dailyPoints={dailyWeightPoints}
+          trendSeries={weightTrendSeries}
+          unit={activeUnit}
+          movingAverage={movingAverage}
+          goalWeightKg={profile.targetWeightKg}
+          t={t}
+        />
+      </AppCard>
+
+      {/* Circumference & Body Measurement Trend Section */}
+      <AppCard>
+        <View style={[styles.analyticsHeaderRow, activeRowStyle()]}>
+          <Text style={[styles.sectionTitle, directionalText, { color: colors.text }]}>
+            {t('progress.measurementTrend')}
+          </Text>
+          <View style={[styles.rangeSelectorRow, activeRowStyle()]}>
+            {TIME_RANGES.map((r) => {
+              const isSelected = measurementTimeRange === r.key;
+              return (
+                <Pressable
+                  key={`meas-range-${r.key}`}
+                  style={[
+                    styles.rangeChip,
+                    {
+                      backgroundColor: isSelected ? colors.accent : colors.surface,
+                      borderColor: isSelected ? colors.accent : colors.border,
+                    },
+                  ]}
+                  onPress={() => setMeasurementTimeRange(r.key)}
+                  accessible={true}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isSelected }}
+                  accessibilityLabel={t(r.labelKey)}
+                >
+                  <Text
+                    style={[
+                      styles.rangeChipText,
+                      {
+                        color: isSelected ? '#FFFFFF' : colors.textSecondary,
+                        fontWeight: isSelected ? '700' : '500',
+                      },
+                    ]}
+                  >
+                    {t(r.labelKey)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        <BodyMeasurementTrendChart
+          summary={siteMeasurementAnalyticsSummary}
+          selectedSite={selectedMeasurementSite}
+          onSelectSite={(site) => setSelectedMeasurementSite(site)}
+          unit={activeUnit}
+          t={t}
+        />
+      </AppCard>
 
       {/* Weight History Section */}
       <AppCard>
@@ -689,6 +961,82 @@ const styles = StyleSheet.create({
   },
   measurementsSummarySection: {
     gap: spacing.xs,
+  },
+  analyticsHeaderRow: {
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  rangeSelectorRow: {
+    flexDirection: 'row',
+    gap: 4,
+    alignItems: 'center',
+  },
+  rangeChip: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    minHeight: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rangeChipText: {
+    ...typography.caption,
+    fontSize: 11,
+  },
+  analyticsMetricsRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    flexWrap: 'wrap',
+    marginBottom: spacing.xs,
+  },
+  analyticsMetricPill: {
+    flex: 1,
+    minWidth: 90,
+    padding: spacing.xs,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    gap: 2,
+  },
+  metricLabel: {
+    ...typography.caption,
+    fontSize: 10,
+  },
+  metricValue: {
+    ...typography.caption,
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  maToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginVertical: spacing.xs,
+    flexWrap: 'wrap',
+  },
+  maToggleLabel: {
+    ...typography.caption,
+    fontSize: 11,
+  },
+  maOptionsGroup: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  maChip: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    minHeight: 26,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  maChipText: {
+    ...typography.caption,
+    fontSize: 11,
   },
   helper: {
     ...typography.caption,

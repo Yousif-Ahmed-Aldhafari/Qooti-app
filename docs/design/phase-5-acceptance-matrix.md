@@ -18,7 +18,7 @@
 | **Task 5.1** | Migration 16 & Normalized Biometric Storage | **795** (+22) | Forward-only Migration 16 (`add_body_tracking_and_biometrics_v16`); creation of `body_weight_entries`, `body_measurement_entries`, `body_composition_entries`, `progress_photos`; non-destructive legacy backfill of nonzero weight records; atomic row-level CRUD; elimination of `DELETE FROM progress_entries`. |
 | **Task 5.2** | Body Weight Logging, History & Strict Validation | **815** (+20) | Timestamped weigh-in entries (`date` + `time`); multiple weigh-ins per date disambiguated; strict decimal input parsing ($10.0\text{ kg} \le W \le 500.0\text{ kg}$); unit toggles (`kg` / `lb`); row-level edit/delete; bidirectional profile weight sync. |
 | **Task 5.3** | Body Measurements & Circumference Tracking | **835** (+20) | Circumference logging (chest, waist, hips, arms, thighs, calves, shoulders, neck); explicit null preservation for unmeasured sites (no zero coercion); circumference delta calculations; anatomical ratios (WHR, WHtR) with neutral health benchmarks. |
-| **Task 5.4** | Biometric Analytics, Moving Averages & Charting | **855** (+20) | 7-day rolling moving average (EMA / SMA) calculation; time-range window filtering (`7d`, `30d`, `90d`, `1y`, `all`); sparse data gap handling without point fabrication; weekly velocity ($\Delta\text{kg/week}$); goal progress delta; TalkBack/VoiceOver chart summaries. |
+| **Task 5.4** | Biometric Analytics, Moving Averages & Charting | **855** (+20) | **899 PASS** (+27 tests) | 7-day rolling moving average (EMA / SMA) calculation; time-range window filtering (`7d`, `30d`, `90d`, `1y`, `all`); sparse data gap handling without point fabrication; weekly velocity ($\Delta\text{kg/week}$); goal progress delta; TalkBack/VoiceOver chart summaries. |
 | **Task 5.5** | Progress Photos & Visual Comparison | **875** (+20) | Local sandboxed storage in `progress_photos/`; relative file URI resolution across restarts; pose categorization (`front`, `side`, `back`); side-by-side comparison slider; physical file unlinking on record deletion. |
 | **Task 5.6** | Final Acceptance, Full Regression & Merge Readiness | **890+** (+15) | Full 19-step migration upgrade matrix (V0 through V16 in clean and populated states); end-to-end user journeys; 100% Arabic/English parity and RTL mirroring; physical Android smoke validation; $\ge 90\%$ line coverage. |
 
@@ -52,13 +52,13 @@
 - [x] **AC-MEA-05:** Measurement history displays delta comparisons ($\pm \text{cm}$ or $\pm \text{in}$) against the previous measurement with neutral status commentary.
 - [x] **AC-MEA-06:** Waist-to-Hip Ratio (WHR) and Waist-to-Height Ratio (WHtR) are calculated accurately with division-by-zero guards and neutral descriptions.
 
-### 2.4 Analytics, Trends & Moving Averages (Task 5.4)
-- [ ] **AC-ANA-01:** Time-range filtering supports `7d`, `30d`, `90d`, `1y`, and `all` windows.
-- [ ] **AC-ANA-02:** A 7-day rolling moving average (EMA / SMA) is calculated to smooth fluid retention fluctuations without distorting genuine trends.
-- [ ] **AC-ANA-03:** Sparse data gaps are represented transparently; no synthetic data points are fabricated to fill multi-day gaps.
-- [ ] **AC-ANA-04:** Weekly velocity ($\Delta\text{kg/week}$) and net change are derived accurately.
-- [ ] **AC-ANA-05:** Target comparison clearly displays remaining delta to goal and progress percentage with division-by-zero guards.
-- [ ] **AC-ANA-06:** Visual charts include comprehensive `accessibilityLabel` descriptions for TalkBack and VoiceOver.
+### 2.4 Analytics, Trends & Moving Averages (Task 5.4 - PASS)
+- [x] **AC-ANA-01:** Time-range filtering supports `7d`, `30d`, `90d`, `1y`, and `all` windows.
+- [x] **AC-ANA-02:** A 7-day rolling moving average (EMA / SMA) is calculated to smooth fluid retention fluctuations without distorting genuine trends.
+- [x] **AC-ANA-03:** Sparse data gaps are represented transparently; no synthetic data points are fabricated to fill multi-day gaps.
+- [x] **AC-ANA-04:** Weekly velocity ($\Delta\text{kg/week}$) and net change are derived accurately.
+- [x] **AC-ANA-05:** Target comparison clearly displays remaining delta to goal and progress percentage with division-by-zero guards.
+- [x] **AC-ANA-06:** Visual charts include comprehensive `accessibilityLabel` descriptions for TalkBack and VoiceOver.
 
 ### 2.5 Progress Photos & Privacy (Task 5.5)
 - [ ] **AC-PHT-01:** Photos are stored strictly within the app's sandboxed private documents directory (`FileSystem.documentDirectory + 'progress_photos/'`).
