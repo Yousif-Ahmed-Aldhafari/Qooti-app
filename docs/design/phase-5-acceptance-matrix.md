@@ -34,23 +34,23 @@
 - [x] **AC-MIG-05:** Whole-table wipe pattern (`DELETE FROM progress_entries;`) is completely removed from the progress write paths.
 - [x] **AC-MIG-06:** All new tables (`body_weight_entries`, `body_measurement_entries`, `body_composition_entries`, `progress_photos`) provide atomic SQLite row-level CRUD with transactional guarantees.
 
-### 2.2 Body Weight Logging & History (Task 5.2)
-- [ ] **AC-WGT-01:** Users can log body weight with explicit local calendar date (`YYYY-MM-DD`) and local time (`HH:mm`).
-- [ ] **AC-WGT-02:** Multiple weigh-ins on the same calendar day are supported, chronologically ordered, and displayed with distinct morning/evening timestamps.
-- [ ] **AC-WGT-03:** Strict weight validation rejects empty, non-numeric, negative, `NaN`, `Infinity`, and out-of-range values ($W < 10.0\text{ kg}$ or $W > 500.0\text{ kg}$).
-- [ ] **AC-WGT-04:** Both comma and period decimal separators (`75.5` and `75,5`) are accepted.
-- [ ] **AC-WGT-05:** Units toggle seamlessly between metric (`kg`) and imperial (`lb`) with exact conversions ($1\text{ lb} = 0.45359237\text{ kg}$), storing canonical kilograms in SQLite.
-- [ ] **AC-WGT-06:** Editing a weight entry updates SQLite atomically without altering other weigh-ins.
-- [ ] **AC-WGT-07:** Deleting a weight entry prompts for confirmation and permanently removes the record from SQLite.
-- [ ] **AC-WGT-08:** Bi-directional profile synchronization updates `profile.weightKg` when a new latest weight entry is logged.
+### 2.2 Body Weight Logging & History (Task 5.2 & 5.2A - PASS)
+- [x] **AC-WGT-01:** Users can log body weight with explicit local calendar date (`YYYY-MM-DD`) and local time (`HH:mm`).
+- [x] **AC-WGT-02:** Multiple weigh-ins on the same calendar day are supported, chronologically ordered, and displayed with distinct morning/evening timestamps.
+- [x] **AC-WGT-03:** Strict weight validation rejects empty, non-numeric, negative, `NaN`, `Infinity`, and out-of-range values ($W < 10.0\text{ kg}$ or $W > 500.0\text{ kg}$).
+- [x] **AC-WGT-04:** Both comma and period decimal separators (`75.5` and `75,5`) are accepted.
+- [x] **AC-WGT-05:** Units toggle seamlessly between metric (`kg`) and imperial (`lb`) with exact conversions ($1\text{ lb} = 0.45359237\text{ kg}$), storing canonical kilograms in SQLite without rounding drift.
+- [x] **AC-WGT-06:** Editing a weight entry updates SQLite atomically without altering other weigh-ins.
+- [x] **AC-WGT-07:** Deleting a weight entry prompts for confirmation and permanently removes the record from SQLite.
+- [x] **AC-WGT-08:** Bi-directional profile synchronization updates `profile.weightKg` when a new latest weight entry is logged, protecting manual overrides when older entries are edited/deleted.
 
-### 2.3 Body Measurements & Circumference Tracking (Task 5.3)
-- [ ] **AC-MEA-01:** Users can record circumferences for chest, waist, hips, biceps/arms, thighs, calves, shoulders, and neck.
-- [ ] **AC-MEA-02:** Every unmeasured site remains explicitly `null`; no site is ever coerced or stored as zero.
-- [ ] **AC-MEA-03:** Strict circumference validation enforces $10.0\text{ cm} \le C \le 300.0\text{ cm}$.
-- [ ] **AC-MEA-04:** Units toggle between centimeters (`cm`) and inches (`in`), with canonical centimeters stored in SQLite.
-- [ ] **AC-MEA-05:** Measurement history displays delta comparisons ($\pm \text{cm}$) against the baseline or previous measurement.
-- [ ] **AC-MEA-06:** Waist-to-Hip Ratio (WHR) and Waist-to-Height Ratio (WHtR) are calculated accurately and accompanied by neutral, objective health benchmark commentary.
+### 2.3 Body Measurements & Circumference Tracking (Task 5.3 - PASS)
+- [x] **AC-MEA-01:** Users can record circumferences for chest, waist, hips, biceps/arms, thighs, calves, shoulders, and neck.
+- [x] **AC-MEA-02:** Every unmeasured site remains explicitly `null`; no site is ever coerced or stored as zero.
+- [x] **AC-MEA-03:** Strict circumference validation enforces field-specific bounds ($10.0\text{ cm} \le C \le 300.0\text{ cm}$ for torso, $5.0 \le C \le 150.0$ for limbs/neck).
+- [x] **AC-MEA-04:** Units toggle between centimeters (`cm`) and inches (`in`), with exact conversion ($1\text{ in} = 2.54\text{ cm}$) and canonical centimeters stored in SQLite without decimal drift.
+- [x] **AC-MEA-05:** Measurement history displays delta comparisons ($\pm \text{cm}$ or $\pm \text{in}$) against the previous measurement with neutral status commentary.
+- [x] **AC-MEA-06:** Waist-to-Hip Ratio (WHR) and Waist-to-Height Ratio (WHtR) are calculated accurately with division-by-zero guards and neutral descriptions.
 
 ### 2.4 Analytics, Trends & Moving Averages (Task 5.4)
 - [ ] **AC-ANA-01:** Time-range filtering supports `7d`, `30d`, `90d`, `1y`, and `all` windows.

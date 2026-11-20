@@ -108,6 +108,10 @@ export function AppNavigator() {
     recordBodyWeight,
     updateBodyWeight,
     deleteBodyWeight,
+    bodyMeasurements,
+    recordBodyMeasurement,
+    updateBodyMeasurement,
+    deleteBodyMeasurement,
     t,
   } = useApp();
 
@@ -725,6 +729,10 @@ export function AppNavigator() {
             onRecordWeight={recordBodyWeight}
             onUpdateWeight={updateBodyWeight}
             onDeleteWeight={deleteBodyWeight}
+            bodyMeasurements={bodyMeasurements}
+            onRecordMeasurement={recordBodyMeasurement}
+            onUpdateMeasurement={updateBodyMeasurement}
+            onDeleteMeasurement={deleteBodyMeasurement}
             measurementUnits={settings.measurementUnits}
           />
         );

@@ -1,22 +1,32 @@
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { AddBodyMeasurementModal } from '../components/AddBodyMeasurementModal';
 import { AddBodyWeightModal } from '../components/AddBodyWeightModal';
 import { AppCard } from '../components/AppCard';
 import { AppHeader } from '../components/AppHeader';
+import { BodyMeasurementHistoryList } from '../components/BodyMeasurementHistoryList';
 import { ProgressCard } from '../components/ProgressCard';
 import { StatCard } from '../components/StatCard';
 import { WeightHistoryList } from '../components/WeightHistoryList';
 import { useBottomNavScrollHandler } from '../context/BottomNavContext';
 import { useLiveLocalDate } from '../hooks/useLiveLocalDate';
 import type { Translator } from '../i18n';
-import type { BodyWeightEntry } from '../models/biometrics';
+import type { BodyMeasurementEntry, BodyWeightEntry } from '../models/biometrics';
 import type { Language, MeasurementUnits } from '../models/settings';
 import { themeColors } from '../theme/colors';
 import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import type { Meal, ProgressEntry, UserProfile } from '../types';
+import {
+  calculateMeasurementDelta,
+  calculateWaistToHeightRatio,
+  calculateWaistToHipRatio,
+  formatMeasurement,
+  getLatestMeasurementEntry,
+  getPreviousMeasurementEntry,
+} from '../utils/measurements';
 import { buildWeeklyNutritionChartDays, calculateWeeklyNutritionTrend } from '../utils/nutrition';
 import { resolveEffectiveNutritionTargets } from '../utils/nutritionTargets';
 import { activeRowStyle, activeTextAlign, activeWritingDirection } from '../utils/rtl';
@@ -38,10 +48,15 @@ type ProgressScreenProps = {
   onRecordWeight?: (entry: BodyWeightEntry) => Promise<void>;
   onUpdateWeight?: (entry: BodyWeightEntry) => Promise<void>;
   onDeleteWeight?: (id: string) => Promise<void>;
+  bodyMeasurements?: BodyMeasurementEntry[];
+  onRecordMeasurement?: (entry: BodyMeasurementEntry) => Promise<void>;
+  onUpdateMeasurement?: (entry: BodyMeasurementEntry) => Promise<void>;
+  onDeleteMeasurement?: (id: string) => Promise<void>;
   measurementUnits?: MeasurementUnits;
 };
 
 const EMPTY_BODY_WEIGHTS: BodyWeightEntry[] = [];
+const EMPTY_BODY_MEASUREMENTS: BodyMeasurementEntry[] = [];
 
 export function ProgressScreen({
   t,
@@ -55,6 +70,10 @@ export function ProgressScreen({
   onRecordWeight,
   onUpdateWeight,
   onDeleteWeight,
+  bodyMeasurements = EMPTY_BODY_MEASUREMENTS,
+  onRecordMeasurement,
+  onUpdateMeasurement,
+  onDeleteMeasurement,
   measurementUnits = 'metric',
 }: ProgressScreenProps) {
   const colors = themeColors();
@@ -64,10 +83,19 @@ export function ProgressScreen({
   const activeRecordWeight = onRecordWeight;
   const activeUpdateWeight = onUpdateWeight;
   const activeDeleteWeight = onDeleteWeight;
+
+  const activeBodyMeasurements = bodyMeasurements;
+  const activeRecordMeasurement = onRecordMeasurement;
+  const activeUpdateMeasurement = onUpdateMeasurement;
+  const activeDeleteMeasurement = onDeleteMeasurement;
+
   const activeUnit: MeasurementUnits = measurementUnits;
 
   const [isWeightModalVisible, setIsWeightModalVisible] = useState(false);
   const [editingWeight, setEditingWeight] = useState<BodyWeightEntry | null>(null);
+
+  const [isMeasurementModalVisible, setIsMeasurementModalVisible] = useState(false);
+  const [editingMeasurement, setEditingMeasurement] = useState<BodyMeasurementEntry | null>(null);
 
   const effectiveTargets = useMemo(() => resolveEffectiveNutritionTargets(profile), [profile]);
   const workoutDays = progress.reduce((sum, entry) => sum + entry.workouts, 0);
@@ -144,6 +172,41 @@ export function ProgressScreen({
     }
     return targetComparison.deltaFormatted || t('progress.targetWeight');
   }, [targetComparison, t]);
+
+  const latestMeasurement = useMemo(
+    () => getLatestMeasurementEntry(activeBodyMeasurements),
+    [activeBodyMeasurements]
+  );
+
+  const previousMeasurement = useMemo(() => {
+    if (!latestMeasurement) return null;
+    return getPreviousMeasurementEntry(activeBodyMeasurements, latestMeasurement.id);
+  }, [activeBodyMeasurements, latestMeasurement]);
+
+  const waistDelta = useMemo(() => {
+    if (!latestMeasurement || !previousMeasurement) return null;
+    return calculateMeasurementDelta(latestMeasurement.waistCm, previousMeasurement.waistCm, activeUnit);
+  }, [latestMeasurement, previousMeasurement, activeUnit]);
+
+  const hipsDelta = useMemo(() => {
+    if (!latestMeasurement || !previousMeasurement) return null;
+    return calculateMeasurementDelta(latestMeasurement.hipsCm, previousMeasurement.hipsCm, activeUnit);
+  }, [latestMeasurement, previousMeasurement, activeUnit]);
+
+  const chestDelta = useMemo(() => {
+    if (!latestMeasurement || !previousMeasurement) return null;
+    return calculateMeasurementDelta(latestMeasurement.chestCm, previousMeasurement.chestCm, activeUnit);
+  }, [latestMeasurement, previousMeasurement, activeUnit]);
+
+  const waistToHipRatio = useMemo(() => {
+    if (!latestMeasurement) return null;
+    return calculateWaistToHipRatio(latestMeasurement.waistCm, latestMeasurement.hipsCm);
+  }, [latestMeasurement]);
+
+  const waistToHeightRatio = useMemo(() => {
+    if (!latestMeasurement || !profile.heightCm) return null;
+    return calculateWaistToHeightRatio(latestMeasurement.waistCm, profile.heightCm);
+  }, [latestMeasurement, profile.heightCm]);
 
   const directionalText = {
     textAlign: activeTextAlign(),
@@ -353,6 +416,167 @@ export function ProgressScreen({
         t={t}
         referenceDate={activeReferenceDate}
       />
+
+      {/* Latest Measurements Summary (if at least one measurement entry exists) */}
+      {latestMeasurement ? (
+        <View style={styles.measurementsSummarySection}>
+          <Text
+            style={[
+              styles.sectionTitle,
+              directionalText,
+              { color: colors.text, marginBottom: spacing.sm },
+            ]}
+          >
+            {t('progress.latestMeasurements')}
+          </Text>
+
+          <View style={[styles.progressRow, activeRowStyle()]}>
+            {latestMeasurement.waistCm != null ? (
+              <ProgressCard
+                title={t('progress.waist')}
+                value={`${formatMeasurement(latestMeasurement.waistCm, activeUnit, 1)} ${activeUnit === 'imperial' ? t('progress.unitIn') : t('progress.unitCm')}`}
+                helper={
+                  waistDelta && waistDelta.hasDelta
+                    ? waistDelta.isUnchanged
+                      ? t('progress.noChange')
+                      : `${waistDelta.deltaFormatted}`
+                    : `${latestMeasurement.date} ${latestMeasurement.time}`
+                }
+                accent={colors.purple}
+              />
+            ) : null}
+
+            {latestMeasurement.hipsCm != null ? (
+              <ProgressCard
+                title={t('progress.hips')}
+                value={`${formatMeasurement(latestMeasurement.hipsCm, activeUnit, 1)} ${activeUnit === 'imperial' ? t('progress.unitIn') : t('progress.unitCm')}`}
+                helper={
+                  hipsDelta && hipsDelta.hasDelta
+                    ? hipsDelta.isUnchanged
+                      ? t('progress.noChange')
+                      : `${hipsDelta.deltaFormatted}`
+                    : `${latestMeasurement.date} ${latestMeasurement.time}`
+                }
+                accent={colors.accent}
+              />
+            ) : null}
+
+            {latestMeasurement.chestCm != null ? (
+              <ProgressCard
+                title={t('progress.chest')}
+                value={`${formatMeasurement(latestMeasurement.chestCm, activeUnit, 1)} ${activeUnit === 'imperial' ? t('progress.unitIn') : t('progress.unitCm')}`}
+                helper={
+                  chestDelta && chestDelta.hasDelta
+                    ? chestDelta.isUnchanged
+                      ? t('progress.noChange')
+                      : `${chestDelta.deltaFormatted}`
+                    : `${latestMeasurement.date} ${latestMeasurement.time}`
+                }
+                accent={colors.lavender}
+              />
+            ) : null}
+          </View>
+
+          {/* Body Ratios Row */}
+          {waistToHipRatio?.isValid || waistToHeightRatio?.isValid ? (
+            <View style={[styles.progressRow, activeRowStyle(), { marginTop: spacing.sm }]}>
+              {waistToHipRatio?.isValid ? (
+                <ProgressCard
+                  title={t('progress.waistToHipRatio')}
+                  value={waistToHipRatio.ratioFormatted || '--'}
+                  helper={t('progress.ratios')}
+                  accent={colors.accent}
+                />
+              ) : null}
+
+              {waistToHeightRatio?.isValid ? (
+                <ProgressCard
+                  title={t('progress.waistToHeightRatio')}
+                  value={waistToHeightRatio.ratioFormatted || '--'}
+                  helper={t('progress.ratios')}
+                  accent={colors.lavender}
+                />
+              ) : null}
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+
+      {/* Body Measurement History Section */}
+      <AppCard>
+        <View style={[styles.weightHeaderRow, activeRowStyle()]}>
+          <View style={styles.weightHeaderTitleGroup}>
+            <Text style={[styles.sectionTitle, directionalText, { color: colors.text }]}>
+              {t('progress.measurementHistory')}
+            </Text>
+            {activeBodyMeasurements.length > 0 ? (
+              <Text style={[styles.historyCountText, directionalText, { color: colors.textMuted }]}>
+                {t('progress.measurementHistoryCount', { count: activeBodyMeasurements.length })}
+              </Text>
+            ) : null}
+          </View>
+
+          <Pressable
+            style={[styles.addWeightButton, { backgroundColor: colors.accent }]}
+            onPress={() => {
+              setEditingMeasurement(null);
+              setIsMeasurementModalVisible(true);
+            }}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel={t('progress.addMeasurements')}
+            accessibilityHint={t('progress.logMeasurements')}
+          >
+            <Text style={[styles.addWeightButtonText, { color: colors.background }]}>
+              + {t('progress.logMeasurements')}
+            </Text>
+          </Pressable>
+        </View>
+
+        <BodyMeasurementHistoryList
+          measurements={activeBodyMeasurements}
+          unit={activeUnit}
+          t={t}
+          onEditEntry={(entry) => {
+            setEditingMeasurement(entry);
+            setIsMeasurementModalVisible(true);
+          }}
+          onDeleteEntry={
+            activeDeleteMeasurement
+              ? async (id) => {
+                  await activeDeleteMeasurement(id);
+                }
+              : undefined
+          }
+        />
+      </AppCard>
+
+      {/* Add / Edit Body Measurement Modal */}
+      <AddBodyMeasurementModal
+        visible={isMeasurementModalVisible}
+        onClose={() => {
+          setIsMeasurementModalVisible(false);
+          setEditingMeasurement(null);
+        }}
+        onSave={async (entry) => {
+          if (editingMeasurement && activeUpdateMeasurement) {
+            await activeUpdateMeasurement(entry);
+          } else if (activeRecordMeasurement) {
+            await activeRecordMeasurement(entry);
+          }
+        }}
+        onDelete={
+          activeDeleteMeasurement
+            ? async (id) => {
+                await activeDeleteMeasurement(id);
+              }
+            : undefined
+        }
+        initialEntry={editingMeasurement}
+        defaultUnit={activeUnit}
+        t={t}
+        referenceDate={activeReferenceDate}
+      />
     </ScrollView>
   );
 }
@@ -444,6 +668,9 @@ const styles = StyleSheet.create({
   progressRow: {
     flexWrap: 'wrap',
     gap: spacing.md,
+  },
+  measurementsSummarySection: {
+    gap: spacing.xs,
   },
   helper: {
     ...typography.caption,

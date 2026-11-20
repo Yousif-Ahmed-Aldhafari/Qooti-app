@@ -7,13 +7,18 @@ import { normalizeMealTemplate, type MealTemplate, type MealTemplateItem } from 
 import { normalizeProfile, type UserProfile } from '../models/profile';
 import { normalizeProgressEntry, type ProgressEntry } from '../models/progress';
 import { normalizeWorkout, type Workout } from '../models/workout';
-import { BodyWeightEntry } from '../models/biometrics';
+import { BodyMeasurementEntry, BodyWeightEntry } from '../models/biometrics';
 import {
+  loadAllMeasurements,
   loadAllWeights,
+  recordMeasurement,
   recordWeightWithProfileSync,
+  updateMeasurement,
   updateWeightWithProfileSync,
+  deleteMeasurement,
   deleteWeightWithProfileSync,
 } from '../services/bodyTrackingService';
+import { compareBodyMeasurementsDescending } from '../utils/measurements';
 import { compareBodyWeightsDescending } from '../utils/weight';
 import { getSeedMeals, getSeedProfile, getSeedProgressEntries, getSeedWorkouts } from '../data/seedData';
 import {
@@ -90,6 +95,7 @@ export type AppStateData = {
   profile: UserProfile;
   progressEntries: ProgressEntry[];
   bodyWeights: BodyWeightEntry[];
+  bodyMeasurements: BodyMeasurementEntry[];
   settings: Settings;
   activeSession: WorkoutSession | null;
   interruptedSessions: WorkoutSession[];
@@ -104,6 +110,7 @@ export type AppAction =
       profile: UserProfile;
       progressEntries: ProgressEntry[];
       bodyWeights?: BodyWeightEntry[];
+      bodyMeasurements?: BodyMeasurementEntry[];
       settings: Settings;
       activeSession: WorkoutSession | null;
       interruptedSessions?: WorkoutSession[];
@@ -132,6 +139,10 @@ export type AppAction =
   | { type: 'addBodyWeight'; entry: BodyWeightEntry }
   | { type: 'updateBodyWeight'; entry: BodyWeightEntry }
   | { type: 'deleteBodyWeight'; id: string }
+  | { type: 'setBodyMeasurements'; bodyMeasurements: BodyMeasurementEntry[] }
+  | { type: 'addBodyMeasurement'; entry: BodyMeasurementEntry }
+  | { type: 'updateBodyMeasurement'; entry: BodyMeasurementEntry }
+  | { type: 'deleteBodyMeasurement'; id: string }
   | { type: 'updateSettings'; settings: Partial<Settings> };
 
 type AppContextValue = AppStateData & {
@@ -173,6 +184,9 @@ type AppContextValue = AppStateData & {
   recordBodyWeight: (entry: BodyWeightEntry) => Promise<void>;
   updateBodyWeight: (entry: BodyWeightEntry) => Promise<void>;
   deleteBodyWeight: (id: string) => Promise<void>;
+  recordBodyMeasurement: (entry: BodyMeasurementEntry) => Promise<void>;
+  updateBodyMeasurement: (entry: BodyMeasurementEntry) => Promise<void>;
+  deleteBodyMeasurement: (id: string) => Promise<void>;
   updateSettings: (settings: Partial<Settings>) => void;
   clearPersistenceError: () => void;
   startActiveWorkout: (workout: Workout) => Promise<WorkoutSession>;
@@ -227,6 +241,7 @@ const initialState: AppStateData = {
   profile: getSeedProfile(),
   progressEntries: [],
   bodyWeights: [],
+  bodyMeasurements: [],
   settings: defaultSettings,
   activeSession: null,
   interruptedSessions: [],
@@ -246,6 +261,9 @@ export function appReducer(state: AppStateData, action: AppAction): AppStateData
         profile: normalizeProfile(action.profile),
         progressEntries: action.progressEntries.map(normalizeProgressEntry),
         bodyWeights: action.bodyWeights ? [...action.bodyWeights].sort(compareBodyWeightsDescending) : [],
+        bodyMeasurements: action.bodyMeasurements
+          ? [...action.bodyMeasurements].sort(compareBodyMeasurementsDescending)
+          : [],
         settings: action.settings,
         activeSession: action.activeSession,
         interruptedSessions: action.interruptedSessions ?? [],
@@ -431,6 +449,35 @@ export function appReducer(state: AppStateData, action: AppAction): AppStateData
         bodyWeights: state.bodyWeights.filter((w) => w.id !== action.id),
       };
 
+    case 'setBodyMeasurements':
+      return {
+        ...state,
+        bodyMeasurements: [...action.bodyMeasurements].sort(compareBodyMeasurementsDescending),
+      };
+
+    case 'addBodyMeasurement':
+      return {
+        ...state,
+        bodyMeasurements: [
+          action.entry,
+          ...state.bodyMeasurements.filter((m) => m.id !== action.entry.id),
+        ].sort(compareBodyMeasurementsDescending),
+      };
+
+    case 'updateBodyMeasurement':
+      return {
+        ...state,
+        bodyMeasurements: state.bodyMeasurements
+          .map((m) => (m.id === action.entry.id ? action.entry : m))
+          .sort(compareBodyMeasurementsDescending),
+      };
+
+    case 'deleteBodyMeasurement':
+      return {
+        ...state,
+        bodyMeasurements: state.bodyMeasurements.filter((m) => m.id !== action.id),
+      };
+
     case 'updateSettings':
       return {
         ...state,
@@ -493,6 +540,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           savedActiveSession,
           savedInterruptedSessions,
           savedBodyWeights,
+          savedBodyMeasurements,
         ] = await Promise.all([
           loadMeals().catch((e) => {
             console.warn('[AppContext] Failed to load meals:', e);
@@ -528,6 +576,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }),
           loadAllWeights().catch((e) => {
             console.warn('[AppContext] Failed to load body weights:', e);
+            return [];
+          }),
+          loadAllMeasurements().catch((e) => {
+            console.warn('[AppContext] Failed to load body measurements:', e);
             return [];
           }),
         ]);
@@ -569,6 +621,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           profile: initialProfile,
           progressEntries: initialProgress,
           bodyWeights: savedBodyWeights || [],
+          bodyMeasurements: savedBodyMeasurements || [],
           settings: hydratedSettings,
           activeSession: savedActiveSession,
           interruptedSessions: savedInterruptedSessions,
@@ -1036,6 +1089,48 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           dispatch({
             type: 'setPersistenceError',
             error: err instanceof Error ? err.message : 'Failed to delete body weight',
+          });
+          throw err;
+        }
+      },
+      recordBodyMeasurement: async (entry: BodyMeasurementEntry) => {
+        try {
+          await recordMeasurement(entry);
+          dispatch({ type: 'addBodyMeasurement', entry });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to record body measurement:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to record body measurement',
+          });
+          throw err;
+        }
+      },
+      updateBodyMeasurement: async (entry: BodyMeasurementEntry) => {
+        try {
+          await updateMeasurement(entry);
+          dispatch({ type: 'updateBodyMeasurement', entry });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to update body measurement:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to update body measurement',
+          });
+          throw err;
+        }
+      },
+      deleteBodyMeasurement: async (id: string) => {
+        try {
+          await deleteMeasurement(id);
+          dispatch({ type: 'deleteBodyMeasurement', id });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to delete body measurement:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to delete body measurement',
           });
           throw err;
         }
