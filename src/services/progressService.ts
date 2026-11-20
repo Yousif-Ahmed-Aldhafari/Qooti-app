@@ -2,6 +2,7 @@ import type { ProgressEntry } from '../models/progress';
 import { getDatabase } from '../db/database';
 import { SQLiteProgressRepository } from '../db/repositories/progressRepository';
 import { isAsyncStorageMigrated } from '../db/migrationService';
+import type { IDatabase } from '../db/types';
 
 export async function getProgressRepository(): Promise<SQLiteProgressRepository> {
   const db = await getDatabase();
@@ -26,34 +27,100 @@ export async function loadProgressEntries(): Promise<ProgressEntry[] | null> {
   return null;
 }
 
-export async function saveProgressEntries(entries: ProgressEntry[]): Promise<void> {
-  const db = await getDatabase();
+export async function getProgressEntryById(
+  id: string,
+  txn?: IDatabase
+): Promise<ProgressEntry | null> {
+  const db = txn || (await getDatabase());
   const repo = new SQLiteProgressRepository(db);
-
-  await db.withExclusiveTransactionAsync(async (txn) => {
-    await repo.saveAllProgress(entries, txn);
-    const now = new Date().toISOString();
-    await txn.runAsync(
-      `INSERT INTO migration_meta (key, value, updated_at)
-       VALUES ('progress_saved', 'true', ?)
-       ON CONFLICT(key) DO UPDATE SET value = 'true', updated_at = excluded.updated_at;`,
-      now
-    );
-  });
+  return repo.getProgressById(id, txn);
 }
 
-export async function addProgressEntry(entry: ProgressEntry): Promise<void> {
-  const db = await getDatabase();
-  const repo = new SQLiteProgressRepository(db);
-
-  await db.withExclusiveTransactionAsync(async (txn) => {
-    await repo.addProgress(entry, txn);
+export async function insertProgressEntry(
+  entry: ProgressEntry,
+  txn?: IDatabase
+): Promise<void> {
+  const execute = async (client: IDatabase) => {
+    const repo = new SQLiteProgressRepository(client);
+    await repo.insertProgressEntry(entry, client);
     const now = new Date().toISOString();
-    await txn.runAsync(
+    await client.runAsync(
       `INSERT INTO migration_meta (key, value, updated_at)
        VALUES ('progress_saved', 'true', ?)
        ON CONFLICT(key) DO UPDATE SET value = 'true', updated_at = excluded.updated_at;`,
       now
     );
-  });
+  };
+
+  if (txn) {
+    await execute(txn);
+  } else {
+    const db = await getDatabase();
+    await db.withExclusiveTransactionAsync(execute);
+  }
+}
+
+export async function updateProgressEntry(
+  entry: ProgressEntry,
+  txn?: IDatabase
+): Promise<void> {
+  const execute = async (client: IDatabase) => {
+    const repo = new SQLiteProgressRepository(client);
+    await repo.updateProgressEntry(entry, client);
+  };
+
+  if (txn) {
+    await execute(txn);
+  } else {
+    const db = await getDatabase();
+    await db.withExclusiveTransactionAsync(execute);
+  }
+}
+
+export async function deleteProgressEntry(
+  id: string,
+  txn?: IDatabase
+): Promise<void> {
+  const execute = async (client: IDatabase) => {
+    const repo = new SQLiteProgressRepository(client);
+    await repo.deleteProgressEntry(id, client);
+  };
+
+  if (txn) {
+    await execute(txn);
+  } else {
+    const db = await getDatabase();
+    await db.withExclusiveTransactionAsync(execute);
+  }
+}
+
+export async function saveProgressEntries(
+  entries: ProgressEntry[],
+  txn?: IDatabase
+): Promise<void> {
+  const execute = async (client: IDatabase) => {
+    const repo = new SQLiteProgressRepository(client);
+    await repo.saveAllProgress(entries, client);
+    const now = new Date().toISOString();
+    await client.runAsync(
+      `INSERT INTO migration_meta (key, value, updated_at)
+       VALUES ('progress_saved', 'true', ?)
+       ON CONFLICT(key) DO UPDATE SET value = 'true', updated_at = excluded.updated_at;`,
+      now
+    );
+  };
+
+  if (txn) {
+    await execute(txn);
+  } else {
+    const db = await getDatabase();
+    await db.withExclusiveTransactionAsync(execute);
+  }
+}
+
+export async function addProgressEntry(
+  entry: ProgressEntry,
+  txn?: IDatabase
+): Promise<void> {
+  return insertProgressEntry(entry, txn);
 }

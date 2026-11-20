@@ -25,7 +25,13 @@ import {
   reconfirmMealTemplate as reconfirmMealTemplateService,
 } from '../services/mealTemplateService';
 import { loadProfile, saveProfile } from '../services/profileService';
-import { loadProgressEntries, saveProgressEntries } from '../services/progressService';
+import {
+  loadProgressEntries,
+  saveProgressEntries,
+  insertProgressEntry as insertProgressEntryService,
+  updateProgressEntry as updateProgressEntryService,
+  deleteProgressEntry as deleteProgressEntryService,
+} from '../services/progressService';
 import { resolveAuthoritativeLanguage } from '../services/localizationService';
 import { defaultSettings, loadSettings, saveSettings } from '../services/settingsService';
 import {
@@ -109,6 +115,8 @@ export type AppAction =
   | { type: 'deleteWorkout'; workoutId: string }
   | { type: 'updateProfile'; profile: Partial<UserProfile> }
   | { type: 'addProgressEntry'; entry: ProgressEntry }
+  | { type: 'updateProgressEntry'; entry: ProgressEntry }
+  | { type: 'deleteProgressEntry'; entryId: string }
   | { type: 'updateSettings'; settings: Partial<Settings> };
 
 type AppContextValue = AppStateData & {
@@ -144,7 +152,9 @@ type AppContextValue = AppStateData & {
   addWorkout: (workout: Workout) => Promise<void> | void;
   updateWorkout: (workout: Workout) => Promise<void> | void;
   deleteWorkout: (workoutId: string) => Promise<void> | void;
-  addProgressEntry: (entry: ProgressEntry) => void;
+  addProgressEntry: (entry: ProgressEntry) => Promise<void> | void;
+  updateProgressEntry: (entry: ProgressEntry) => Promise<void>;
+  deleteProgressEntry: (entryId: string) => Promise<void>;
   updateSettings: (settings: Partial<Settings>) => void;
   clearPersistenceError: () => void;
   startActiveWorkout: (workout: Workout) => Promise<WorkoutSession>;
@@ -355,6 +365,21 @@ export function appReducer(state: AppStateData, action: AppAction): AppStateData
       return {
         ...state,
         progressEntries: nextEntries,
+      };
+    }
+
+    case 'updateProgressEntry': {
+      const normalized = normalizeProgressEntry(action.entry);
+      return {
+        ...state,
+        progressEntries: state.progressEntries.map((p) => (p.id === normalized.id ? normalized : p)),
+      };
+    }
+
+    case 'deleteProgressEntry': {
+      return {
+        ...state,
+        progressEntries: state.progressEntries.filter((p) => p.id !== action.entryId),
       };
     }
 
@@ -638,26 +663,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     if (!isHydratedRef.current) {
-      return;
-    }
-    saveProgressEntries(state.progressEntries)
-      .then(() => {
-        dispatch({ type: 'setPersistenceError', error: null });
-      })
-      .catch((err) => {
-        console.error('[AppContext] Failed to persist progress entries:', err);
-        dispatch({
-          type: 'setPersistenceError',
-          error: err instanceof Error ? err.message : 'Failed to persist progress',
-        });
-      });
-  }, [state.isReady, state.progressEntries]);
-
-  useEffect(() => {
-    if (!state.isReady) {
-      return;
-    }
-    if (!isHydratedRef.current) {
       // Mark initial hydration complete so future state changes trigger saves
       isHydratedRef.current = true;
       return;
@@ -885,7 +890,50 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           throw err;
         }
       },
-      addProgressEntry: (entry) => dispatch({ type: 'addProgressEntry', entry }),
+      addProgressEntry: async (entry) => {
+        try {
+          const normalized = normalizeProgressEntry(entry);
+          await insertProgressEntryService(normalized);
+          dispatch({ type: 'addProgressEntry', entry: normalized });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to persist progress entry:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to persist progress entry',
+          });
+          throw err;
+        }
+      },
+      updateProgressEntry: async (entry) => {
+        try {
+          const normalized = normalizeProgressEntry(entry);
+          await updateProgressEntryService(normalized);
+          dispatch({ type: 'updateProgressEntry', entry: normalized });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to update progress entry:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to update progress entry',
+          });
+          throw err;
+        }
+      },
+      deleteProgressEntry: async (entryId) => {
+        try {
+          await deleteProgressEntryService(entryId);
+          dispatch({ type: 'deleteProgressEntry', entryId });
+          dispatch({ type: 'setPersistenceError', error: null });
+        } catch (err) {
+          console.error('[AppContext] Failed to delete progress entry:', err);
+          dispatch({
+            type: 'setPersistenceError',
+            error: err instanceof Error ? err.message : 'Failed to delete progress entry',
+          });
+          throw err;
+        }
+      },
       updateSettings: (settings) => dispatch({ type: 'updateSettings', settings }),
       clearPersistenceError: () => dispatch({ type: 'setPersistenceError', error: null }),
       startActiveWorkout: async (workout: Workout) => {

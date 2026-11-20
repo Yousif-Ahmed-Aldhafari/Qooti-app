@@ -48,7 +48,7 @@
 
 ## 3. Detailed Task Specifications
 
-### Task 5.0: Body Tracking & Analytics Architecture Audit (Active)
+### Task 5.0: Body Tracking & Analytics Architecture Audit (Completed)
 - **Goal:** Full audit of existing `ProgressEntry`, `progressRepository`, `ProgressScreen`, and persistence systems.
 - **Deliverables:**
   - `docs/design/phase-5-body-tracking-architecture-audit.md`
@@ -59,7 +59,7 @@
 
 ---
 
-### Task 5.1: Migration 16 & Normalized Biometric Storage Architecture
+### Task 5.1: Migration 16 & Normalized Biometric Storage Architecture (Completed)
 - **Goal:** Design and execute forward-only Migration 16 (`add_body_tracking_and_biometrics_v16`) without altering Migrations 1–15.
 - **Key Deliverables:**
   - Create SQLite tables:
@@ -71,8 +71,11 @@
   - Concrete repositories:
     - `SQLiteBodyWeightRepository` implementing `BodyWeightRepository` with atomic CRUD.
     - `SQLiteBodyMeasurementRepository` implementing `BodyMeasurementRepository`.
-  - Elimination of `DELETE FROM progress_entries;` table wipe.
-- **Verification Suite:** Migration upgrade tests (V0 $\rightarrow$ V16, V15 $\rightarrow$ V16), rollback tests, data backfill verification.
+    - `SQLiteBodyCompositionRepository` implementing `BodyCompositionRepository`.
+    - `SQLiteProgressPhotoRepository` implementing `ProgressPhotoRepository`.
+  - Elimination of `DELETE FROM progress_entries;` table wipe and adoption of row-level progress persistence.
+  - Complete domain models and boundary validation in `src/models/biometrics.ts`.
+- **Verification Suite:** Migration upgrade tests (V0 $\rightarrow$ V16, V15 $\rightarrow$ V16), rollback tests, data backfill verification (790 passing tests, 90.60% coverage).
 
 ---
 

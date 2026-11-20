@@ -26,13 +26,13 @@
 
 ## 2. Technical Acceptance Criteria by Subsystem
 
-### 2.1 Persistence & Migration Integrity (Task 5.1)
-- [ ] **AC-MIG-01:** Migrations 1 through 15 are frozen and unmodified.
-- [ ] **AC-MIG-02:** Migration 16 (`add_body_tracking_and_biometrics_v16`) executes cleanly on fresh installs (V0 $\rightarrow$ V16) and on existing populated databases (V15 $\rightarrow$ V16).
-- [ ] **AC-MIG-03:** Non-destructive backfill: existing rows in `progress_entries` with `weight_kg > 0` are migrated into `body_weight_entries` with source `'legacy_migration'`.
-- [ ] **AC-MIG-04:** Zero-weight protection: rows in `progress_entries` with `weight_kg = 0` are excluded from backfill, preventing false zero measurements.
-- [ ] **AC-MIG-05:** Whole-table wipe pattern (`DELETE FROM progress_entries;`) is completely removed from the progress write paths.
-- [ ] **AC-MIG-06:** All new tables (`body_weight_entries`, `body_measurement_entries`, `body_composition_entries`, `progress_photos`) provide atomic SQLite row-level CRUD with transactional guarantees.
+### 2.1 Persistence & Migration Integrity (Task 5.1 - PASS)
+- [x] **AC-MIG-01:** Migrations 1 through 15 are frozen and unmodified.
+- [x] **AC-MIG-02:** Migration 16 (`add_body_tracking_and_biometrics_v16`) executes cleanly on fresh installs (V0 $\rightarrow$ V16) and on existing populated databases (V15 $\rightarrow$ V16).
+- [x] **AC-MIG-03:** Non-destructive backfill: existing rows in `progress_entries` with `weight_kg > 0` are migrated into `body_weight_entries` with source `'legacy_migration'`.
+- [x] **AC-MIG-04:** Zero-weight protection: rows in `progress_entries` with `weight_kg = 0` are excluded from backfill, preventing false zero measurements.
+- [x] **AC-MIG-05:** Whole-table wipe pattern (`DELETE FROM progress_entries;`) is completely removed from the progress write paths.
+- [x] **AC-MIG-06:** All new tables (`body_weight_entries`, `body_measurement_entries`, `body_composition_entries`, `progress_photos`) provide atomic SQLite row-level CRUD with transactional guarantees.
 
 ### 2.2 Body Weight Logging & History (Task 5.2)
 - [ ] **AC-WGT-01:** Users can log body weight with explicit local calendar date (`YYYY-MM-DD`) and local time (`HH:mm`).

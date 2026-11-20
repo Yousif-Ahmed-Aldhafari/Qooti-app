@@ -19,6 +19,16 @@ export type {
   WorkoutSet,
 } from '../models/workoutSession';
 export type { DailyNutritionSummary, ProgressEntry } from '../models/progress';
+export type {
+  BodyWeightEntry,
+  WeightSource,
+  BodyMeasurementEntry,
+  BodyCompositionEntry,
+  CompositionMethod,
+  ProgressPhoto,
+  PhotoPose,
+} from '../models/biometrics';
+export { BiometricsValidationError } from '../models/biometrics';
 export type { SleepEntry } from '../models/sleep';
 export type { WaterEntry } from '../models/water';
 

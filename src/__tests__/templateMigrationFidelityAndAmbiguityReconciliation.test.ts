@@ -552,9 +552,11 @@ test('Migration 15: Repeat execution is strictly idempotent with 15 recorded mig
   const applied = await db.getAllAsync<{ version: number; name: string }>(
     'SELECT version, name FROM schema_migrations ORDER BY version ASC;'
   );
-  assert.equal(applied.length, 15);
+  assert.equal(applied.length, 16);
   assert.equal(applied[14].version, 15);
   assert.equal(applied[14].name, 'add_meal_template_review_status_and_reconcile_ambiguity_v15');
+  assert.equal(applied[15].version, 16);
+  assert.equal(applied[15].name, 'add_body_tracking_and_biometrics_v16');
 });
 
 test('Migration 15: Transaction failure rolls back completely leaving database at prior valid state', async () => {

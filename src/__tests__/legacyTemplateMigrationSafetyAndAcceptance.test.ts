@@ -617,9 +617,10 @@ test('Section 4 - Test 19: Migration rerun idempotence executes without errors',
   const migrations = await db.getAllAsync<{ version: number }>(
     'SELECT version FROM schema_migrations ORDER BY version ASC;'
   );
-  assert.equal(migrations.length, 15);
+  assert.equal(migrations.length, 16);
   assert.equal(migrations[13].version, 14);
   assert.equal(migrations[14].version, 15);
+  assert.equal(migrations[15].version, 16);
 });
 
 test('Section 4 - Test 20: Daily and weekly nutrition analytics handle mixed known and unknown macro meals without fabricating 0g', () => {

@@ -368,13 +368,15 @@ test('Migration Matrix: V0 -> V14 fresh install executes all 14 migrations clean
   const rows = await db.getAllAsync<{ version: number; name: string }>(
     'SELECT version, name FROM schema_migrations ORDER BY version ASC;'
   );
-  assert.equal(rows.length, 15);
+  assert.equal(rows.length, 16);
   assert.equal(rows[0].version, 1);
   assert.equal(rows[12].version, 13);
   assert.equal(rows[13].version, 14);
   assert.equal(rows[13].name, 'reconcile_template_unknown_macros_and_preserve_uncertainty_v14');
   assert.equal(rows[14].version, 15);
   assert.equal(rows[14].name, 'add_meal_template_review_status_and_reconcile_ambiguity_v15');
+  assert.equal(rows[15].version, 16);
+  assert.equal(rows[15].name, 'add_body_tracking_and_biometrics_v16');
 });
 
 test('Migration Matrix: V1 -> V14 upgrade preserves profiles, targets, and workout data', async () => {
@@ -537,16 +539,17 @@ test('Migration Matrix: V13 -> V14 forward upgrade is safe and repeatable (idemp
   const firstRun = await db.getAllAsync<{ version: number }>(
     'SELECT version FROM schema_migrations ORDER BY version ASC;'
   );
-  assert.equal(firstRun.length, 15);
+  assert.equal(firstRun.length, 16);
   assert.equal(firstRun[13].version, 14);
   assert.equal(firstRun[14].version, 15);
+  assert.equal(firstRun[15].version, 16);
 
   // Second run must be no-op
   await runMigrations(db);
   const secondRun = await db.getAllAsync<{ version: number }>(
     'SELECT version FROM schema_migrations ORDER BY version ASC;'
   );
-  assert.equal(secondRun.length, 15);
+  assert.equal(secondRun.length, 16);
 });
 
 test('Referential Integrity: Template deletion cascades to items without orphaned rows', async () => {

@@ -539,6 +539,146 @@ export const MIGRATIONS: SchemaMigration[] = [
       `);
     },
   },
+  {
+    version: 16,
+    name: 'add_body_tracking_and_biometrics_v16',
+    up: async (db: IDatabase) => {
+      // 1. Normalized body weight history table
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS body_weight_entries (
+          id TEXT PRIMARY KEY,
+          date TEXT NOT NULL,
+          time TEXT NOT NULL,
+          weight_kg REAL NOT NULL,
+          notes TEXT,
+          source TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          CHECK (weight_kg >= 10.0 AND weight_kg <= 500.0)
+        );
+        CREATE INDEX IF NOT EXISTS idx_body_weight_entries_date ON body_weight_entries(date);
+        CREATE INDEX IF NOT EXISTS idx_body_weight_entries_date_time ON body_weight_entries(date, time);
+      `);
+
+      // 2. Normalized body circumference measurements table
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS body_measurement_entries (
+          id TEXT PRIMARY KEY,
+          date TEXT NOT NULL,
+          time TEXT NOT NULL,
+          chest_cm REAL,
+          waist_cm REAL,
+          hips_cm REAL,
+          left_arm_cm REAL,
+          right_arm_cm REAL,
+          left_thigh_cm REAL,
+          right_thigh_cm REAL,
+          left_calf_cm REAL,
+          right_calf_cm REAL,
+          shoulders_cm REAL,
+          neck_cm REAL,
+          notes TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          CHECK (chest_cm IS NULL OR (chest_cm >= 10.0 AND chest_cm <= 300.0)),
+          CHECK (waist_cm IS NULL OR (waist_cm >= 10.0 AND waist_cm <= 300.0)),
+          CHECK (hips_cm IS NULL OR (hips_cm >= 10.0 AND hips_cm <= 300.0)),
+          CHECK (left_arm_cm IS NULL OR (left_arm_cm >= 5.0 AND left_arm_cm <= 150.0)),
+          CHECK (right_arm_cm IS NULL OR (right_arm_cm >= 5.0 AND right_arm_cm <= 150.0)),
+          CHECK (left_thigh_cm IS NULL OR (left_thigh_cm >= 10.0 AND left_thigh_cm <= 200.0)),
+          CHECK (right_thigh_cm IS NULL OR (right_thigh_cm >= 10.0 AND right_thigh_cm <= 200.0)),
+          CHECK (left_calf_cm IS NULL OR (left_calf_cm >= 5.0 AND left_calf_cm <= 150.0)),
+          CHECK (right_calf_cm IS NULL OR (right_calf_cm >= 5.0 AND right_calf_cm <= 150.0)),
+          CHECK (shoulders_cm IS NULL OR (shoulders_cm >= 10.0 AND shoulders_cm <= 300.0)),
+          CHECK (neck_cm IS NULL OR (neck_cm >= 10.0 AND neck_cm <= 150.0))
+        );
+        CREATE INDEX IF NOT EXISTS idx_body_measurement_entries_date ON body_measurement_entries(date);
+      `);
+
+      // 3. Normalized body composition metrics table
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS body_composition_entries (
+          id TEXT PRIMARY KEY,
+          date TEXT NOT NULL,
+          time TEXT NOT NULL,
+          body_fat_percentage REAL,
+          skeletal_muscle_mass_kg REAL,
+          bone_mass_kg REAL,
+          body_water_percentage REAL,
+          method TEXT,
+          notes TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          CHECK (body_fat_percentage IS NULL OR (body_fat_percentage >= 1.0 AND body_fat_percentage <= 80.0)),
+          CHECK (skeletal_muscle_mass_kg IS NULL OR (skeletal_muscle_mass_kg >= 5.0 AND skeletal_muscle_mass_kg <= 200.0)),
+          CHECK (bone_mass_kg IS NULL OR (bone_mass_kg >= 0.5 AND bone_mass_kg <= 20.0)),
+          CHECK (body_water_percentage IS NULL OR (body_water_percentage >= 10.0 AND body_water_percentage <= 90.0))
+        );
+        CREATE INDEX IF NOT EXISTS idx_body_composition_entries_date ON body_composition_entries(date);
+      `);
+
+      // 4. Normalized progress photos table
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS progress_photos (
+          id TEXT PRIMARY KEY,
+          date TEXT NOT NULL,
+          time TEXT NOT NULL,
+          relative_path TEXT NOT NULL,
+          pose TEXT NOT NULL,
+          weight_entry_id TEXT REFERENCES body_weight_entries(id) ON DELETE SET NULL,
+          notes TEXT,
+          is_favorite INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          CHECK (is_favorite IN (0, 1))
+        );
+        CREATE INDEX IF NOT EXISTS idx_progress_photos_date ON progress_photos(date);
+        CREATE INDEX IF NOT EXISTS idx_progress_photos_weight_entry_id ON progress_photos(weight_entry_id);
+        CREATE INDEX IF NOT EXISTS idx_progress_photos_favorite ON progress_photos(is_favorite);
+      `);
+
+      // 5. Backfill eligible legacy progress_entries into body_weight_entries
+      // Explicit criteria:
+      // - Eligible: weight_kg >= 10.0 and <= 500.0
+      // - Strict ISO date format: YYYY-MM-DD
+      // - Exclude weight_kg = 0 or non-finite / invalid
+      // - Exclude weekday-only labels or non-calendar dates (e.g. 'Fri')
+      // - Deterministic ID: 'bw_migrated_' || id
+      // - Default time: '12:00'
+      // - Source: 'legacy_migration'
+      // - Idempotent: INSERT OR IGNORE
+      // - Original progress_entries rows are never modified or deleted
+      await db.runAsync(`
+        INSERT OR IGNORE INTO body_weight_entries (
+          id,
+          date,
+          time,
+          weight_kg,
+          notes,
+          source,
+          created_at,
+          updated_at
+        )
+        SELECT
+          'bw_migrated_' || p.id,
+          p.date,
+          '12:00',
+          p.weight_kg,
+          CASE
+            WHEN p.label IS NOT NULL AND TRIM(p.label) != '' AND TRIM(p.label) != TRIM(p.date)
+              THEN 'Migrated from legacy progress entry (' || TRIM(p.label) || ')'
+            ELSE 'Migrated from legacy progress entry'
+          END,
+          'legacy_migration',
+          COALESCE(NULLIF(p.created_at, ''), p.date || 'T12:00:00.000Z'),
+          COALESCE(NULLIF(p.created_at, ''), p.date || 'T12:00:00.000Z')
+        FROM progress_entries p
+        WHERE p.weight_kg >= 10.0
+          AND p.weight_kg <= 500.0
+          AND p.date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]';
+      `);
+    },
+  },
 ];
 
 /**

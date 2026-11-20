@@ -6,6 +6,13 @@ import { ProgressEntry } from '../models/progress';
 import { Settings } from '../models/settings';
 import { WorkoutSession, WorkoutSet } from '../models/workoutSession';
 import { CustomFood } from '../models/food';
+import {
+  BodyWeightEntry,
+  BodyMeasurementEntry,
+  BodyCompositionEntry,
+  ProgressPhoto,
+  PhotoPose,
+} from '../models/biometrics';
 
 /**
  * Standard interface for SQLite Database instance, compatible with expo-sqlite.
@@ -105,9 +112,57 @@ export interface ProfileRepository {
 }
 
 export interface ProgressRepository {
-  getAllProgress(): Promise<ProgressEntry[]>;
+  getAllProgress(txn?: IDatabase): Promise<ProgressEntry[]>;
+  getProgressById(id: string, txn?: IDatabase): Promise<ProgressEntry | null>;
+  insertProgressEntry(entry: ProgressEntry, txn?: IDatabase): Promise<void>;
+  updateProgressEntry(entry: ProgressEntry, txn?: IDatabase): Promise<void>;
+  deleteProgressEntry(id: string, txn?: IDatabase): Promise<void>;
   addProgress(entry: ProgressEntry, txn?: IDatabase): Promise<void>;
   saveAllProgress(entries: ProgressEntry[], txn?: IDatabase): Promise<void>;
+}
+
+export interface BodyWeightRepository {
+  getAllWeights(txn?: IDatabase): Promise<BodyWeightEntry[]>;
+  getWeightById(id: string, txn?: IDatabase): Promise<BodyWeightEntry | null>;
+  getWeightsByDateRange(startDate: string, endDate: string, txn?: IDatabase): Promise<BodyWeightEntry[]>;
+  getWeightsForDate(date: string, txn?: IDatabase): Promise<BodyWeightEntry[]>;
+  getLatestWeight(txn?: IDatabase): Promise<BodyWeightEntry | null>;
+  insertWeight(entry: BodyWeightEntry, txn?: IDatabase): Promise<void>;
+  updateWeight(entry: BodyWeightEntry, txn?: IDatabase): Promise<void>;
+  deleteWeight(id: string, txn?: IDatabase): Promise<void>;
+}
+
+export interface BodyMeasurementRepository {
+  getAllMeasurements(txn?: IDatabase): Promise<BodyMeasurementEntry[]>;
+  getMeasurementById(id: string, txn?: IDatabase): Promise<BodyMeasurementEntry | null>;
+  getMeasurementsByDateRange(startDate: string, endDate: string, txn?: IDatabase): Promise<BodyMeasurementEntry[]>;
+  getMeasurementsForDate(date: string, txn?: IDatabase): Promise<BodyMeasurementEntry[]>;
+  getLatestMeasurement(txn?: IDatabase): Promise<BodyMeasurementEntry | null>;
+  insertMeasurement(entry: BodyMeasurementEntry, txn?: IDatabase): Promise<void>;
+  updateMeasurement(entry: BodyMeasurementEntry, txn?: IDatabase): Promise<void>;
+  deleteMeasurement(id: string, txn?: IDatabase): Promise<void>;
+}
+
+export interface BodyCompositionRepository {
+  getAllCompositions(txn?: IDatabase): Promise<BodyCompositionEntry[]>;
+  getCompositionById(id: string, txn?: IDatabase): Promise<BodyCompositionEntry | null>;
+  getCompositionsByDateRange(startDate: string, endDate: string, txn?: IDatabase): Promise<BodyCompositionEntry[]>;
+  getLatestComposition(txn?: IDatabase): Promise<BodyCompositionEntry | null>;
+  insertComposition(entry: BodyCompositionEntry, txn?: IDatabase): Promise<void>;
+  updateComposition(entry: BodyCompositionEntry, txn?: IDatabase): Promise<void>;
+  deleteComposition(id: string, txn?: IDatabase): Promise<void>;
+}
+
+export interface ProgressPhotoRepository {
+  getAllPhotos(txn?: IDatabase): Promise<ProgressPhoto[]>;
+  getPhotoById(id: string, txn?: IDatabase): Promise<ProgressPhoto | null>;
+  getPhotosByDateRange(startDate: string, endDate: string, txn?: IDatabase): Promise<ProgressPhoto[]>;
+  getPhotosByPose(pose: PhotoPose, txn?: IDatabase): Promise<ProgressPhoto[]>;
+  getFavoritePhotos(txn?: IDatabase): Promise<ProgressPhoto[]>;
+  insertPhoto(photo: ProgressPhoto, txn?: IDatabase): Promise<void>;
+  updatePhoto(photo: ProgressPhoto, txn?: IDatabase): Promise<void>;
+  deletePhoto(id: string, txn?: IDatabase): Promise<void>;
+  togglePhotoFavorite(id: string, isFavorite: boolean, txn?: IDatabase): Promise<void>;
 }
 
 export interface SettingsRepository {

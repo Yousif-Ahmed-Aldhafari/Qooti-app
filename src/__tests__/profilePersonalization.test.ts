@@ -247,7 +247,7 @@ test('SQLite: Migration 2 upgrades V1 schema to V2 preserving existing profile d
   const migrationsAfter = await db.getAllAsync<{ version: number; name: string }>(
     'SELECT version, name FROM schema_migrations ORDER BY version ASC;'
   );
-  assert.equal(migrationsAfter.length, 15);
+  assert.equal(migrationsAfter.length, 16);
   assert.equal(migrationsAfter[1].version, 2);
   assert.equal(migrationsAfter[1].name, 'add_profile_personalization_v2');
   assert.equal(migrationsAfter[2].version, 3);
@@ -319,7 +319,7 @@ test('SQLite: Migration 2 upgrades V1 schema to V2 preserving existing profile d
   // 7. Test migration idempotence by running runMigrations again
   await runMigrations(db);
   const finalMigrations = await db.getAllAsync<{ version: number }>('SELECT version FROM schema_migrations;');
-  assert.equal(finalMigrations.length, 15, 'Migrations must not be re-applied or duplicated');
+  assert.equal(finalMigrations.length, 16, 'Migrations must not be re-applied or duplicated');
 });
 
 test('Personalization Safety: Age 17 vs 18 eligibility and adolescent protection', () => {
@@ -667,7 +667,7 @@ test('SQLite: Already-applied original V2 (ce7bbe1) upgrades cleanly to V3 prese
   const migrations = await db.getAllAsync<{ version: number; name: string }>(
     'SELECT version, name FROM schema_migrations ORDER BY version ASC;'
   );
-  assert.equal(migrations.length, 15);
+  assert.equal(migrations.length, 16);
   assert.equal(migrations[2].version, 3);
   assert.equal(migrations[2].name, 'add_profile_confirmation_and_bmr_ref_v3');
   assert.equal(migrations[3].version, 4);
@@ -742,7 +742,7 @@ test('SQLite: Interrupted migration recovery and repeated migration idempotence'
   const migrations = await db.getAllAsync<{ version: number }>('SELECT version FROM schema_migrations ORDER BY version ASC;');
   assert.deepEqual(
     migrations.map((m) => m.version),
-    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
   );
 });
 
