@@ -10,10 +10,13 @@ export type WeightSource =
   | 'google_fit'
   | 'legacy_migration';
 
+export type TimePrecision = 'minute' | 'date_only';
+
 export interface BodyWeightEntry {
   id: string;
   date: string; // YYYY-MM-DD (local calendar date)
   time: string; // HH:mm (24-hour local time)
+  timePrecision?: TimePrecision; // 'minute' | 'date_only' (defaults to 'minute' for user entries)
   weightKg: number;
   notes?: string | null;
   source: WeightSource;
@@ -174,6 +177,24 @@ export function validateBodyWeightEntry(entry: Partial<BodyWeightEntry>): assert
   if (!entry.updatedAt || typeof entry.updatedAt !== 'string') {
     throw new BiometricsValidationError('updatedAt timestamp is required', 'updatedAt');
   }
+  if (
+    entry.timePrecision != null &&
+    entry.timePrecision !== 'minute' &&
+    entry.timePrecision !== 'date_only'
+  ) {
+    throw new BiometricsValidationError(
+      "Invalid timePrecision. Must be 'minute' or 'date_only'",
+      'timePrecision'
+    );
+  }
+}
+
+export function hasExactTime(entry: BodyWeightEntry): boolean {
+  return entry.timePrecision !== 'date_only';
+}
+
+export function formatMeasurementTime(entry: BodyWeightEntry): string | null {
+  return hasExactTime(entry) ? entry.time : null;
 }
 
 function validateCircumference(

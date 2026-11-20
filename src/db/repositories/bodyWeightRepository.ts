@@ -1,6 +1,7 @@
 import { IDatabase, BodyWeightRepository } from '../types';
 import {
   BodyWeightEntry,
+  TimePrecision,
   WeightSource,
   validateBodyWeightEntry,
 } from '../../models/biometrics';
@@ -9,6 +10,7 @@ interface BodyWeightRow {
   id: string;
   date: string;
   time: string;
+  time_precision?: string | null;
   weight_kg: number;
   notes: string | null;
   source: string;
@@ -24,6 +26,7 @@ export class SQLiteBodyWeightRepository implements BodyWeightRepository {
       id: row.id,
       date: row.date,
       time: row.time,
+      timePrecision: (row.time_precision as TimePrecision) || 'minute',
       weightKg: row.weight_kg,
       notes: row.notes,
       source: row.source as WeightSource,
@@ -93,11 +96,12 @@ export class SQLiteBodyWeightRepository implements BodyWeightRepository {
 
     await target.runAsync(
       `INSERT INTO body_weight_entries (
-         id, date, time, weight_kg, notes, source, created_at, updated_at
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
+         id, date, time, time_precision, weight_kg, notes, source, created_at, updated_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`,
       entry.id,
       entry.date,
       entry.time,
+      entry.timePrecision || 'minute',
       entry.weightKg,
       entry.notes ?? null,
       entry.source,
@@ -114,6 +118,7 @@ export class SQLiteBodyWeightRepository implements BodyWeightRepository {
       `UPDATE body_weight_entries
        SET date = ?,
            time = ?,
+           time_precision = ?,
            weight_kg = ?,
            notes = ?,
            source = ?,
@@ -121,6 +126,7 @@ export class SQLiteBodyWeightRepository implements BodyWeightRepository {
        WHERE id = ?;`,
       entry.date,
       entry.time,
+      entry.timePrecision || 'minute',
       entry.weightKg,
       entry.notes ?? null,
       entry.source,

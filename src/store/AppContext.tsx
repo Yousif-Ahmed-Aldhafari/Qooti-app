@@ -62,6 +62,7 @@ import {
   getDatabase,
   getDatabaseConnectionOnly,
   migrateFromAsyncStorage,
+  reconcileLegacyProgressWeights,
   reconcilePreMigrationConflicts,
   type PreMigrationResolution,
 } from '../db';
@@ -414,6 +415,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         try {
           const db = await getDatabase();
           await migrateFromAsyncStorage(db);
+          await reconcileLegacyProgressWeights(db);
         } catch (dbErr: any) {
           if (
             dbErr instanceof MigrationSessionConflictError ||

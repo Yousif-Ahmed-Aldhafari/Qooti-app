@@ -675,7 +675,75 @@ export const MIGRATIONS: SchemaMigration[] = [
         FROM progress_entries p
         WHERE p.weight_kg >= 10.0
           AND p.weight_kg <= 500.0
-          AND p.date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]';
+          AND p.date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
+          AND date(p.date) IS NOT NULL
+          AND date(p.date) = p.date;
+      `);
+    },
+  },
+  {
+    version: 17,
+    name: 'add_biometric_time_precision_and_reconcile_legacy_dates_v17',
+    up: async (db: IDatabase) => {
+      // 1. Add time_precision column to body_weight_entries if not present
+      await addMissingColumns(db, 'body_weight_entries', [
+        {
+          name: 'time_precision',
+          ddl: "ALTER TABLE body_weight_entries ADD COLUMN time_precision TEXT NOT NULL DEFAULT 'minute';",
+        },
+      ]);
+
+      // 2. Mark existing legacy-migrated biometric entries with date_only precision
+      await db.runAsync(`
+        UPDATE body_weight_entries
+        SET time_precision = 'date_only'
+        WHERE source = 'legacy_migration';
+      `);
+
+      // 3. Purge invalid Gregorian calendar dates that may have been backfilled by earlier V16 runs
+      await db.runAsync(`
+        DELETE FROM body_weight_entries
+        WHERE source = 'legacy_migration'
+          AND (
+            date(date) IS NULL
+            OR date(date) != date
+            OR date NOT GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
+          );
+      `);
+
+      // 4. Backfill any eligible legacy progress entries with valid Gregorian calendar dates
+      await db.runAsync(`
+        INSERT OR IGNORE INTO body_weight_entries (
+          id,
+          date,
+          time,
+          time_precision,
+          weight_kg,
+          notes,
+          source,
+          created_at,
+          updated_at
+        )
+        SELECT
+          'bw_migrated_' || p.id,
+          p.date,
+          '12:00',
+          'date_only',
+          p.weight_kg,
+          CASE
+            WHEN p.label IS NOT NULL AND TRIM(p.label) != '' AND TRIM(p.label) != TRIM(p.date)
+              THEN 'Migrated from legacy progress entry (' || TRIM(p.label) || ')'
+            ELSE 'Migrated from legacy progress entry'
+          END,
+          'legacy_migration',
+          COALESCE(NULLIF(p.created_at, ''), p.date || 'T12:00:00.000Z'),
+          COALESCE(NULLIF(p.created_at, ''), p.date || 'T12:00:00.000Z')
+        FROM progress_entries p
+        WHERE p.weight_kg >= 10.0
+          AND p.weight_kg <= 500.0
+          AND p.date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
+          AND date(p.date) IS NOT NULL
+          AND date(p.date) = p.date;
       `);
     },
   },

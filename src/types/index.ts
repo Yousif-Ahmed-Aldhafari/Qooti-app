@@ -22,13 +22,18 @@ export type { DailyNutritionSummary, ProgressEntry } from '../models/progress';
 export type {
   BodyWeightEntry,
   WeightSource,
+  TimePrecision,
   BodyMeasurementEntry,
   BodyCompositionEntry,
   CompositionMethod,
   ProgressPhoto,
   PhotoPose,
 } from '../models/biometrics';
-export { BiometricsValidationError } from '../models/biometrics';
+export {
+  BiometricsValidationError,
+  hasExactTime,
+  formatMeasurementTime,
+} from '../models/biometrics';
 export type { SleepEntry } from '../models/sleep';
 export type { WaterEntry } from '../models/water';
 

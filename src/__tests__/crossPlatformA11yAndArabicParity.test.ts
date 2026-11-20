@@ -199,7 +199,7 @@ test('Task 4.6 - Test 3: Fresh V0 -> 12 installation creates complete schema and
   const migrations = await db.getAllAsync<{ version: number; name: string }>(
     `SELECT version, name FROM schema_migrations ORDER BY version ASC;`
   );
-  assert.equal(migrations.length, 16);
+  assert.equal(migrations.length, 17);
   assert.equal(migrations[11].version, 12);
   assert.equal(migrations[11].name, 'add_provenance_and_repair_legacy_templates_v12');
   assert.equal(migrations[12].version, 13);
@@ -210,6 +210,8 @@ test('Task 4.6 - Test 3: Fresh V0 -> 12 installation creates complete schema and
   assert.equal(migrations[14].name, 'add_meal_template_review_status_and_reconcile_ambiguity_v15');
   assert.equal(migrations[15].version, 16);
   assert.equal(migrations[15].name, 'add_body_tracking_and_biometrics_v16');
+  assert.equal(migrations[16].version, 17);
+  assert.equal(migrations[16].name, 'add_biometric_time_precision_and_reconcile_legacy_dates_v17');
 
   // Verify favorite_source column exists on meals
   const mealCols = await db.getAllAsync<{ name: string }>('PRAGMA table_info(meals);');
@@ -222,7 +224,7 @@ test('Task 4.6 - Test 3: Fresh V0 -> 12 installation creates complete schema and
   const repeated = await db.getAllAsync<{ version: number }>(
     `SELECT version FROM schema_migrations ORDER BY version ASC;`
   );
-  assert.equal(repeated.length, 16);
+  assert.equal(repeated.length, 17);
 });
 
 // ============================================================================

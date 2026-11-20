@@ -11,6 +11,13 @@ import { SQLiteBodyWeightRepository } from '../db/repositories/bodyWeightReposit
 import { SQLiteBodyMeasurementRepository } from '../db/repositories/bodyMeasurementRepository';
 import { SQLiteBodyCompositionRepository } from '../db/repositories/bodyCompositionRepository';
 import { SQLiteProgressPhotoRepository } from '../db/repositories/progressPhotoRepository';
+import {
+  reconcileLegacyProgressWeights,
+  LegacyProgressReconciliationResult,
+} from '../db/migrationService';
+
+export { reconcileLegacyProgressWeights };
+export type { LegacyProgressReconciliationResult };
 
 // --- Body Weight Services ---
 
