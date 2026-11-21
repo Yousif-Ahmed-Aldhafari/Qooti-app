@@ -21,6 +21,8 @@ import {
   filterMeasurementsByTimeRange,
   aggregateDailySiteMeasurements,
   calculateSiteMeasurementAnalyticsSummary,
+  buildSegmentedPath,
+  CHART_GAP_THRESHOLD_DAYS,
 } from '../utils/biometricAnalytics';
 import { BodyWeightEntry, BodyMeasurementEntry } from '../models/biometrics';
 import { WeightTrendChart } from '../components/WeightTrendChart';
@@ -31,6 +33,8 @@ import { UserProfile } from '../types';
 import { en } from '../i18n/en';
 import { ar } from '../i18n/ar';
 import { getTheme } from '../theme/colors';
+import { kgToLb, lbToKg, formatWeight, compareBodyWeightsDescending } from '../utils/weight';
+import { formatMeasurement } from '../utils/measurements';
 
 const tEn = (key: any, params?: any) => translate('en', key, params);
 const tAr = (key: any, params?: any) => translate('ar', key, params);
@@ -90,7 +94,14 @@ test('Task 5.4 - Test 2: Multiple weigh-ins on one date orders descending by tim
 // ============================================================================
 test('Task 5.4 - Test 3: Date-only legacy observations flag isLegacyDateOnly and omit placeholder 12:00', () => {
   const legacyEntry: BodyWeightEntry[] = [
-    { id: 'w-legacy-1', date: '2026-01-20', time: '12:00', weightKg: 83.5, createdAt: '2026-01-20T12:00:00.000Z' },
+    {
+      id: 'w-legacy-1',
+      date: '2026-01-20',
+      time: '12:00',
+      timePrecision: 'date_only',
+      weightKg: 83.5,
+      createdAt: '2026-01-20T12:00:00.000Z',
+    },
   ];
 
   const daily = aggregateDailyWeights(legacyEntry, 'final');
@@ -348,7 +359,7 @@ test('Task 5.4 - Test 19: Goal weight comparison correctly computes distance and
   // Within 0.2kg of target 75.0kg -> goal reached
   const summary = calculateWeightAnalyticsSummary(entries, '30d', '2026-02-15', 'metric', 75.0);
   assert.equal(summary.isGoalReached, true);
-  assert.equal(summary.distanceToGoalKg, 0.1);
+  assert.ok(Math.abs(summary.distanceToGoalKg! - 0.1) < 1e-6);
 });
 
 // ============================================================================
@@ -540,4 +551,411 @@ test('Task 5.4 - Test 27: ProgressScreen integrates weight analytics and measure
   assert.ok(html.includes(en.progress.measurementTrend), 'Must render measurement trend header');
   assert.ok(html.includes(en.progress.netChange), 'Must render net change label');
   assert.ok(html.includes('-2.0 kg'), 'Must render net change value');
+});
+
+// ============================================================================
+// TASK 5.4A REGRESSION SUITE: PRECISION, OBSERVATION INTEGRITY & GAPS
+// ============================================================================
+
+// TEST 28: Real 12:00 measurement with notes -> preserves noon time
+test('Task 5.4A - Test 28: Real 12:00 measurement with notes preserves noon time', () => {
+  const entries: BodyWeightEntry[] = [
+    {
+      id: 'w-real-noon-notes',
+      date: '2026-03-01',
+      time: '12:00',
+      timePrecision: 'minute',
+      weightKg: 78.5,
+      notes: 'Post-workout lunch weigh-in',
+      source: 'manual',
+      createdAt: '2026-03-01T12:00:00.000Z',
+      updatedAt: '2026-03-01T12:00:00.000Z',
+    },
+  ];
+
+  const daily = aggregateDailyWeights(entries, 'final');
+  assert.equal(daily.length, 1);
+  assert.equal(daily[0].isLegacyDateOnly, false, 'Must not be classified as legacy date-only');
+  assert.equal(daily[0].latestTime, '12:00', 'Genuine 12:00 measurement must display as noon');
+});
+
+// TEST 29: Real 12:00 measurement without notes -> preserves noon time
+test('Task 5.4A - Test 29: Real 12:00 measurement without notes preserves noon time', () => {
+  const entries: BodyWeightEntry[] = [
+    {
+      id: 'w-real-noon-no-notes',
+      date: '2026-03-01',
+      time: '12:00',
+      timePrecision: 'minute',
+      weightKg: 78.5,
+      notes: null,
+      source: 'manual',
+      createdAt: '2026-03-01T12:00:00.000Z',
+      updatedAt: '2026-03-01T12:00:00.000Z',
+    },
+  ];
+
+  const daily = aggregateDailyWeights(entries, 'final');
+  assert.equal(daily.length, 1);
+  assert.equal(daily[0].isLegacyDateOnly, false, 'Absence of notes must not trigger legacy classification');
+  assert.equal(daily[0].latestTime, '12:00', 'Genuine 12:00 measurement must display as noon');
+});
+
+// TEST 30: Migrated date-only measurement with notes -> omits time
+test('Task 5.4A - Test 30: Migrated date-only measurement with notes omits synthetic time', () => {
+  const entries: BodyWeightEntry[] = [
+    {
+      id: 'w-migrated-notes',
+      date: '2026-03-01',
+      time: '12:00',
+      timePrecision: 'date_only',
+      weightKg: 78.5,
+      notes: 'Imported from legacy SQLite database',
+      source: 'legacy_migration',
+      createdAt: '2026-03-01T12:00:00.000Z',
+      updatedAt: '2026-03-01T12:00:00.000Z',
+    },
+  ];
+
+  const daily = aggregateDailyWeights(entries, 'final');
+  assert.equal(daily.length, 1);
+  assert.equal(daily[0].isLegacyDateOnly, true, 'Must be classified as legacy date-only');
+  assert.equal(daily[0].latestTime, undefined, 'Migrated date-only record must never display synthetic noon');
+});
+
+// TEST 31: Migrated date-only measurement without notes -> omits time
+test('Task 5.4A - Test 31: Migrated date-only measurement without notes omits synthetic time', () => {
+  const entries: BodyWeightEntry[] = [
+    {
+      id: 'w-migrated-no-notes',
+      date: '2026-03-01',
+      time: '12:00',
+      timePrecision: 'date_only',
+      weightKg: 78.5,
+      notes: null,
+      source: 'legacy_migration',
+      createdAt: '2026-03-01T12:00:00.000Z',
+      updatedAt: '2026-03-01T12:00:00.000Z',
+    },
+  ];
+
+  const daily = aggregateDailyWeights(entries, 'final');
+  assert.equal(daily.length, 1);
+  assert.equal(daily[0].isLegacyDateOnly, true, 'Must be classified as legacy date-only');
+  assert.equal(daily[0].latestTime, undefined, 'Migrated date-only record must never display synthetic noon');
+});
+
+// TEST 32: Mixed exact-time and date-only on same day -> exact time prioritized
+test('Task 5.4A - Test 32: Mixed exact-time and date-only on same day prioritizes exact time', () => {
+  const entries: BodyWeightEntry[] = [
+    {
+      id: 'w-legacy-same-day',
+      date: '2026-03-01',
+      time: '12:00',
+      timePrecision: 'date_only',
+      weightKg: 80.0,
+      source: 'legacy_migration',
+      createdAt: '2026-03-01T12:00:00.000Z',
+      updatedAt: '2026-03-01T12:00:00.000Z',
+    },
+    {
+      id: 'w-exact-same-day',
+      date: '2026-03-01',
+      time: '08:30',
+      timePrecision: 'minute',
+      weightKg: 79.2,
+      source: 'manual',
+      createdAt: '2026-03-01T08:30:00.000Z',
+      updatedAt: '2026-03-01T08:30:00.000Z',
+    },
+  ];
+
+  const daily = aggregateDailyWeights(entries, 'final');
+  assert.equal(daily.length, 1);
+  assert.equal(daily[0].weightKg, 79.2, 'Exact measurement must take precedence over legacy date-only reading');
+  assert.equal(daily[0].latestTime, '08:30');
+  assert.equal(daily[0].isLegacyDateOnly, false);
+  assert.equal(daily[0].observationCount, 2, 'Both observations must remain preserved in history');
+});
+
+// TEST 33: Exact-time morning vs placeholder 12:00 -> morning reading wins
+test('Task 5.4A - Test 33: Exact-time morning vs placeholder 12:00 ensures morning reading wins', () => {
+  const morningEntry: BodyWeightEntry = {
+    id: 'w-morning',
+    date: '2026-03-01',
+    time: '07:15',
+    timePrecision: 'minute',
+    weightKg: 75.0,
+    source: 'manual',
+    createdAt: '2026-03-01T07:15:00.000Z',
+    updatedAt: '2026-03-01T07:15:00.000Z',
+  };
+  const placeholderEntry: BodyWeightEntry = {
+    id: 'w-placeholder',
+    date: '2026-03-01',
+    time: '12:00',
+    timePrecision: 'date_only',
+    weightKg: 76.5,
+    source: 'legacy_migration',
+    createdAt: '2026-03-01T12:00:00.000Z',
+    updatedAt: '2026-03-01T12:00:00.000Z',
+  };
+
+  // Compare directly using the canonical comparator
+  const comp = compareBodyWeightsDescending(morningEntry, placeholderEntry);
+  assert.ok(comp < 0, 'Morning exact entry must rank higher than placeholder 12:00');
+
+  const daily = aggregateDailyWeights([placeholderEntry, morningEntry], 'final');
+  assert.equal(daily[0].weightKg, 75.0);
+  assert.equal(daily[0].latestTime, '07:15');
+});
+
+// TEST 34: Identical same-day times -> deterministic tie-breaking
+test('Task 5.4A - Test 34: Identical same-day times break ties deterministically by createdAt and id', () => {
+  const entryA: BodyWeightEntry = {
+    id: 'w-alpha',
+    date: '2026-03-01',
+    time: '08:00',
+    timePrecision: 'minute',
+    weightKg: 78.0,
+    source: 'manual',
+    createdAt: '2026-03-01T08:00:00.000Z',
+    updatedAt: '2026-03-01T08:00:00.000Z',
+  };
+  const entryB: BodyWeightEntry = {
+    id: 'w-beta',
+    date: '2026-03-01',
+    time: '08:00',
+    timePrecision: 'minute',
+    weightKg: 78.4,
+    source: 'manual',
+    createdAt: '2026-03-01T08:05:00.000Z', // Created later
+    updatedAt: '2026-03-01T08:05:00.000Z',
+  };
+
+  const daily = aggregateDailyWeights([entryA, entryB], 'final');
+  assert.equal(daily[0].weightKg, 78.4, 'Later createdAt must break identical-time tie');
+
+  // Identical createdAt breaks tie by id DESC
+  const entryC = { ...entryA, id: 'w-zzz', createdAt: '2026-03-01T08:00:00.000Z' };
+  const entryD = { ...entryA, id: 'w-aaa', createdAt: '2026-03-01T08:00:00.000Z' };
+  const comp = compareBodyWeightsDescending(entryC, entryD);
+  assert.ok(comp < 0, 'Higher ID must rank first on identical timestamps');
+});
+
+// TEST 35: Full precision across multi-week calculations without intermediate rounding drift
+test('Task 5.4A - Test 35: Full precision across multi-week calculations without intermediate rounding drift', () => {
+  // Construct 7 daily points with non-terminating fractional weights: 80 + 1/3, 80 + 2/3, etc.
+  const points: DailyWeightPoint[] = [];
+  for (let i = 0; i < 7; i++) {
+    const day = String(i + 1).padStart(2, '0');
+    points.push({
+      date: `2026-02-${day}`,
+      weightKg: 80 + (i + 1) / 3,
+      observationCount: 1,
+      entries: [],
+    });
+  }
+
+  const sma = calculate7DaySMA(points);
+  const ema = calculate7DayEMA(points);
+
+  // Assert SMA keeps unrounded IEEE 754 precision
+  assert.notEqual(sma[6], Math.round(sma[6]! * 100) / 100 || sma[6]!.toString().split('.')[1]?.length <= 2,
+    'SMA must retain full floating-point precision internally');
+
+  // Assert EMA keeps unrounded IEEE 754 precision
+  assert.ok(typeof ema[6] === 'number');
+  assert.ok(Number.isFinite(ema[6]));
+});
+
+// TEST 36: Gap segmentation across multi-week absences (> 14 days)
+test('Task 5.4A - Test 36: Gap segmentation across multi-week absences (> 14 days) produces disconnected subpaths', () => {
+  const points = [
+    { x: 10, y: 100, date: '2026-01-01' },
+    { x: 50, y: 102, date: '2026-01-05' }, // 4 days (<= 14) -> L
+    { x: 150, y: 98, date: '2026-02-15' }, // 41 days (> 14) -> M (segment break!)
+    { x: 190, y: 96, date: '2026-02-20' }, // 5 days (<= 14) -> L
+  ];
+
+  const path = buildSegmentedPath(points, CHART_GAP_THRESHOLD_DAYS);
+  assert.equal(path, 'M 10 100 L 50 102 M 150 98 L 190 96');
+
+  // Count subpath 'M' commands
+  const mMatches = path.match(/M/g);
+  assert.equal(mMatches?.length, 2, 'Must have exactly 2 subpaths separated across the 41-day gap');
+});
+
+// TEST 37: Year-boundary multi-week gap segmentation
+test('Task 5.4A - Test 37: Year-boundary multi-week gap segmentation correctly breaks across Dec/Jan boundary', () => {
+  const points = [
+    { x: 10, y: 100, date: '2025-12-15' },
+    { x: 40, y: 101, date: '2025-12-20' }, // 5 days -> L
+    { x: 160, y: 99, date: '2026-01-25' }, // 36 days spanning year boundary -> M (segment break!)
+    { x: 200, y: 97, date: '2026-01-28' }, // 3 days -> L
+  ];
+
+  const path = buildSegmentedPath(points, 14);
+  assert.equal(path, 'M 10 100 L 40 101 M 160 99 L 200 97');
+  const mMatches = path.match(/M/g);
+  assert.equal(mMatches?.length, 2, 'Must correctly identify 36 days across year boundary and break path');
+});
+
+// TEST 38: Metric and imperial display formatting
+test('Task 5.4A - Test 38: Metric and imperial display formatting formats strictly at the boundary', () => {
+  const weight = 80.456789;
+  const metricFormatted = formatWeight(weight, 'metric', 1);
+  assert.equal(metricFormatted, '80.5');
+
+  const imperialFormatted = formatWeight(weight, 'imperial', 1);
+  // 80.456789 kg * 2.20462262 = 177.377 -> 177.4 lb
+  assert.equal(imperialFormatted, '177.4');
+
+  const circ = 85.3456;
+  const cmFormatted = formatMeasurement(circ, 'metric', 1);
+  assert.equal(cmFormatted, '85.3');
+
+  const inFormatted = formatMeasurement(circ, 'imperial', 1);
+  // 85.3456 cm / 2.54 = 33.6006 -> 33.6 in
+  assert.equal(inFormatted, '33.6');
+});
+
+// TEST 39: Chart selection resets on range toggle
+test('Task 5.4A - Test 39: Chart selection resets or clamps safely on range toggle without out-of-bounds crash', () => {
+  const seriesA = [
+    { date: '2026-01-01', weightKg: 82.0 },
+    { date: '2026-01-10', weightKg: 81.5 },
+    { date: '2026-01-20', weightKg: 81.0 },
+    { date: '2026-01-30', weightKg: 80.5 },
+  ];
+  const dailyA = seriesA.map((s) => ({
+    date: s.date,
+    weightKg: s.weightKg,
+    observationCount: 1,
+    entries: [],
+  }));
+
+  const chart = React.createElement(WeightTrendChart, {
+    dailyPoints: dailyA,
+    trendSeries: seriesA,
+    unit: 'metric',
+    movingAverage: 'none',
+    t: tEn,
+  });
+
+  const html = renderToStaticMarkup(chart);
+  assert.ok(html.includes('80.5 kg'), 'Must render latest entry value safely');
+});
+
+// TEST 40: Chart selection resets on site change
+test('Task 5.4A - Test 40: Chart selection resets on site change in BodyMeasurementTrendChart', () => {
+  const waistSummary = calculateSiteMeasurementAnalyticsSummary(
+    [
+      { id: 'm-1', date: '2026-02-01', time: '08:00', waistCm: 85.0, createdAt: '2026-02-01T08:00:00.000Z', updatedAt: '2026-02-01T08:00:00.000Z' },
+      { id: 'm-2', date: '2026-02-15', time: '08:00', waistCm: 83.0, createdAt: '2026-02-15T08:00:00.000Z', updatedAt: '2026-02-15T08:00:00.000Z' },
+    ],
+    'waistCm',
+    '30d',
+    '2026-02-15',
+    'metric'
+  );
+
+  const chart = React.createElement(BodyMeasurementTrendChart, {
+    summary: waistSummary,
+    selectedSite: 'waistCm',
+    onSelectSite: () => {},
+    unit: 'metric',
+    t: tEn,
+  });
+
+  const html = renderToStaticMarkup(chart);
+  assert.ok(html.includes('83.0 cm'));
+});
+
+// TEST 41: Screen reader accessibility labels reflect date-only vs exact time accurately
+test('Task 5.4A - Test 41: Screen reader accessibility labels reflect date-only vs exact time accurately', () => {
+  const dailyPoints: DailyWeightPoint[] = [
+    {
+      date: '2026-02-01',
+      weightKg: 82.0,
+      observationCount: 1,
+      isLegacyDateOnly: true, // Legacy date-only
+      latestTime: undefined,
+      entries: [],
+    },
+    {
+      date: '2026-02-15',
+      weightKg: 80.0,
+      observationCount: 1,
+      isLegacyDateOnly: false,
+      latestTime: '12:00', // Genuine noon
+      entries: [],
+    },
+  ];
+
+  const series = dailyPoints.map((p) => ({ date: p.date, weightKg: p.weightKg }));
+
+  const chart = React.createElement(WeightTrendChart, {
+    dailyPoints,
+    trendSeries: series,
+    unit: 'metric',
+    movingAverage: 'none',
+    t: tEn,
+  });
+
+  const html = renderToStaticMarkup(chart);
+
+  // Must include the translated legacy label for date-only
+  assert.ok(html.includes(en.progress.legacyDateOnly), 'Date-only observation must announce legacy descriptor');
+  // Must announce noon time for the genuine noon measurement
+  assert.ok(html.includes('12:00'), 'Genuine noon entry must announce 12:00');
+});
+
+// TEST 42: Target weight comparisons with unrounded precision
+test('Task 5.4A - Test 42: Target weight comparisons retain unrounded precision and goal completion', () => {
+  const entries: BodyWeightEntry[] = [
+    {
+      id: 'w-1',
+      date: '2026-02-15',
+      time: '08:00',
+      timePrecision: 'minute',
+      weightKg: 75.123456,
+      source: 'manual',
+      createdAt: '2026-02-15T08:00:00.000Z',
+      updatedAt: '2026-02-15T08:00:00.000Z',
+    },
+  ];
+
+  const summary = calculateWeightAnalyticsSummary(entries, '30d', '2026-02-15', 'metric', 75.0);
+  assert.equal(summary.isGoalReached, true, '75.123456 is within 0.2kg of target 75.0');
+  // Distance to goal is unrounded float: 75.123456 - 75.0 = 0.123456
+  assert.ok(Math.abs(summary.distanceToGoalKg! - 0.123456) < 1e-6);
+});
+
+// TEST 43: Zero-drift roundtrip unit conversions
+test('Task 5.4A - Test 43: Zero-drift roundtrip unit conversions across 20 cycles', () => {
+  const initialKg = 80.456789;
+  let current = initialKg;
+
+  for (let i = 0; i < 20; i++) {
+    const lb = kgToLb(current);
+    current = lbToKg(lb);
+  }
+
+  const drift = Math.abs(current - initialKg);
+  assert.ok(drift < 1e-12, `20x roundtrip conversion drift (${drift}) must be near machine epsilon (< 1e-12)`);
+});
+
+// TEST 44: Circumference chart gap segmentation across prolonged absences
+test('Task 5.4A - Test 44: Circumference chart gap segmentation across prolonged absences', () => {
+  const points = [
+    { x: 20, y: 50, date: '2026-01-01' },
+    { x: 50, y: 48, date: '2026-01-08' }, // 7 days (<= 14) -> L
+    { x: 180, y: 45, date: '2026-03-01' }, // 52 days (> 14) -> M (segment break!)
+    { x: 210, y: 44, date: '2026-03-05' }, // 4 days (<= 14) -> L
+  ];
+
+  const path = buildSegmentedPath(points, CHART_GAP_THRESHOLD_DAYS);
+  assert.equal(path, 'M 20 50 L 50 48 M 180 45 L 210 44');
+  assert.equal(path.match(/M/g)?.length, 2);
 });

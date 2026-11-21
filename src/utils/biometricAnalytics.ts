@@ -7,15 +7,41 @@
  */
 
 import type { BodyWeightEntry, BodyMeasurementEntry } from '../models/biometrics';
+import { hasExactTime } from '../models/biometrics';
 import type { MeasurementUnits } from '../models/settings';
 import { getDaysBetweenDates, cmToInch, MeasurementFieldKey } from './measurements';
-import { kgToLb } from './weight';
+import { kgToLb, compareBodyWeightsDescending } from './weight';
 
 export type AnalyticsTimeRange = '7d' | '30d' | '90d' | '1y' | 'all';
 
 export type MovingAverageType = 'none' | 'sma' | 'ema';
 
 export type DailyWeightAggregationMode = 'final' | 'average';
+
+export const CHART_GAP_THRESHOLD_DAYS = 14;
+
+/**
+ * Builds an SVG path string from points with calendar gap segmentation.
+ * When calendar days between consecutive points exceeds `gapThresholdDays` (default 14),
+ * a new subpath (`M`) is started rather than connecting them with a line (`L`).
+ * This prevents misleading visual interpolation across prolonged logging gaps.
+ */
+export function buildSegmentedPath(
+  points: { x: number; y: number; date: string }[],
+  gapThresholdDays: number = CHART_GAP_THRESHOLD_DAYS
+): string {
+  if (!points || points.length === 0) return '';
+  let path = `M ${points[0].x} ${points[0].y}`;
+  for (let i = 1; i < points.length; i++) {
+    const gap = getDaysBetweenDates(points[i - 1].date, points[i].date);
+    if (gap > gapThresholdDays) {
+      path += ` M ${points[i].x} ${points[i].y}`;
+    } else {
+      path += ` L ${points[i].x} ${points[i].y}`;
+    }
+  }
+  return path;
+}
 
 /**
  * Adds or subtracts calendar days from an ISO date string (YYYY-MM-DD).
@@ -130,31 +156,28 @@ export function aggregateDailyWeights(
   const result: DailyWeightPoint[] = [];
 
   for (const [date, dayEntries] of groups.entries()) {
-    // Sort day's entries descending by time to find final entry
-    dayEntries.sort((a, b) => {
-      const timeComp = (b.time || '').localeCompare(a.time || '');
-      if (timeComp !== 0) return timeComp;
-      return (b.createdAt || '').localeCompare(a.createdAt || '');
-    });
+    // Sort day's entries descending according to the canonical precision-aware comparator.
+    // Prioritizes known observation times (timePrecision !== 'date_only') over placeholder 12:00,
+    // and breaks ties deterministically by createdAt DESC, then id DESC.
+    dayEntries.sort(compareBodyWeightsDescending);
 
-    const isLegacy = dayEntries.every(
-      (e) => (!e.time || e.time === '12:00') && !e.notes
-    );
+    const representative = dayEntries[0];
+    const isLegacy = !hasExactTime(representative);
 
     let weightKg: number;
     if (mode === 'average') {
       const sum = dayEntries.reduce((acc, curr) => acc + curr.weightKg, 0);
-      weightKg = Math.round((sum / dayEntries.length) * 100) / 100;
+      weightKg = sum / dayEntries.length;
     } else {
-      // Default: 'final' weigh-in of the day
-      weightKg = dayEntries[0].weightKg;
+      // Default: representative weigh-in of the day
+      weightKg = representative.weightKg;
     }
 
     result.push({
       date,
       weightKg,
       observationCount: dayEntries.length,
-      latestTime: isLegacy ? undefined : dayEntries[0].time,
+      latestTime: isLegacy ? undefined : representative.time,
       isLegacyDateOnly: isLegacy,
       entries: dayEntries,
     });
@@ -193,7 +216,7 @@ export function calculate7DaySMA(
     if (windowPoints.length === 0) return undefined;
     const sum = windowPoints.reduce((acc, p) => acc + p.weightKg, 0);
     const avg = sum / windowPoints.length;
-    return Math.round(avg * 100) / 100;
+    return avg;
   });
 }
 
@@ -207,6 +230,7 @@ export function calculate7DaySMA(
  *   alpha_dt = 1 - (1 - alpha)^dt.
  *   EMA_k = EMA_{k-1} + alpha_dt * (Weight_k - EMA_{k-1}).
  * Uses actual recorded observations ONLY — never interpolates missing days.
+ * Retains full floating-point precision throughout.
  */
 export function calculate7DayEMA(
   dailyPoints: DailyWeightPoint[]
@@ -217,7 +241,7 @@ export function calculate7DayEMA(
   const result: number[] = [];
 
   let currentEma = dailyPoints[0].weightKg;
-  result.push(Math.round(currentEma * 100) / 100);
+  result.push(currentEma);
 
   for (let i = 1; i < dailyPoints.length; i++) {
     const prevDate = dailyPoints[i - 1].date;
@@ -227,7 +251,7 @@ export function calculate7DayEMA(
     // Adjusted alpha accounting for elapsed calendar days
     const alphaDt = 1 - Math.pow(1 - baseAlpha, dt);
     currentEma = currentEma + alphaDt * (dailyPoints[i].weightKg - currentEma);
-    result.push(Math.round(currentEma * 100) / 100);
+    result.push(currentEma);
   }
 
   return result;
@@ -303,7 +327,7 @@ export function calculateWeightAnalyticsSummary(
 
   const startWeightKg = earliestPoint.weightKg;
   const currentWeightKg = latestPoint.weightKg;
-  const netChangeKg = Math.round((currentWeightKg - startWeightKg) * 100) / 100;
+  const netChangeKg = currentWeightKg - startWeightKg;
 
   // Format net change
   const netChangeVal = isInchOrLb ? kgToLb(netChangeKg) : netChangeKg;
@@ -318,7 +342,7 @@ export function calculateWeightAnalyticsSummary(
   let weeklyRateFormatted: string | undefined;
 
   if (daysDiff >= 1) {
-    weeklyRateKg = Math.round(((netChangeKg / daysDiff) * 7) * 100) / 100;
+    weeklyRateKg = (netChangeKg / daysDiff) * 7;
     const weeklyRateVal = isInchOrLb ? kgToLb(weeklyRateKg) : weeklyRateKg;
     const absRate = Math.abs(weeklyRateVal);
     const rateSign = weeklyRateKg > 0.05 ? '+' : weeklyRateKg < -0.05 ? '-' : '';
@@ -331,7 +355,7 @@ export function calculateWeightAnalyticsSummary(
   let isGoalReached: boolean | undefined;
 
   if (goalWeightKg != null && goalWeightKg > 0) {
-    distanceToGoalKg = Math.round((currentWeightKg - goalWeightKg) * 100) / 100;
+    distanceToGoalKg = currentWeightKg - goalWeightKg;
     isGoalReached = Math.abs(distanceToGoalKg) <= 0.2;
   }
 
@@ -475,7 +499,7 @@ export function calculateSiteMeasurementAnalyticsSummary(
 
   const startValueCm = earliest.valueCm;
   const latestValueCm = latest.valueCm;
-  const netChangeCm = Math.round((latestValueCm - startValueCm) * 100) / 100;
+  const netChangeCm = latestValueCm - startValueCm;
 
   const netChangeVal = isInch ? cmToInch(netChangeCm) : netChangeCm;
   const absNet = Math.abs(netChangeVal);

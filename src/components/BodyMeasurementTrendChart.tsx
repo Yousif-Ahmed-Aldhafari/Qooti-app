@@ -32,9 +32,12 @@ import {
   MEASUREMENT_FIELDS,
   MeasurementFieldKey,
   formatMeasurement,
+  getDaysBetweenDates,
 } from '../utils/measurements';
 import {
   SiteMeasurementAnalyticsSummary,
+  buildSegmentedPath,
+  CHART_GAP_THRESHOLD_DAYS,
 } from '../utils/biometricAnalytics';
 import { MeasurementUnits } from '../models/settings';
 
@@ -56,6 +59,15 @@ export function BodyMeasurementTrendChart({
   const colors = themeColors();
   const [containerWidth, setContainerWidth] = useState(340);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [prevSite, setPrevSite] = useState(selectedSite);
+  const [prevPoints, setPrevPoints] = useState(summary.points);
+
+  // Safely reset selection index during render when anatomical site or points change
+  if (prevSite !== selectedSite || prevPoints !== summary.points) {
+    setPrevSite(selectedSite);
+    setPrevPoints(summary.points);
+    setSelectedIndex(null);
+  }
 
   const isInch = unit === 'imperial';
   const unitLabel = isInch ? t('progress.unitIn') : t('progress.unitCm');
@@ -104,32 +116,33 @@ export function BodyMeasurementTrendChart({
       return paddingTop + (1 - ratio) * plotHeight;
     };
 
-    const firstTime = Date.parse(points[0].date);
-    const lastTime = Date.parse(points[points.length - 1].date);
-    const totalTimeSpan = lastTime - firstTime;
+    // Calendar-aware X coordinates (strictly based on calendar days, timezone-neutral)
+    const startDate = points[0].date;
+    const totalCalendarDays = getDaysBetweenDates(
+      startDate,
+      points[points.length - 1].date
+    );
 
-    const getX = (dateStr: string, idx: number) => {
-      if (points.length === 1 || totalTimeSpan <= 0) {
+    const getX = (dateStr: string) => {
+      if (points.length === 1 || totalCalendarDays <= 0) {
         return paddingLeft + plotWidth / 2;
       }
-      const t = Date.parse(dateStr);
-      const ratio = (t - firstTime) / totalTimeSpan;
+      const daysFromStart = getDaysBetweenDates(startDate, dateStr);
+      const ratio = daysFromStart / totalCalendarDays;
       return paddingLeft + ratio * plotWidth;
     };
 
-    const pointsWithCoords = points.map((p, idx) => ({
+    const pointsWithCoords = points.map((p) => ({
       ...p,
-      x: getX(p.date, idx),
+      x: getX(p.date),
       y: getY(p.valueCm),
     }));
 
-    let trendLinePath = '';
-    if (pointsWithCoords.length > 0) {
-      trendLinePath = `M ${pointsWithCoords[0].x} ${pointsWithCoords[0].y}`;
-      for (let i = 1; i < pointsWithCoords.length; i++) {
-        trendLinePath += ` L ${pointsWithCoords[i].x} ${pointsWithCoords[i].y}`;
-      }
-    }
+    // Construct SVG line path with explicit calendar-gap segmentation (> 14 days)
+    const trendLinePath = buildSegmentedPath(
+      pointsWithCoords.map((pt) => ({ x: pt.x, y: pt.y, date: pt.date })),
+      CHART_GAP_THRESHOLD_DAYS
+    );
 
     return {
       pointsWithCoords,
@@ -306,6 +319,7 @@ export function BodyMeasurementTrendChart({
             {/* Data Points (Circles) */}
             {pointsWithCoords.map((pt, idx) => {
               const isSelected = activeSelectedPoint?.date === pt.date;
+              const pointLabel = `${pt.date}${pt.time ? `, ${pt.time}` : ''}: ${formatMeasurement(pt.valueCm, unit, 1)} ${unitLabel}`;
               return (
                 <G key={`pt-meas-${pt.date}-${idx}`}>
                   <Circle
@@ -315,6 +329,8 @@ export function BodyMeasurementTrendChart({
                     fill={isSelected ? colors.accent : colors.lavender}
                     stroke={colors.card}
                     strokeWidth="2"
+                    accessible={true}
+                    accessibilityLabel={pointLabel}
                     onPress={() => setSelectedIndex(idx)}
                   />
                 </G>

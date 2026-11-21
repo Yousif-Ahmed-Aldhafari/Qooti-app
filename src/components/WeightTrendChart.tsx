@@ -32,10 +32,13 @@ import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import { activeRowStyle, activeTextAlign, activeWritingDirection } from '../utils/rtl';
 import { formatWeight } from '../utils/weight';
+import { getDaysBetweenDates } from '../utils/measurements';
 import {
   TrendSeriesPoint,
   MovingAverageType,
   DailyWeightPoint,
+  buildSegmentedPath,
+  CHART_GAP_THRESHOLD_DAYS,
 } from '../utils/biometricAnalytics';
 import { MeasurementUnits } from '../models/settings';
 
@@ -59,6 +62,13 @@ export function WeightTrendChart({
   const colors = themeColors();
   const [containerWidth, setContainerWidth] = useState(340);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [prevTrendSeries, setPrevTrendSeries] = useState(trendSeries);
+
+  // Safely reset selection index during render when trend series changes (e.g. range toggle)
+  if (prevTrendSeries !== trendSeries) {
+    setPrevTrendSeries(trendSeries);
+    setSelectedIndex(null);
+  }
 
   const isImperial = unit === 'imperial';
   const unitLabel = isImperial ? t('progress.unitLb') : t('progress.unitKg');
@@ -119,22 +129,24 @@ export function WeightTrendChart({
         return paddingTop + (1 - ratio) * plotHeight;
       };
 
-      // Calculate X coordinates
-      const firstTime = Date.parse(trendSeries[0].date);
-      const lastTime = Date.parse(trendSeries[trendSeries.length - 1].date);
-      const totalTimeSpan = lastTime - firstTime;
+      // Calendar-aware X coordinates (strictly based on calendar days, timezone-neutral)
+      const startDate = trendSeries[0].date;
+      const totalCalendarDays = getDaysBetweenDates(
+        startDate,
+        trendSeries[trendSeries.length - 1].date
+      );
 
-      const getX = (dateStr: string, idx: number) => {
-        if (trendSeries.length === 1 || totalTimeSpan <= 0) {
+      const getX = (dateStr: string) => {
+        if (trendSeries.length === 1 || totalCalendarDays <= 0) {
           return paddingLeft + plotWidth / 2;
         }
-        const t = Date.parse(dateStr);
-        const ratio = (t - firstTime) / totalTimeSpan;
+        const daysFromStart = getDaysBetweenDates(startDate, dateStr);
+        const ratio = daysFromStart / totalCalendarDays;
         return paddingLeft + ratio * plotWidth;
       };
 
       const pointsWithCoords = trendSeries.map((p, idx) => {
-        const x = getX(p.date, idx);
+        const x = getX(p.date);
         const y = getY(p.weightKg);
         const smaY = p.sma7Kg != null ? getY(p.sma7Kg) : undefined;
         const emaY = p.ema7Kg != null ? getY(p.ema7Kg) : undefined;
@@ -148,43 +160,26 @@ export function WeightTrendChart({
         };
       });
 
-      // Construct SVG line paths
-      let trendLinePath = '';
-      if (pointsWithCoords.length > 0) {
-        trendLinePath = `M ${pointsWithCoords[0].x} ${pointsWithCoords[0].y}`;
-        for (let i = 1; i < pointsWithCoords.length; i++) {
-          trendLinePath += ` L ${pointsWithCoords[i].x} ${pointsWithCoords[i].y}`;
-        }
-      }
+      // Construct SVG line paths with explicit calendar-gap segmentation (> 14 days)
+      const trendLinePath = buildSegmentedPath(
+        pointsWithCoords.map((pt) => ({ x: pt.x, y: pt.y, date: pt.date })),
+        CHART_GAP_THRESHOLD_DAYS
+      );
 
       let smaPath = '';
-      if (movingAverage === 'sma' && pointsWithCoords.length > 0) {
-        let firstSma = true;
-        for (const pt of pointsWithCoords) {
-          if (pt.smaY != null) {
-            if (firstSma) {
-              smaPath += `M ${pt.x} ${pt.smaY}`;
-              firstSma = false;
-            } else {
-              smaPath += ` L ${pt.x} ${pt.smaY}`;
-            }
-          }
-        }
+      if (movingAverage === 'sma') {
+        const smaPoints = pointsWithCoords
+          .filter((pt): pt is typeof pt & { smaY: number } => pt.smaY != null)
+          .map((pt) => ({ x: pt.x, y: pt.smaY, date: pt.date }));
+        smaPath = buildSegmentedPath(smaPoints, CHART_GAP_THRESHOLD_DAYS);
       }
 
       let emaPath = '';
-      if (movingAverage === 'ema' && pointsWithCoords.length > 0) {
-        let firstEma = true;
-        for (const pt of pointsWithCoords) {
-          if (pt.emaY != null) {
-            if (firstEma) {
-              emaPath += `M ${pt.x} ${pt.emaY}`;
-              firstEma = false;
-            } else {
-              emaPath += ` L ${pt.x} ${pt.emaY}`;
-            }
-          }
-        }
+      if (movingAverage === 'ema') {
+        const emaPoints = pointsWithCoords
+          .filter((pt): pt is typeof pt & { emaY: number } => pt.emaY != null)
+          .map((pt) => ({ x: pt.x, y: pt.emaY, date: pt.date }));
+        emaPath = buildSegmentedPath(emaPoints, CHART_GAP_THRESHOLD_DAYS);
       }
 
       return {
@@ -391,6 +386,12 @@ export function WeightTrendChart({
           {/* Data Points (Circles) */}
           {pointsWithCoords.map((pt, idx) => {
             const isSelected = activeSelectedPoint?.date === pt.date;
+            const timeDesc = pt.dailyPoint?.latestTime
+              ? pt.dailyPoint.latestTime
+              : pt.dailyPoint?.isLegacyDateOnly
+                ? t('progress.legacyDateOnly')
+                : '';
+            const pointLabel = `${pt.date}${timeDesc ? `, ${timeDesc}` : ''}: ${formatWeight(pt.weightKg, unit, 1)} ${unitLabel}`;
             return (
               <G key={`pt-${pt.date}-${idx}`}>
                 <Circle
@@ -400,6 +401,8 @@ export function WeightTrendChart({
                   fill={isSelected ? colors.accent : colors.purple}
                   stroke={colors.card}
                   strokeWidth="2"
+                  accessible={true}
+                  accessibilityLabel={pointLabel}
                   onPress={() => setSelectedIndex(idx)}
                 />
               </G>
